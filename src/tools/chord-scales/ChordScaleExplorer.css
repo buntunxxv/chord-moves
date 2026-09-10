@@ -280,18 +280,64 @@
   font-weight: 800;
 }
 
-/* The one genuinely unbounded piece of this page (a chord can match anywhere
-   from one to a dozen-plus scales) -- everything else above it is fixed, so
-   this is the single scoped region that scrolls internally, the same
-   pattern Chord Moves' own OverlayPage/ProgressionStrip lists already use,
-   rather than the whole page (header included) scrolling. */
+/* A chord can match anywhere from one to a dozen-plus scales, but only one
+   result shows at a time -- tapped through via the stepper below rather
+   than scrolled, so this never needs its own scrolling region the way an
+   always-rendered list would. */
 .chord-scales__results {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(10px, 2vh, 18px);
+}
+
+.chord-scales__empty {
+  padding: clamp(20px, 4vh, 40px);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.chord-scales__stepper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.chord-scales__stepper-btn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   display: grid;
-  align-content: start;
-  gap: 10px;
+  place-items: center;
+  color: var(--text);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 20px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.chord-scales__stepper-btn:hover:not(:disabled) {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.chord-scales__stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.chord-scales__stepper-label {
+  min-width: 56px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .chord-scales__result {
