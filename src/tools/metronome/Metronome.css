@@ -1,14 +1,18 @@
 .metronome__lede {
+  flex-shrink: 0;
   max-width: 640px;
-  margin: -12px 0 30px;
+  margin: 0 0 clamp(8px, 2vh, 20px);
   color: var(--text-muted);
-  font-size: 1.05rem;
-  line-height: 1.65;
+  font-size: clamp(0.88rem, 1.6vw, 1.05rem);
+  line-height: 1.45;
 }
 
 .metronome-lesson {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   width: min(760px, 100%);
-  overflow: hidden;
+  margin: 0 auto;
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -24,12 +28,12 @@
 }
 
 .metronome-lesson__heading {
-  padding: clamp(24px, 5vw, 38px) clamp(22px, 5vw, 40px) 18px;
+  padding: clamp(12px, 3vh, 34px) clamp(18px, 5vw, 40px) clamp(8px, 1.5vh, 18px);
 }
 
 .metronome-lesson__heading h2 {
   margin-top: 5px;
-  font-size: clamp(1.45rem, 4vw, 2rem);
+  font-size: clamp(1.15rem, 3vw, 1.85rem);
   line-height: 1.2;
 }
 
@@ -53,13 +57,13 @@
 
 .metronome-lesson__copy {
   max-width: 690px;
-  padding: 0 clamp(22px, 5vw, 40px) 28px;
+  padding: 0 clamp(18px, 5vw, 40px) clamp(10px, 2vh, 24px);
   color: var(--text-muted);
-  line-height: 1.7;
+  line-height: 1.5;
 }
 
 .metronome-lesson__steps {
-  margin: 0 clamp(22px, 5vw, 40px) 28px;
+  margin: 0 clamp(18px, 5vw, 40px) clamp(10px, 2vh, 24px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
@@ -67,7 +71,7 @@
 }
 
 .metronome-lesson__steps li {
-  padding: 15px;
+  padding: clamp(8px, 1.6vh, 15px);
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -92,22 +96,22 @@
 }
 
 .metronome-lesson__trainer {
-  margin: 0 clamp(22px, 5vw, 40px) 34px;
-  padding: clamp(20px, 4vw, 28px);
+  margin: 0 clamp(18px, 5vw, 40px) clamp(12px, 2.4vh, 34px);
+  padding: clamp(12px, 2.5vh, 28px);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 16px;
 }
 
 .metronome-lesson__actions {
-  margin-top: 18px;
+  margin-top: clamp(8px, 1.6vh, 18px);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
 .metronome-lesson__actions button {
-  min-height: 58px;
+  min-height: 48px;
   border-radius: 12px;
   font-weight: 800;
 }
@@ -138,7 +142,7 @@
 }
 
 .metronome-lesson__progress {
-  margin-top: 16px;
+  margin-top: clamp(8px, 1.6vh, 16px);
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 6px;
@@ -155,8 +159,8 @@
 }
 
 .metronome-lesson__feedback {
-  margin-top: 18px;
-  padding: 15px 16px;
+  margin-top: clamp(8px, 1.6vh, 18px);
+  padding: clamp(10px, 2vh, 15px) 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -189,7 +193,7 @@
 }
 
 .metronome-lesson__footer {
-  padding: 20px clamp(22px, 5vw, 40px);
+  padding: clamp(12px, 2.4vh, 20px) clamp(18px, 5vw, 40px);
   background: var(--teal-tint);
   border-top: 1px solid var(--border);
 }
@@ -212,8 +216,10 @@
 }
 
 .metronome {
+  flex-shrink: 0;
   width: min(700px, 100%);
-  padding: clamp(24px, 5vw, 48px);
+  margin: 0 auto;
+  padding: clamp(10px, 2.2vh, 32px) clamp(20px, 5vw, 48px);
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -229,7 +235,7 @@
 }
 
 .metronome__number {
-  font-size: clamp(4.5rem, 16vw, 8rem);
+  font-size: clamp(2.25rem, 7vh, 5.25rem);
   font-weight: 800;
   line-height: 0.95;
   letter-spacing: -0.07em;
@@ -245,7 +251,7 @@
 }
 
 .metronome__stepper {
-  margin: 30px auto 20px;
+  margin: clamp(6px, 1.6vh, 18px) auto clamp(6px, 1vh, 12px);
   display: grid;
   grid-template-columns: 48px 1fr 48px;
   align-items: center;
@@ -272,7 +278,7 @@
 }
 
 .metronome__beats {
-  min-height: 42px;
+  min-height: 34px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -304,8 +310,8 @@
 
 .metronome__play {
   width: 100%;
-  min-height: 58px;
-  margin: 18px 0 32px;
+  min-height: 48px;
+  margin: clamp(6px, 1.4vh, 14px) 0 clamp(10px, 1.8vh, 18px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -324,12 +330,12 @@
 }
 
 .metronome__section {
-  padding-top: 26px;
+  padding-top: clamp(10px, 2vh, 22px);
   border-top: 1px solid var(--border);
 }
 
 .metronome__section-label {
-  margin-bottom: 12px;
+  margin-bottom: clamp(6px, 1.2vh, 12px);
 }
 
 .metronome__signatures {
@@ -345,8 +351,8 @@
 }
 
 .metronome__tap-panel {
-  margin-top: 28px;
-  padding: 20px;
+  margin-top: clamp(10px, 2.2vh, 24px);
+  padding: clamp(12px, 2vh, 20px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -368,8 +374,8 @@
 
 .metronome__tap {
   min-width: 150px;
-  min-height: 68px;
-  padding: 10px 18px;
+  min-height: 52px;
+  padding: 8px 18px;
   color: var(--text);
   background: var(--white);
   border: 2px solid var(--teal);
@@ -411,6 +417,7 @@
   .metronome__tap-panel {
     align-items: stretch;
     flex-direction: column;
+    gap: 10px;
   }
 
   .metronome__tap {

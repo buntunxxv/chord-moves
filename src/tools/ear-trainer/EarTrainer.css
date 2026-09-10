@@ -1,18 +1,25 @@
 .ear-trainer__lede,
 .chord-scales__lede {
+  flex-shrink: 0;
   max-width: 670px;
-  margin: -12px 0 30px;
+  margin: 0 0 clamp(8px, 2vh, 20px);
   color: var(--text-muted);
-  font-size: 1.05rem;
-  line-height: 1.65;
+  font-size: clamp(0.88rem, 1.6vw, 1.05rem);
+  line-height: 1.45;
 }
 
 .ear-trainer {
+  flex: 1;
+  min-height: 0;
   width: min(780px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .ear-trainer__status {
-  margin-bottom: 12px;
+  flex-shrink: 0;
+  margin-bottom: clamp(6px, 1.2vh, 12px);
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -24,7 +31,8 @@
 }
 
 .ear-trainer__prompt {
-  padding: clamp(28px, 6vw, 52px);
+  flex-shrink: 0;
+  padding: clamp(14px, 3vh, 44px) clamp(20px, 6vw, 52px);
   text-align: center;
   background: var(--white);
   border: 1px solid var(--border);
@@ -33,15 +41,15 @@
 }
 
 .ear-trainer__sound-icon {
-  width: 66px;
-  height: 66px;
-  margin: 0 auto 20px;
+  width: clamp(38px, 8vh, 66px);
+  height: clamp(38px, 8vh, 66px);
+  margin: 0 auto clamp(8px, 1.6vh, 20px);
   display: grid;
   place-items: center;
   color: var(--teal);
   background: var(--teal-tint);
   border-radius: 50%;
-  font-size: 30px;
+  font-size: clamp(18px, 3.5vh, 30px);
 }
 
 .ear-trainer__sound-icon--live {
@@ -49,8 +57,8 @@
 }
 
 .ear-trainer__prompt h2 {
-  margin-bottom: 7px;
-  font-size: clamp(1.35rem, 4vw, 1.8rem);
+  margin-bottom: 5px;
+  font-size: clamp(1.1rem, 3vw, 1.8rem);
 }
 
 .ear-trainer__prompt p,
@@ -59,7 +67,7 @@
 }
 
 .ear-trainer__prompt-actions {
-  margin-top: 24px;
+  margin-top: clamp(10px, 2vh, 24px);
   display: flex;
   justify-content: center;
   gap: 10px;
@@ -67,9 +75,9 @@
 
 .ear-trainer__primary,
 .ear-trainer__secondary {
-  min-width: 128px;
-  min-height: 48px;
-  padding: 0 20px;
+  min-width: 116px;
+  min-height: 44px;
+  padding: 0 18px;
   border-radius: 12px;
   font-weight: 800;
 }
@@ -86,18 +94,28 @@
   border: 1px solid var(--teal);
 }
 
+/* flex:1 lets this grow into whatever room .ear-trainer__prompt and
+   .ear-trainer__feedback (now taller since it grew its own keyboard) leave
+   behind, but min-height is a real floor, not 0 -- 4 rows of genuinely
+   44px-tall buttons plus their gaps, so a tight fit shrinks the *rest* of
+   the layout (or falls back to .tool-shell__main's own scroll safety net)
+   instead of crushing these rows into an unreadable, overlapping stack. */
 .ear-trainer__answers {
-  margin-top: 16px;
+  flex: 1;
+  min-height: 206px;
+  margin-top: clamp(8px, 1.6vh, 18px);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-auto-rows: minmax(44px, 1fr);
+  gap: clamp(6px, 1.2vh, 10px);
 }
 
 .ear-trainer__answers button {
-  min-height: 72px;
-  padding: 14px 18px;
+  min-height: 44px;
+  padding: clamp(6px, 1.4vh, 14px) 16px;
   display: flex;
   align-items: flex-start;
+  justify-content: center;
   flex-direction: column;
   color: var(--text);
   text-align: left;
@@ -135,8 +153,9 @@
 }
 
 .ear-trainer__feedback {
-  margin-top: 14px;
-  padding: 16px 18px;
+  flex-shrink: 0;
+  margin-top: clamp(6px, 1.4vh, 14px);
+  padding: clamp(8px, 1.6vh, 16px) 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -154,12 +173,9 @@
   background: var(--teal-tint);
 }
 
-@media (max-width: 560px) {
-  .ear-trainer__answers {
-    grid-template-columns: 1fr;
-  }
-
+@media (max-width: 400px) {
   .ear-trainer__feedback-text {
     flex-direction: column;
+    gap: 4px;
   }
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ToolShell from '../../app/ToolShell'
 import { useKeysPreview } from '../../shared/audio/useKeysPreview'
 import {
@@ -24,6 +24,7 @@ export default function ChordScaleExplorer() {
   const [chordType, setChordType] = useState(CHORD_TYPES[0])
   const [scaleType, setScaleType] = useState(SCALE_TYPES[0])
   const [lessonAnswer, setLessonAnswer] = useState(null)
+  const [resultIndex, setResultIndex] = useState(0)
   const { playSequence, playChord } = useKeysPreview()
 
   const lessonScale = useMemo(
@@ -36,6 +37,21 @@ export default function ChordScaleExplorer() {
       ? getCompatibleScales(root, chordType)
       : getChordsInScale(root, scaleType)
   ), [direction, root, chordType, scaleType])
+
+  // A changed filter can leave resultIndex pointing past the end of the new
+  // list (or just at a result that no longer matches what's selected), so
+  // every fresh set of results starts back at the first one.
+  useEffect(() => setResultIndex(0), [results])
+
+  const current = results[resultIndex]
+
+  function goToPrevResult() {
+    setResultIndex(index => Math.max(0, index - 1))
+  }
+
+  function goToNextResult() {
+    setResultIndex(index => Math.min(results.length - 1, index + 1))
+  }
 
   function hear(result) {
     if (direction === 'chord-to-scale') {
@@ -198,22 +214,50 @@ export default function ChordScaleExplorer() {
         </div>
 
         <div className="chord-scales__results">
-          {results.map(result => (
-            <article key={result.name} className="chord-scales__result">
-              <div>
-                <h2>{result.name}</h2>
-                <p className="chord-scales__notes">{result.notes.join(' · ')}</p>
-                <p className="chord-scales__why">
-                  {direction === 'chord-to-scale'
-                    ? `Contains ${result.sharedNotes.join(', ')}; sounds ${result.character}.`
-                    : `A ${result.quality} chord using only notes from the selected scale.`}
-                </p>
-              </div>
-              <button type="button" onClick={() => hear(result)} aria-label={`Hear ${result.name}`}>
-                Hear
-              </button>
-            </article>
-          ))}
+          {current ? (
+            <>
+              <article className="chord-scales__result">
+                <div>
+                  <h2>{current.name}</h2>
+                  <p className="chord-scales__notes">{current.notes.join(' · ')}</p>
+                  <p className="chord-scales__why">
+                    {direction === 'chord-to-scale'
+                      ? `Contains ${current.sharedNotes.join(', ')}; sounds ${current.character}.`
+                      : `A ${current.quality} chord using only notes from the selected scale.`}
+                  </p>
+                </div>
+                <button type="button" onClick={() => hear(current)} aria-label={`Hear ${current.name}`}>
+                  Hear
+                </button>
+              </article>
+
+              {results.length > 1 && (
+                <div className="chord-scales__stepper">
+                  <button
+                    type="button"
+                    className="chord-scales__stepper-btn"
+                    onClick={goToPrevResult}
+                    disabled={resultIndex === 0}
+                    aria-label="Previous result"
+                  >
+                    ‹
+                  </button>
+                  <span className="chord-scales__stepper-label">{resultIndex + 1} / {results.length}</span>
+                  <button
+                    type="button"
+                    className="chord-scales__stepper-btn"
+                    onClick={goToNextResult}
+                    disabled={resultIndex === results.length - 1}
+                    aria-label="Next result"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="chord-scales__empty">No matches for this combination yet.</p>
+          )}
         </div>
       </section>
       )}

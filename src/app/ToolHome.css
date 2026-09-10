@@ -1,23 +1,32 @@
 .tool-home__lede {
+  flex-shrink: 0;
   max-width: 650px;
-  margin: -12px 0 38px;
+  margin: 0 0 clamp(10px, 2.5vh, 24px);
   color: var(--text-muted);
-  font-size: clamp(1rem, 2vw, 1.16rem);
-  line-height: 1.7;
+  font-size: clamp(0.9rem, 1.8vw, 1.16rem);
+  line-height: 1.5;
 }
 
+/* Fills whatever vertical space the lede leaves inside .tool-shell__main --
+   a fixed 2x2 grid (never a single stacked column, at any width) so the
+   directory always fits one screen instead of growing with the card count. */
 .tool-home__grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: clamp(8px, 2vw, 18px);
 }
 
 .tool-home__card {
-  min-height: 245px;
-  padding: 28px;
+  min-height: 0;
+  min-width: 0;
+  padding: clamp(12px, 2.5vw, 28px);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: clamp(6px, 1.6vh, 20px);
+  overflow: hidden;
   color: var(--text);
   text-decoration: none;
   background: var(--white);
@@ -38,31 +47,39 @@
 }
 
 .tool-home__icon {
-  width: 52px;
-  height: 52px;
+  width: clamp(30px, 6vw, 52px);
+  height: clamp(30px, 6vw, 52px);
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   color: var(--teal);
   background: var(--teal-tint);
-  border-radius: 15px;
-  font-size: 27px;
+  border-radius: 13px;
+  font-size: clamp(16px, 3vw, 27px);
   font-weight: 700;
 }
 
 .tool-home__card h2 {
-  margin-bottom: 7px;
-  font-size: 1.25rem;
+  margin-bottom: 4px;
+  font-size: clamp(0.92rem, 1.9vw, 1.25rem);
+  line-height: 1.2;
 }
 
 .tool-home__card p {
   color: var(--text-muted);
-  line-height: 1.55;
+  font-size: clamp(0.76rem, 1.4vw, 0.95rem);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .tool-home__label {
   margin-top: auto;
+  flex-shrink: 0;
   color: var(--teal);
-  font-size: 13px;
+  font-size: clamp(10px, 1.3vw, 13px);
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -70,14 +87,4 @@
 
 .tool-home__label--muted {
   color: var(--text-faint);
-}
-
-@media (max-width: 680px) {
-  .tool-home__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .tool-home__card {
-    min-height: 220px;
-  }
 }
