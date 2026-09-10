@@ -1,0 +1,54 @@
+.interval-keyboard {
+  margin-top: 4px;
+}
+
+/* Scrolls horizontally instead of the svg being scaled down to fit -- real
+   44px-wide keys make the two-octave range wider than most phone screens,
+   the accepted tradeoff for a genuine touch target (see pianoLayout.js's
+   WHITE_KEY_WIDTH). max-width:100% keeps the scroll container itself from
+   overflowing its own parent. */
+.interval-keyboard__scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.interval-keyboard__svg {
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1));
+}
+
+.interval-keyboard__legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.interval-keyboard__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.interval-keyboard__legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Reads the same --note-color-* custom properties (index.css) that
+   PianoDisplay's SVG fills read via src/utils/noteColors.js -- one real
+   definition per color, not a second copy kept in sync by hand. */
+.interval-keyboard__legend-dot--first {
+  background: var(--note-color-root);
+}
+
+.interval-keyboard__legend-dot--second {
+  background: var(--note-color-chord-tone);
+}

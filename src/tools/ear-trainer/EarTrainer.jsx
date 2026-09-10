@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Note } from 'tonal'
 import ToolShell from '../../app/ToolShell'
 import { useKeysPreview } from '../../shared/audio/useKeysPreview'
+import IntervalKeyboard from './IntervalKeyboard'
 import './EarTrainer.css'
 
 const INTERVALS = [
@@ -103,8 +104,11 @@ export default function EarTrainer() {
 
         {selected && (
           <div className={`ear-trainer__feedback ${isCorrect ? 'ear-trainer__feedback--correct' : ''}`} role="status">
-            <strong>{isCorrect ? 'That’s it.' : `That was a ${question.answer.label}.`}</strong>
-            <span>{question.notes.join(' → ')} · {question.answer.hint.toLowerCase()}</span>
+            <div className="ear-trainer__feedback-text">
+              <strong>{isCorrect ? 'That’s it.' : `That was a ${question.answer.label}.`}</strong>
+              <span>{question.notes.join(' → ')} · {question.answer.hint.toLowerCase()}</span>
+            </div>
+            <IntervalKeyboard notes={question.notes} />
           </div>
         )}
       </section>

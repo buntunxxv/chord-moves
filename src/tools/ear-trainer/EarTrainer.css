@@ -94,13 +94,19 @@
   border: 1px solid var(--teal);
 }
 
+/* flex:1 lets this grow into whatever room .ear-trainer__prompt and
+   .ear-trainer__feedback (now taller since it grew its own keyboard) leave
+   behind, but min-height is a real floor, not 0 -- 4 rows of genuinely
+   44px-tall buttons plus their gaps, so a tight fit shrinks the *rest* of
+   the layout (or falls back to .tool-shell__main's own scroll safety net)
+   instead of crushing these rows into an unreadable, overlapping stack. */
 .ear-trainer__answers {
   flex: 1;
-  min-height: 0;
+  min-height: 206px;
   margin-top: clamp(8px, 1.6vh, 18px);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, 1fr);
+  grid-auto-rows: minmax(44px, 1fr);
   gap: clamp(6px, 1.2vh, 10px);
 }
 
@@ -151,10 +157,16 @@
   margin-top: clamp(6px, 1.4vh, 14px);
   padding: clamp(8px, 1.6vh, 16px) 18px;
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 14px;
   background: var(--warn-bg);
   border-radius: 12px;
+}
+
+.ear-trainer__feedback-text {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .ear-trainer__feedback--correct {
@@ -162,7 +174,7 @@
 }
 
 @media (max-width: 400px) {
-  .ear-trainer__feedback {
+  .ear-trainer__feedback-text {
     flex-direction: column;
     gap: 4px;
   }
