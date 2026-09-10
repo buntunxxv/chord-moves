@@ -1,18 +1,27 @@
 .chord-scales__lede {
+  flex-shrink: 0;
   max-width: 680px;
-  margin: -12px 0 26px;
+  margin: 0 0 clamp(8px, 2vh, 20px);
   color: var(--text-muted);
-  font-size: 1.05rem;
-  line-height: 1.65;
+  font-size: clamp(0.88rem, 1.6vw, 1.05rem);
+  line-height: 1.45;
 }
 
 .chord-scales {
+  flex: 1;
+  min-height: 0;
   width: min(820px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .chord-scales__lesson {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   width: min(820px, 100%);
-  overflow: hidden;
+  margin: 0 auto;
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -29,12 +38,12 @@
 }
 
 .chord-scales__lesson-heading {
-  padding: clamp(24px, 5vw, 38px) clamp(22px, 5vw, 40px) 18px;
+  padding: clamp(12px, 3vh, 34px) clamp(18px, 5vw, 40px) clamp(8px, 1.5vh, 18px);
 }
 
 .chord-scales__lesson-heading h2 {
   margin-top: 5px;
-  font-size: clamp(1.45rem, 4vw, 2rem);
+  font-size: clamp(1.15rem, 3vw, 1.85rem);
   line-height: 1.2;
 }
 
@@ -59,14 +68,14 @@
 
 .chord-scales__lesson-copy {
   max-width: 700px;
-  padding: 0 clamp(22px, 5vw, 40px) 30px;
+  padding: 0 clamp(18px, 5vw, 40px) clamp(10px, 2vh, 24px);
   color: var(--text-muted);
-  line-height: 1.7;
+  line-height: 1.5;
 }
 
 .chord-scales__note-demo {
-  margin: 0 clamp(22px, 5vw, 40px);
-  padding: 22px;
+  margin: 0 clamp(18px, 5vw, 40px);
+  padding: clamp(12px, 2.4vh, 22px);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -94,7 +103,7 @@
 }
 
 .chord-scales__lesson-notes {
-  margin-top: 20px;
+  margin-top: clamp(10px, 2vh, 20px);
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
@@ -121,7 +130,7 @@
 }
 
 .chord-scales__guided-try {
-  padding: 30px clamp(22px, 5vw, 40px) 34px;
+  padding: clamp(14px, 2.8vh, 30px) clamp(18px, 5vw, 40px) clamp(16px, 3.2vh, 34px);
 }
 
 .chord-scales__guided-try h3 {
@@ -151,8 +160,8 @@
 }
 
 .chord-scales__lesson-feedback {
-  margin-top: 14px;
-  padding: 14px 16px;
+  margin-top: clamp(8px, 1.6vh, 14px);
+  padding: clamp(10px, 2vh, 14px) 16px;
   color: var(--warn-text);
   background: var(--warn-bg);
   border-radius: 11px;
@@ -166,7 +175,7 @@
 }
 
 .chord-scales__lesson-footer {
-  padding: 20px clamp(22px, 5vw, 40px);
+  padding: clamp(12px, 2.4vh, 20px) clamp(18px, 5vw, 40px);
   background: var(--teal-tint);
   border-top: 1px solid var(--border);
 }
@@ -189,8 +198,9 @@
 }
 
 .chord-scales__tabs {
+  flex-shrink: 0;
   width: fit-content;
-  margin-bottom: 18px;
+  margin-bottom: clamp(8px, 1.6vh, 18px);
   padding: 4px;
   display: flex;
   gap: 4px;
@@ -215,7 +225,8 @@
 }
 
 .chord-scales__picker {
-  padding: 24px;
+  flex-shrink: 0;
+  padding: clamp(12px, 2.4vh, 24px);
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 16px;
@@ -249,7 +260,8 @@
 }
 
 .chord-scales__summary {
-  margin: 22px 0 12px;
+  flex-shrink: 0;
+  margin: clamp(10px, 2vh, 22px) 0 clamp(6px, 1.2vh, 12px);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -257,8 +269,9 @@
 }
 
 .chord-scales__summary span {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   color: var(--on-accent);
@@ -267,13 +280,22 @@
   font-weight: 800;
 }
 
+/* The one genuinely unbounded piece of this page (a chord can match anywhere
+   from one to a dozen-plus scales) -- everything else above it is fixed, so
+   this is the single scoped region that scrolls internally, the same
+   pattern Chord Moves' own OverlayPage/ProgressionStrip lists already use,
+   rather than the whole page (header included) scrolling. */
 .chord-scales__results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
+  align-content: start;
   gap: 10px;
 }
 
 .chord-scales__result {
-  padding: 20px;
+  padding: clamp(12px, 2vh, 20px);
   display: flex;
   align-items: center;
   justify-content: space-between;
