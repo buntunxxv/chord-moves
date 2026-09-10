@@ -138,10 +138,16 @@
   margin-top: 14px;
   padding: 16px 18px;
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 14px;
   background: var(--warn-bg);
   border-radius: 12px;
+}
+
+.ear-trainer__feedback-text {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .ear-trainer__feedback--correct {
@@ -153,7 +159,7 @@
     grid-template-columns: 1fr;
   }
 
-  .ear-trainer__feedback {
+  .ear-trainer__feedback-text {
     flex-direction: column;
   }
 }
