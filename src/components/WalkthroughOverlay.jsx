@@ -122,21 +122,41 @@ export default function WalkthroughOverlay({ isOpen, onClose, flow = 'build' }) 
       }
     : { opacity: 0, pointerEvents: 'none' }
 
-  // Position tooltip below spotlight, above if too close to bottom -- then
-  // clamp to the viewport either way, since a spotlight that fills most of
-  // the screen height (e.g. a tall vertical nav) can leave too little room
-  // on *both* sides to fit the tooltip without clamping.
+  // Prefer below, then above, then beside the spotlight -- whichever side
+  // actually has room -- so the tooltip never has to sit on top of the very
+  // element it's explaining. A spotlight that fills most of the screen
+  // height (e.g. a tall vertical nav) can leave too little room both above
+  // and below, but there's still plenty of width beside it to use instead.
+  // Only once none of the four sides fit do we clamp into the viewport and
+  // accept the overlap, as a last resort.
   let tooltipStyle = { opacity: 0 }
   if (rect) {
     const TW = 280
     const M = 12
-    const left = Math.max(M, Math.min(rect.left + rect.width / 2 - TW / 2, window.innerWidth - TW - M))
     const spaceBelow = window.innerHeight - (rect.bottom + PAD + M)
-    const top = spaceBelow >= tooltipHeight
-      ? rect.bottom + PAD + M
-      : rect.top - PAD - M - tooltipHeight
-    const clampedTop = Math.min(Math.max(top, M), Math.max(M, window.innerHeight - tooltipHeight - M))
-    tooltipStyle = { left, top: clampedTop, opacity: 1 }
+    const spaceAbove = rect.top - PAD - M
+    const spaceRight = window.innerWidth - (rect.right + PAD + M)
+    const spaceLeft = rect.left - PAD - M
+
+    const clampedLeft = Math.min(Math.max(rect.left + rect.width / 2 - TW / 2, M), window.innerWidth - TW - M)
+    const clampedTop = Math.min(Math.max(rect.top + rect.height / 2 - tooltipHeight / 2, M), window.innerHeight - tooltipHeight - M)
+
+    if (spaceBelow >= tooltipHeight) {
+      tooltipStyle = { left: clampedLeft, top: rect.bottom + PAD + M, opacity: 1 }
+    } else if (spaceAbove >= tooltipHeight) {
+      tooltipStyle = { left: clampedLeft, top: rect.top - PAD - M - tooltipHeight, opacity: 1 }
+    } else if (spaceRight >= TW) {
+      tooltipStyle = { left: rect.right + PAD + M, top: clampedTop, opacity: 1 }
+    } else if (spaceLeft >= TW) {
+      tooltipStyle = { left: rect.left - PAD - M - TW, top: clampedTop, opacity: 1 }
+    } else {
+      const top = spaceBelow >= spaceAbove ? rect.bottom + PAD + M : rect.top - PAD - M - tooltipHeight
+      tooltipStyle = {
+        left: clampedLeft,
+        top: Math.min(Math.max(top, M), Math.max(M, window.innerHeight - tooltipHeight - M)),
+        opacity: 1,
+      }
+    }
   }
 
   return (
