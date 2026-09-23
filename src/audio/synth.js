@@ -23,7 +23,15 @@ export async function startAudioContext() {
 export function createKeysSynth() {
   const chorus = new Tone.Chorus({ frequency: 0.8, delayTime: 4, depth: 0.45, wet: 0.28 }).start()
   const filter = new Tone.Filter({ type: 'lowpass', frequency: 3200, rolloff: -12 })
-  const reverb = new Tone.Freeverb({ roomSize: 0.55, dampening: 2200, wet: 0.2 }).toDestination()
+  const reverb = new Tone.Freeverb({ roomSize: 0.55, dampening: 2200, wet: 0.2 })
+
+  // Stacked chord notes sum in the mix; without anything catching that sum,
+  // the peaks clip at 0dBFS and that clipping is the crackling on playback.
+  // The compressor pulls the average level up (so chords are audible in
+  // loud rooms) while the limiter guarantees the combined peak never clips,
+  // which is what lets the base volume sit well above the old -9dB fallback.
+  const compressor = new Tone.Compressor({ threshold: -24, ratio: 4, attack: 0.003, release: 0.25 })
+  const limiter = new Tone.Limiter(-1).toDestination()
 
   return new Tone.PolySynth(Tone.FMSynth, {
     harmonicity: 1,
@@ -32,6 +40,6 @@ export function createKeysSynth() {
     modulation: { type: 'sine' },
     envelope: { attack: 0.008, decay: 1.3, sustain: 0.22, release: 1.8 },
     modulationEnvelope: { attack: 0.004, decay: 0.4, sustain: 0.02, release: 1.1 },
-    volume: -9,
-  }).chain(filter, chorus, reverb)
+    volume: -3,
+  }).chain(filter, chorus, reverb, compressor, limiter)
 }
