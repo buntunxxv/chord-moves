@@ -46,7 +46,7 @@ export function createKeysSynth() {
   const filter = new Tone.Filter({ type: 'lowpass', frequency: 3200, rolloff: -12 })
   const reverb = new Tone.Freeverb({ roomSize: 0.55, dampening: 2200, wet: 0.2 })
 
-  return new Tone.PolySynth(Tone.FMSynth, {
+  const synth = new Tone.PolySynth(Tone.FMSynth, {
     harmonicity: 1,
     modulationIndex: 2,
     oscillator: { type: 'sine' },
@@ -55,4 +55,29 @@ export function createKeysSynth() {
     modulationEnvelope: { attack: 0.004, decay: 0.4, sustain: 0.02, release: 1.1 },
     volume: -3,
   }).chain(filter, chorus, reverb, getMasterBus())
+
+  // synth.dispose() (what every caller's unmount cleanup calls) only frees
+  // the PolySynth's own voices -- it has no way to know about filter/chorus/
+  // reverb, which are ordinary nodes it happens to be chained through, not
+  // sub-components it owns. Left undisposed, the chorus's LFO (running since
+  // .start() above) and the reverb's comb/allpass filters keep processing
+  // forever. Several screens that create an instance (NextChordSuggestions,
+  // LearnPath) mount and unmount often during normal use -- switching to
+  // Learn and back, browsing chords that toggle their "next chord" panel --
+  // so each cycle was leaking a whole running effects chain. Enough of those
+  // pile up in one session and the audio thread falls behind and crackles,
+  // regardless of signal level, which is why the compressor/limiter work in
+  // #99 and #101 didn't touch it. Folding the per-instance nodes into
+  // dispose() means every existing `synthRef.current?.dispose()` cleanup
+  // already fixes this, with no call site changes needed.
+  const disposeVoices = synth.dispose.bind(synth)
+  synth.dispose = () => {
+    disposeVoices()
+    filter.dispose()
+    chorus.dispose()
+    reverb.dispose()
+    return synth
+  }
+
+  return synth
 }

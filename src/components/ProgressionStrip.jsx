@@ -36,6 +36,12 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
   const [activeIndex, setActiveIndex] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const synthRef = useRef(null)
+
+  // ProgressionStrip mounts and unmounts every time the app switches to/from
+  // the Learn tab -- without this, every switch leaked a running
+  // synth+effects chain (see the dispose() comment in audio/synth.js).
+  useEffect(() => () => synthRef.current?.dispose(), [])
+
   // Phone-only disclosure for the instrument section: on a phone the
   // keyboard/fretboard used to eat the whole first screen before the user
   // could reach their own progression or Play, so it starts closed and the
