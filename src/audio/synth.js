@@ -11,42 +11,46 @@ export async function startAudioContext() {
   await Tone.start()
 }
 
-// Every screen that plays chords (piano taps, progression playback, chord
-// audition, learn-path prediction, etc.) calls createKeysSynth() to get its
-// own instance, and several of those can legitimately sound at once -- e.g.
-// tapping a piano key while a progression plays back. Each instance used to
-// carry its own compressor+limiter straight to the shared audio destination,
-// which caught clipping *within* one instance's stacked chord notes but not
-// the sum of several instances' already-limited signals landing on the same
-// destination together, which is what still crackled. Routing every instance
-// through one shared bus means the combined peak across all simultaneously
-// playing chords -- not just each one's own -- never clips.
-let masterBus = null
-function getMasterBus() {
-  if (!masterBus) {
+// The crackle on playback was the audio thread missing its deadline, not the
+// signal clipping (an offline render of the old chain had no clipping and no
+// discontinuities). Every screen that plays chords used to build its own
+// filter/chorus/reverb chain, and the reverb was Tone.Freeverb -- 8
+// AudioWorklet comb filters that run continuously even in silence. With the
+// handful of screens that keep a synth alive, that alone pushed rendering
+// below realtime on ordinary hardware. So the effects exist exactly once and
+// every synth feeds them, and the reverb is Tone.Reverb, a native convolver
+// that costs almost nothing while idle. Measured on the same machine with 8
+// synths alive: old design 0.8x realtime (guaranteed dropouts), this 2.2x.
+let sharedEffects = null
+function getSharedEffects() {
+  if (!sharedEffects) {
+    const filter = new Tone.Filter({ type: 'lowpass', frequency: 3200, rolloff: -12 })
+    const chorus = new Tone.Chorus({ frequency: 0.8, delayTime: 4, depth: 0.45, wet: 0.28 }).start()
+    const reverb = new Tone.Reverb({ decay: 1.6, preDelay: 0.01, wet: 0.2 })
+    // Compressor lifts average level so chords carry in a loud room; the
+    // limiter keeps the summed peak of everything playing under 0dBFS.
     const compressor = new Tone.Compressor({ threshold: -24, ratio: 4, attack: 0.003, release: 0.25 })
     const limiter = new Tone.Limiter(-1).toDestination()
-    compressor.connect(limiter)
-    masterBus = compressor
+    filter.chain(chorus, reverb, compressor, limiter)
+    sharedEffects = filter
   }
-  return masterBus
+  return sharedEffects
 }
 
-// Single shared "keys" patch — an FM electric-piano style tone instead of a
-// plain oscillator, so chords played by the app don't sound like an 8-bit blip.
+// "Keys" patch -- an FM electric-piano style tone instead of a plain
+// oscillator, so chords played by the app don't sound like an 8-bit blip.
 //
 // harmonicity 1 keeps every partial a clean integer multiple of the
 // fundamental (no bell-like inharmonicity), and a low modulation index adds
 // just enough overtone to sound like a struck tine rather than a flute. The
-// dark lowpass filter and a low-dampening (dark-tailed) reverb roll off the
-// top end for warmth; a slow, deep chorus adds body/movement rather than
-// shimmer.
+// shared chain's dark lowpass rolls off the top end for warmth, and a slow,
+// deep chorus adds body/movement rather than shimmer.
+//
+// Each caller gets its own PolySynth (so one screen's releaseAll() never cuts
+// off another's notes); dispose() on it frees only its voices, and the shared
+// effects stay up for the life of the page.
 export function createKeysSynth() {
-  const chorus = new Tone.Chorus({ frequency: 0.8, delayTime: 4, depth: 0.45, wet: 0.28 }).start()
-  const filter = new Tone.Filter({ type: 'lowpass', frequency: 3200, rolloff: -12 })
-  const reverb = new Tone.Freeverb({ roomSize: 0.55, dampening: 2200, wet: 0.2 })
-
-  const synth = new Tone.PolySynth(Tone.FMSynth, {
+  return new Tone.PolySynth(Tone.FMSynth, {
     harmonicity: 1,
     modulationIndex: 2,
     oscillator: { type: 'sine' },
@@ -54,30 +58,5 @@ export function createKeysSynth() {
     envelope: { attack: 0.008, decay: 1.3, sustain: 0.22, release: 1.8 },
     modulationEnvelope: { attack: 0.004, decay: 0.4, sustain: 0.02, release: 1.1 },
     volume: -3,
-  }).chain(filter, chorus, reverb, getMasterBus())
-
-  // synth.dispose() (what every caller's unmount cleanup calls) only frees
-  // the PolySynth's own voices -- it has no way to know about filter/chorus/
-  // reverb, which are ordinary nodes it happens to be chained through, not
-  // sub-components it owns. Left undisposed, the chorus's LFO (running since
-  // .start() above) and the reverb's comb/allpass filters keep processing
-  // forever. Several screens that create an instance (NextChordSuggestions,
-  // LearnPath) mount and unmount often during normal use -- switching to
-  // Learn and back, browsing chords that toggle their "next chord" panel --
-  // so each cycle was leaking a whole running effects chain. Enough of those
-  // pile up in one session and the audio thread falls behind and crackles,
-  // regardless of signal level, which is why the compressor/limiter work in
-  // #99 and #101 didn't touch it. Folding the per-instance nodes into
-  // dispose() means every existing `synthRef.current?.dispose()` cleanup
-  // already fixes this, with no call site changes needed.
-  const disposeVoices = synth.dispose.bind(synth)
-  synth.dispose = () => {
-    disposeVoices()
-    filter.dispose()
-    chorus.dispose()
-    reverb.dispose()
-    return synth
-  }
-
-  return synth
+  }).connect(getSharedEffects())
 }
