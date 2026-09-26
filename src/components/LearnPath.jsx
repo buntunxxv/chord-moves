@@ -46,9 +46,8 @@ export default function LearnPath({ onBackToBuild }) {
     return synthRef.current
   }
 
-  // LearnPath mounts and unmounts every time the app switches to/from the
-  // Learn tab -- without this, every switch leaked a running synth+effects
-  // chain (see the dispose() comment in audio/synth.js).
+  // Mounts and unmounts on every switch to/from the Learn tab, so free this
+  // instance's voices rather than leaking a synth per switch.
   useEffect(() => () => synthRef.current?.dispose(), [])
 
   async function playChord(notes) {
