@@ -194,6 +194,7 @@ export default function App() {
 
   useEffect(() => () => {
     if (auditionTimeoutRef.current) clearTimeout(auditionTimeoutRef.current)
+    auditionSynthRef.current?.dispose()
   }, [])
   const [keysPositionIndex, setKeysPositionIndex] = useState(0)
   // Lifted out of InstrumentDock (which used to own this locally) so the

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import * as Tone from 'tone'
 import { createKeysSynth, startAudioContext } from '../audio/synth'
 import { LEARN_ROOTS, LEARN_CHORD_SUBSET, LEARN_CHALLENGES, resolveChallengeChord } from '../learnData'
@@ -45,6 +45,11 @@ export default function LearnPath({ onBackToBuild }) {
     if (!synthRef.current) synthRef.current = createKeysSynth()
     return synthRef.current
   }
+
+  // LearnPath mounts and unmounts every time the app switches to/from the
+  // Learn tab -- without this, every switch leaked a running synth+effects
+  // chain (see the dispose() comment in audio/synth.js).
+  useEffect(() => () => synthRef.current?.dispose(), [])
 
   async function playChord(notes) {
     if (!notes || notes.length === 0) return

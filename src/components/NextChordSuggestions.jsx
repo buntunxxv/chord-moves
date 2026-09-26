@@ -15,6 +15,12 @@ export default function NextChordSuggestions({ suggestions, currentNotes, bpm, p
   const synthRef = useRef(null)
   const detailRef = useRef(null)
 
+  // This panel mounts and unmounts every time the current chord's "next
+  // chord" suggestions appear or disappear, which happens on ordinary chord
+  // browsing -- without this, every one of those cycles leaked a running
+  // synth+effects chain (see the dispose() comment in audio/synth.js).
+  useEffect(() => () => synthRef.current?.dispose(), [])
+
   // Expanding a suggestion's detail panel can push it below the visible
   // viewport (or behind the bottom progression drawer) -- scroll just
   // enough to reveal it, same shared rule every other reveal/expand control
