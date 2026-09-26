@@ -11,6 +11,27 @@ export async function startAudioContext() {
   await Tone.start()
 }
 
+// Every screen that plays chords (piano taps, progression playback, chord
+// audition, learn-path prediction, etc.) calls createKeysSynth() to get its
+// own instance, and several of those can legitimately sound at once -- e.g.
+// tapping a piano key while a progression plays back. Each instance used to
+// carry its own compressor+limiter straight to the shared audio destination,
+// which caught clipping *within* one instance's stacked chord notes but not
+// the sum of several instances' already-limited signals landing on the same
+// destination together, which is what still crackled. Routing every instance
+// through one shared bus means the combined peak across all simultaneously
+// playing chords -- not just each one's own -- never clips.
+let masterBus = null
+function getMasterBus() {
+  if (!masterBus) {
+    const compressor = new Tone.Compressor({ threshold: -24, ratio: 4, attack: 0.003, release: 0.25 })
+    const limiter = new Tone.Limiter(-1).toDestination()
+    compressor.connect(limiter)
+    masterBus = compressor
+  }
+  return masterBus
+}
+
 // Single shared "keys" patch — an FM electric-piano style tone instead of a
 // plain oscillator, so chords played by the app don't sound like an 8-bit blip.
 //
@@ -25,14 +46,6 @@ export function createKeysSynth() {
   const filter = new Tone.Filter({ type: 'lowpass', frequency: 3200, rolloff: -12 })
   const reverb = new Tone.Freeverb({ roomSize: 0.55, dampening: 2200, wet: 0.2 })
 
-  // Stacked chord notes sum in the mix; without anything catching that sum,
-  // the peaks clip at 0dBFS and that clipping is the crackling on playback.
-  // The compressor pulls the average level up (so chords are audible in
-  // loud rooms) while the limiter guarantees the combined peak never clips,
-  // which is what lets the base volume sit well above the old -9dB fallback.
-  const compressor = new Tone.Compressor({ threshold: -24, ratio: 4, attack: 0.003, release: 0.25 })
-  const limiter = new Tone.Limiter(-1).toDestination()
-
   return new Tone.PolySynth(Tone.FMSynth, {
     harmonicity: 1,
     modulationIndex: 2,
@@ -41,5 +54,5 @@ export function createKeysSynth() {
     envelope: { attack: 0.008, decay: 1.3, sustain: 0.22, release: 1.8 },
     modulationEnvelope: { attack: 0.004, decay: 0.4, sustain: 0.02, release: 1.1 },
     volume: -3,
-  }).chain(filter, chorus, reverb, compressor, limiter)
+  }).chain(filter, chorus, reverb, getMasterBus())
 }
