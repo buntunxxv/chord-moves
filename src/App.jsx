@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Chord, Note } from 'tonal'
+import { Chord, Note, Interval } from 'tonal'
+import { toUnicodeAccidentals } from './utils/formatNotes'
 import { CHORD_DATA } from './chordData'
 import { GUITAR_SHAPES } from './guitarData'
 import { GUITAR_INVERSION_SHAPES } from './guitarInversions'
@@ -9,7 +10,7 @@ import { isSlashEligible, computeSlashNotes, appendSlashSymbol, isInChordTone } 
 import { applyDrop2, applyLeftHandSplit } from './utils/pianoVoicings'
 import { createKeysSynth, startAudioContext } from './audio/synth'
 import { useTheme } from './hooks/useTheme'
-import { toDataKey, chordNameToSelection, resolveGuitarPositions, guitarShapeForChordName } from './utils/chordSelectionLookup'
+import { toDataKey, chordNameToSelection, nearestSelectionForName, resolveGuitarPositions, guitarShapeForChordName } from './utils/chordSelectionLookup'
 import { shouldAutoOpenWalkthrough, walkthroughFlowForPath } from './utils/walkthroughs'
 import ChordSelector from './components/ChordSelector'
 import ChordOutputPanel from './components/ChordOutputPanel'
@@ -67,6 +68,25 @@ function intervalsForNotes(tonalChord, notes) {
   const chromaToInterval = new Map()
   tonalChord.notes.forEach((n, i) => chromaToInterval.set(Note.chroma(n), tonalChord.intervals[i]))
   return notes.map(n => chromaToInterval.get(Note.chroma(n))).filter(Boolean)
+}
+
+// Intervals for a chord the builder cannot make (see looseChord), read off its
+// own spelled notes: B to E# is an augmented 4th, shown as the #11 it is in a
+// chord that has a third. 2nds become 9ths and 6ths 13ths on the same rule --
+// once there is a third or seventh underneath, they are tensions, not
+// replacements for it.
+function intervalsForLooseChord(root, notes) {
+  if (!root) return []
+  const simple = [...new Set(notes.map(n => Interval.simplify(Interval.distance(root, Note.pitchClass(n)))))]
+  const hasThird = simple.some(i => i === '3M' || i === '3m')
+  const hasSeventh = simple.some(i => i === '7m' || i === '7M')
+  const TENSION = { '2m': '9m', '2M': '9M', '2A': '9A', '4P': '11P', '4A': '11A', '6m': '13m', '6M': '13M' }
+  return simple.map(i => {
+    if (i === '1P') return i
+    if ((i === '4P' || i === '4A' || i.startsWith('2')) && hasThird) return TENSION[i] ?? i
+    if (i.startsWith('6') && hasSeventh) return TENSION[i] ?? i
+    return i
+  })
 }
 
 // Format chord display name from tonal
@@ -140,6 +160,15 @@ export default function App() {
   // or invalidate it (insert, remove, reorder) is a function right here in
   // this component that can just adjust it in the same breath.
   const [tappedChordIndex, setTappedChordIndex] = useState(null)
+  // A tapped progression chip whose chord the builder has no entry for --
+  // Badd#11 from Identify, anything MIDI import names. The builder shows the
+  // nearest chord it does know (see nearestSelectionForName), while the chord
+  // panel, keyboard, fretboard and Play all use this chip's own name, notes
+  // and (for Identify chords) its exact fingering. Null the rest of the time.
+  const [looseChord, setLooseChord] = useState(null)
+  useEffect(() => {
+    if (tappedChordIndex == null) setLooseChord(null)
+  }, [tappedChordIndex])
   const [isPro, setIsPro] = useState(false)
   const [templateKeyRoot, setTemplateKeyRoot] = useState('C')
   const [templateKeyMode, setTemplateKeyMode] = useState('major')
@@ -251,9 +280,10 @@ export default function App() {
   // other structurally-unavailable control in this app.
   const isInversion = hasSlashBass && isInChordTone(chordEntry?.notes, effectiveBassNote)
   const inversionGuitarShape = isInversion ? GUITAR_INVERSION_SHAPES[dataKey]?.[effectiveBassNote] : null
-  const guitarShapeToShow = hasSlashBass ? inversionGuitarShape : GUITAR_SHAPES[dataKey]
-  const guitarInversionUnavailable = isInversion && !inversionGuitarShape
-  const guitarSlashNotice = hasSlashBass && !isInversion
+  const looseShape = looseChord?.frets ? { frets: looseChord.frets } : null
+  const guitarShapeToShow = looseChord ? looseShape : (hasSlashBass ? inversionGuitarShape : GUITAR_SHAPES[dataKey])
+  const guitarInversionUnavailable = !looseChord && isInversion && !inversionGuitarShape
+  const guitarSlashNotice = !looseChord && hasSlashBass && !isInversion
 
   // Alternate neck positions: root-position chords use guitarPositions.js,
   // true inversions use guitarInversionPositions.js (same idea, but every
@@ -264,10 +294,11 @@ export default function App() {
   // resolved to; any additional positions get appended after it, so the
   // array's own length (1-3) already reflects how many of the 2 alternates
   // actually exist for this specific chord (+ bass, for inversions).
-  const guitarPositions = useMemo(
+  const builderGuitarPositions = useMemo(
     () => resolveGuitarPositions(dataKey, hasSlashBass, effectiveBassNote, chordEntry?.notes),
     [dataKey, hasSlashBass, effectiveBassNote, chordEntry],
   )
+  const guitarPositions = looseChord ? (looseShape ? [looseShape] : null) : builderGuitarPositions
 
   // Reference shape for the reverse-lookup's Phase 2 ranking: the LAST
   // chord already in the progression, resolved via the exact same
@@ -349,7 +380,9 @@ export default function App() {
   // report -- there's no position selector for either -- so they default to
   // 0/0 (Close, position 1), which is also what those chords would already
   // show if you tapped into them.
-  function addToProgression(chord, notes, entryGuitarPositionIndex = 0, entryKeysPositionIndex = 0) {
+  // `frets` rides along only for chords from Identify, where it is the exact
+  // fingering the chord was found as -- see looseChord.
+  function addToProgression(chord, notes, entryGuitarPositionIndex = 0, entryKeysPositionIndex = 0, frets = null) {
     if (!isPro && progression.length >= PROGRESSION_LIMIT) {
       setProgressionTeaser(PROGRESSION_TEASER)
       if (teaserTimeoutRef.current) clearTimeout(teaserTimeoutRef.current)
@@ -361,7 +394,7 @@ export default function App() {
     const insertAt = (tappedChordIndex != null && tappedChordIndex < progression.length)
       ? tappedChordIndex + 1
       : progression.length
-    const entry = { chord, notes, guitarPositionIndex: entryGuitarPositionIndex, keysPositionIndex: entryKeysPositionIndex }
+    const entry = { chord, notes, guitarPositionIndex: entryGuitarPositionIndex, keysPositionIndex: entryKeysPositionIndex, ...(frets ? { frets } : {}) }
     setProgression(prev => [...prev.slice(0, insertAt), entry, ...prev.slice(insertAt)])
     // The freshly-inserted chord becomes the new tapped position, so adding
     // several suggestions in a row while exploring from a middle chip keeps
@@ -516,8 +549,15 @@ export default function App() {
   function handleSelectChord(index, chordName) {
     setTappedChordIndex(index)
     const sel = chordNameToSelection(chordName)
-    if (sel) setSelection({ ...sel, bassNote: 'none' })
     const entry = progression[index]
+    if (sel) {
+      setSelection({ ...sel, bassNote: 'none' })
+      setLooseChord(null)
+    } else if (entry) {
+      const nearest = nearestSelectionForName(entry.chord)
+      if (nearest) setSelection({ ...nearest, bassNote: 'none' })
+      setLooseChord({ name: entry.chord, notes: entry.notes, frets: entry.frets ?? null })
+    }
     setGuitarPositionIndex(entry?.guitarPositionIndex ?? 0)
     setKeysPositionIndex(entry?.keysPositionIndex ?? 0)
   }
@@ -535,6 +575,7 @@ export default function App() {
   // values restored here rather than read back off the just-inserted entry.
   function handleAddSuggestionToProgression(chord, notes) {
     addToProgression(chord, notes)
+    setLooseChord(null)
     const sel = chordNameToSelection(chord)
     if (sel) setSelection({ ...sel, bassNote: 'none' })
     setGuitarPositionIndex(0)
@@ -552,6 +593,7 @@ export default function App() {
   // from handleSelectChord's own restore immediately overwriting it.
   function handleBuilderSelectionChange(newSelection) {
     setSelection(newSelection)
+    setLooseChord(null)
     setGuitarPositionIndex(0)
     setKeysPositionIndex(0)
   }
@@ -560,9 +602,10 @@ export default function App() {
   const tonalChord = useMemo(() => (symbol ? Chord.get(symbol) : null), [symbol])
 
   const displayName = useMemo(() => {
+    if (looseChord) return looseChord.name
     const base = (!tonalChord || !tonalChord.tonic) ? (symbol || '—') : (tonalChord.symbol || symbol)
     return appendSlashSymbol(base, effectiveBassNote, root)
-  }, [tonalChord, symbol, effectiveBassNote, root])
+  }, [looseChord, tonalChord, symbol, effectiveBassNote, root])
 
   // Editing a chord's Keys voicing or guitar neck position WHILE it's the
   // tapped progression entry (Field Test, 12 Aug 2026: the keyboard/
@@ -591,7 +634,11 @@ export default function App() {
 
   // Notes to highlight: use CHORD_DATA notes if available, else derive from tonal at octave 4,
   // re-voiced for the selected bass note (Pro-gated slash chords) -- see computeSlashNotes
-  const chordNotes = computeSlashNotes(chordEntry?.notes || [], effectiveBassNote, root)
+  const chordNotes = looseChord ? looseChord.notes : computeSlashNotes(chordEntry?.notes || [], effectiveBassNote, root)
+  // The root as the chord itself spells it: B for Badd#11 (not the bass F#
+  // its notes start from), Bb for a loose Bbadd9.
+  const looseRoot = looseChord && !looseChord.name.includes('·') ? (looseChord.name.match(/^[A-G](?:##|bb|#|b)?/)?.[0] ?? null) : null
+  const displayRoot = looseRoot ?? root
 
   const available = !!chordEntry
 
@@ -629,7 +676,9 @@ export default function App() {
   // See intervalsForNotes above -- resolved against whichever notes are
   // actually on screen (Close/Drop-2/Split, slash bass and all), not
   // tonalChord's own root-position array.
-  const intervals = intervalsForNotes(tonalChord, displayedPianoNotes)
+  const intervals = looseChord
+    ? intervalsForLooseChord(looseRoot, looseChord.notes)
+    : intervalsForNotes(tonalChord, displayedPianoNotes)
 
   // While a progression plays, the piano should track whatever's actually
   // sounding (ProgressionStrip applies the same selected voicing transform
@@ -648,7 +697,10 @@ export default function App() {
   // playback that's playingRootNote (captured alongside playingChordNotes,
   // see handlePlayingChordChange); live, it's chordNotes[0] before any
   // voicing transform.
-  const pianoRootNote = playingChordNotes ? playingRootNote : (chordNotes[0] ?? null)
+  const liveRootNote = looseRoot
+    ? (chordNotes.find(n => Note.chroma(n) === Note.chroma(looseRoot)) ?? chordNotes[0] ?? null)
+    : (chordNotes[0] ?? null)
+  const pianoRootNote = playingChordNotes ? playingRootNote : liveRootNote
 
   // #82 removed the on-mount auto-open when the welcome overlay took over
   // first-run duty, leaving shouldAutoOpenWalkthrough exported but uncalled --
@@ -889,6 +941,11 @@ export default function App() {
                     isPro={isPro}
                     onChange={handleBuilderSelectionChange}
                   />
+                  {looseChord && (
+                    <p className="app__loose-note" role="status">
+                      Showing {toUnicodeAccidentals(looseChord.name)} from your progression. The builder can’t make it, so it’s set to the nearest chord it can. Change any option to start building from there.
+                    </p>
+                  )}
                 </div>
 
                 <div className={`app__builder-result app__phone-panel ${phonePanel === 'chord' ? 'app__phone-panel--active' : ''}`}>
@@ -897,7 +954,7 @@ export default function App() {
                     notes={displayedPianoNotes}
                     intervals={intervals}
                     available={available}
-                    onAddToProgression={(chord, notes) => addToProgression(chord, notes, guitarPositionIndex, keysPositionIndex)}
+                    onAddToProgression={(chord, notes) => addToProgression(chord, notes, guitarPositionIndex, keysPositionIndex, looseChord?.frets ?? null)}
                     onOpenSuggestions={() => { setSheetExpanded(false); setSuggestionsOpen(true) }}
                     hasSuggestions={!!chordEntry?.next}
                     isPro={isPro}
@@ -916,7 +973,7 @@ export default function App() {
                 inert={workspacePage !== 'find'}
               >
                 <ReverseVoicingFinder
-                  onAddToProgression={addToProgression}
+                  onAddToProgression={(chord, notes, frets) => addToProgression(chord, notes, 0, 0, frets)}
                   onImportSequence={addProgressionSequence}
                   progression={progression}
                   referenceGuitarShape={referenceGuitarShape}
@@ -991,7 +1048,7 @@ export default function App() {
         onKeysPositionChange={handleKeysPositionChange}
         guitarPositionIndex={guitarPositionIndex}
         onGuitarPositionChange={handleGuitarPositionChange}
-        root={playingGuitarShape ? playingChordLookup.root : root}
+        root={playingGuitarShape ? playingChordLookup.root : displayRoot}
         guitarShape={playingGuitarShape || guitarShapeToShow}
         guitarSlashNotice={guitarSlashNotice}
         guitarInversionUnavailable={guitarInversionUnavailable}

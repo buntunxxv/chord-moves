@@ -1395,3 +1395,15 @@
     border-radius: 18px;
   }
 }
+
+/* Shown under the builder while a tapped progression chip holds a chord the
+   builder has no entry for (see looseChord in App.jsx). */
+.app__loose-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--teal-tint);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}

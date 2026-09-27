@@ -1,10 +1,10 @@
+import { Note } from 'tonal'
 import { getNoteColors } from '../utils/noteColors'
 import './GuitarDisplay.css'
 
 // Standard tuning, low string to high: E A D G B e
 const STRING_COUNT = 6
 const OPEN_PITCH_CLASS = [4, 9, 2, 7, 11, 4]
-const ROOT_PITCH_CLASS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
 const STRING_LABELS = ['E', 'A', 'D', 'G', 'B', 'e']
 
 const WINDOW_SIZE = 5
@@ -30,18 +30,16 @@ function fretX(row) {
   return LEFT_PAD + row * FRET_WIDTH
 }
 
-const PITCH_CLASS_BY_LETTER = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 }
 const FALLBACK_SHARP_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 
-// Match the piano's approach: label a pitch class using whichever spelling
-// (sharp or flat) the chord's own notes array actually uses, rather than a
-// fixed sharp-only convention
+// Match the piano's approach: label a pitch class the way the chord's own
+// notes spell it, rather than a fixed sharp-only convention -- including
+// spellings a single-accidental lookup table cannot hold, like the E# that
+// is the #11 of B, or the Cb in an Abm chord.
 function findSpelling(pitchClass, notes) {
   for (const note of notes || []) {
-    const m = note.match(/^([A-G][#b]?)/)
-    if (!m) continue
-    if (PITCH_CLASS_BY_LETTER[m[1]] === pitchClass) {
-      return m[1].replace('#', '♯').replace('b', '♭')
+    if (Note.chroma(note) === pitchClass) {
+      return Note.pitchClass(note).replace(/#/g, '♯').replace(/b/g, '♭')
     }
   }
   return FALLBACK_SHARP_NAMES[pitchClass]
@@ -54,7 +52,7 @@ export default function GuitarDisplay({ root, shape, notes, compact }) {
   // shared source (index.css's --note-color-* custom properties) instead
   // of a second independently-hardcoded pair of hex values.
   const noteColors = getNoteColors()
-  const rootPc = ROOT_PITCH_CLASS[root]
+  const rootPc = root ? Note.chroma(root) : undefined
   const frets = shape.frets
 
   const numericFrets = frets.filter(f => f !== 'x').map(Number)
