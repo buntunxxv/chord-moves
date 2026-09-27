@@ -938,7 +938,7 @@ export default function App() {
         </main>
       </div>
 
-      <OverlayPage isOpen={suggestionsOpen} onClose={() => setSuggestionsOpen(false)} eyebrow={displayName} title="Choose where this chord goes next" wide docked>
+      <OverlayPage isOpen={suggestionsOpen} onClose={() => setSuggestionsOpen(false)} eyebrow={displayName} eyebrowIsChord title="Choose where this chord goes next" wide docked>
         {available && chordEntry?.next && (
           <NextChordSuggestions
             suggestions={chordEntry.next}

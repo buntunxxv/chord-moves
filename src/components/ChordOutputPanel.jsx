@@ -174,6 +174,7 @@ export default function ChordOutputPanel({ chordName, notes, intervals, availabl
             isOpen={detailsOpen}
             onClose={() => setDetailsOpen(false)}
             eyebrow={displayChordName}
+            eyebrowIsChord
             title="Chord details"
           >
             {renderDetailsPanel()}

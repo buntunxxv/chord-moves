@@ -1,7 +1,10 @@
 import { useEffect, useId, useRef } from 'react'
 import './OverlayPage.css'
 
-export default function OverlayPage({ isOpen, onClose, eyebrow, title, children, intro = false, wide = false, docked = false }) {
+// `eyebrowIsChord` is for an eyebrow that is a chord name. The eyebrow is set
+// in uppercase, and uppercasing a chord name changes what it says: "Eb"
+// (E flat) becomes "EB", and "Cm" becomes "CM", which reads as C major.
+export default function OverlayPage({ isOpen, onClose, eyebrow, eyebrowIsChord = false, title, children, intro = false, wide = false, docked = false }) {
   const titleId = useId()
   const closeRef = useRef(null)
 
@@ -41,7 +44,7 @@ export default function OverlayPage({ isOpen, onClose, eyebrow, title, children,
           </button>
         )}
         <header className="overlay-page__header">
-          {eyebrow && <p className="overlay-page__eyebrow">{eyebrow}</p>}
+          {eyebrow && <p className={`overlay-page__eyebrow ${eyebrowIsChord ? 'overlay-page__eyebrow--chord' : ''}`}>{eyebrow}</p>}
           <h2 id={titleId}>{title}</h2>
         </header>
         <div className="overlay-page__content">{children}</div>

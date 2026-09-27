@@ -24,7 +24,10 @@ import './BottomSheet.css'
 // Dropdown puts a listbox in here and the APG listbox model keeps DOM focus on
 // the list itself, so landing on the close button instead would break arrow-key
 // navigation before it started.
-export default function BottomSheet({ isOpen, onClose, eyebrow, title, children, initialFocusRef }) {
+// `footer` sits below the scrolling content, never inside it, so the action a
+// sheet exists for (Identify's "+ Add to progression") stays on screen however
+// tall the content above it gets.
+export default function BottomSheet({ isOpen, onClose, eyebrow, title, children, footer, initialFocusRef }) {
   const titleId = useId()
   const closeRef = useRef(null)
 
@@ -73,7 +76,8 @@ export default function BottomSheet({ isOpen, onClose, eyebrow, title, children,
             ×
           </button>
         </header>
-        <div className="bottom-sheet__content">{children}</div>
+        <div className={`bottom-sheet__content ${footer ? 'bottom-sheet__content--with-footer' : ''}`}>{children}</div>
+        {footer && <div className="bottom-sheet__footer">{footer}</div>}
       </section>
     </div>,
     document.body,

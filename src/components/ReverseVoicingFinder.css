@@ -224,3 +224,36 @@
   background: var(--teal);
   color: var(--on-accent);
 }
+
+.reverse-finder__add-btn--footer {
+  width: 100%;
+  min-height: 48px;
+  background: var(--teal);
+  color: var(--on-accent);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reverse-finder__add-btn--footer:hover {
+  background: var(--teal-dark);
+}
+
+/* One card at a time: the chips above already say "Best match" / "2nd best"
+   and the counter carries the chord name, so the card drops its own rank
+   label and tightens its spacing -- together with the pinned footer, that
+   keeps the whole shape on a phone screen without scrolling. */
+@media (max-width: 760px) {
+  .reverse-finder__result {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .reverse-finder__result-label {
+    display: none;
+  }
+
+  .reverse-finder__result .guitar-display__legend {
+    margin-top: 6px;
+  }
+}
