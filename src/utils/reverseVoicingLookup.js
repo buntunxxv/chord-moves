@@ -192,6 +192,67 @@ export function voicingLabel(frets) {
   return soundingNoteNames(frets).join(' · ')
 }
 
+// Tonal has no chord type for a triad or seventh with one added tension it
+// does not list itself -- B-D#-F#-E# (B major plus a #11/#4) comes back from
+// Chord.detect as nothing at all, so a perfectly nameable chord used to show
+// up as a bare note list. When detect finds nothing, this looks for a known
+// base chord on some root plus exactly ONE added tone, and names it the way
+// a musician would: "add" for a triad (Badd#11), the tension written straight
+// after a seventh or sixth (B7#11 style). Anything that needs two or more
+// added tones stays unnamed -- at that point any name is a guess.
+const BASE_CHORDS = [
+  { suffix: '', intervals: [0, 4, 7], triad: true },
+  { suffix: 'm', intervals: [0, 3, 7], triad: true },
+  { suffix: 'sus4', intervals: [0, 5, 7], triad: true },
+  { suffix: 'sus2', intervals: [0, 2, 7], triad: true },
+  { suffix: 'dim', intervals: [0, 3, 6], triad: true },
+  { suffix: 'aug', intervals: [0, 4, 8], triad: true },
+  { suffix: '7', intervals: [0, 4, 7, 10] },
+  { suffix: 'maj7', intervals: [0, 4, 7, 11] },
+  { suffix: 'm7', intervals: [0, 3, 7, 10] },
+  { suffix: 'm7b5', intervals: [0, 3, 6, 10] },
+  { suffix: '6', intervals: [0, 4, 7, 9] },
+  { suffix: 'm6', intervals: [0, 3, 7, 9] },
+]
+
+// Semitones above the root -> tension name. 4, 7, 10 and 11 are chord tones
+// of some base above, never "added" ones.
+const ADDED_TONES = { 1: 'b9', 2: '9', 3: '#9', 5: '11', 6: '#11', 8: 'b13', 9: '13' }
+
+// Which pitch class to call the root, and so which name wins, when a set
+// reads more than one way: the bass note first (what a player hears as home),
+// then the plainer base chord (earlier in BASE_CHORDS).
+export function detectAddedToneChord(pitchClasses, bassPc = null) {
+  const set = new Set(pitchClasses)
+  let best = null
+  for (const root of set) {
+    BASE_CHORDS.forEach((base, baseIndex) => {
+      const basePcs = base.intervals.map(i => (root + i) % 12)
+      if (!basePcs.every(pc => set.has(pc))) return
+      const extras = [...set].filter(pc => !basePcs.includes(pc))
+      if (extras.length !== 1) return
+      const tone = ADDED_TONES[(extras[0] - root + 12) % 12]
+      if (!tone) return
+      const rank = (root === bassPc ? 0 : 100) + baseIndex
+      if (best && best.rank <= rank) return
+      const suffix = base.triad ? `${base.suffix}add${tone}` : `${base.suffix}${tone}`
+      best = { rank, root: PITCH_CLASS_NAMES[root], name: `${PITCH_CLASS_NAMES[root]}${suffix}` }
+    })
+  }
+  return best && { name: best.name, root: best.root }
+}
+
+function detectFromPitchClasses(pitchClasses, bassPc, fallbackLabel) {
+  const names = pitchClasses.map(pc => PITCH_CLASS_NAMES[pc])
+  const matches = Chord.detect(names)
+  if (matches.length > 0) {
+    return { name: matches[0], root: Chord.get(matches[0]).tonic || null, isDetected: true, alternates: matches.slice(1) }
+  }
+  const added = detectAddedToneChord(pitchClasses, bassPc)
+  if (added) return { name: added.name, root: added.root, isDetected: true, alternates: [] }
+  return { name: fallbackLabel, root: null, isDetected: false, alternates: [] }
+}
+
 // Best-effort chord name for one specific shape's actual sounding notes --
 // call this per result, not once for the whole picked set, since two
 // ranked shapes can genuinely sound a different pitch-class SET from each
@@ -209,35 +270,23 @@ export function voicingLabel(frets) {
 // lowest for this particular fingering -- that's a voicing/inversion
 // detail the guitar diagram itself already shows.
 //
-// Falls back to the plain note list (voicingLabel) when detection returns
-// nothing -- a genuinely ambiguous cluster (e.g. a bare 2nd, or three
-// adjacent semitones) has no chord name worth fabricating.
+// Falls back to the plain note list (voicingLabel) when neither Chord.detect
+// nor detectAddedToneChord finds a name -- a genuinely ambiguous cluster
+// (e.g. a bare 2nd, or three adjacent semitones) has no chord name worth
+// fabricating. `root` is returned alongside the name because an added-tone
+// name ("Badd#11") is not one Chord.get can parse a tonic back out of.
 export function detectChordName(frets) {
-  const names = soundingPitchClasses(frets).map(pc => PITCH_CLASS_NAMES[pc])
-  const matches = Chord.detect(names)
-  return {
-    name: matches[0] || soundingNoteNames(frets).join(' · '),
-    isDetected: matches.length > 0,
-    alternates: matches.slice(1),
-  }
+  const lowest = frets.findIndex(f => f !== 'x')
+  const bassPc = lowest === -1 ? null : (OPEN_PITCH_CLASS[lowest] + Number(frets[lowest])) % 12
+  return detectFromPitchClasses(soundingPitchClasses(frets), bassPc, soundingNoteNames(frets).join(' · '))
 }
 
 // Same best-effort naming as detectChordName above, but for an arbitrary
 // raw pitch-class set (0-11 integers) instead of a guitar fret array --
 // MIDI import's "chord moments" are just the notes sounding at some point
-// in a file, not a fingering, so there's no frets array to derive them
-// from. Same fixed-ascending-pitch-class-order-into-Chord.detect approach
-// and the same reasoning applies (see detectChordName's comment): a fixed
-// order keeps the name about the pitch content's identity, not whichever
-// note happened to sound first/lowest in the source data. Falls back to
-// the plain sorted pitch-class list when detection returns nothing.
+// in a file, not a fingering, so there's no frets array (and no bass string)
+// to derive them from. Falls back to the plain sorted pitch-class list.
 export function detectChordNameFromPitchClasses(pitchClasses) {
   const sorted = [...new Set(pitchClasses)].sort((a, b) => a - b)
-  const names = sorted.map(pc => PITCH_CLASS_NAMES[pc])
-  const matches = Chord.detect(names)
-  return {
-    name: matches[0] || names.join(' · '),
-    isDetected: matches.length > 0,
-    alternates: matches.slice(1),
-  }
+  return detectFromPitchClasses(sorted, null, sorted.map(pc => PITCH_CLASS_NAMES[pc]).join(' · '))
 }

@@ -92,7 +92,7 @@ export default function ReverseVoicingFinder({ onAddToProgression, onImportSeque
     // first picked note when detection found no confident match
     // (detected.name is then just a plain note list, which Chord.get can't
     // resolve a tonic from).
-    const root = Chord.get(detected.name).tonic || selectedNoteNames[0]
+    const root = detected.root || Chord.get(detected.name).tonic || selectedNoteNames[0]
     return { result, detected, rawName, name, root }
   }), [results, selectedNoteNames])
 
