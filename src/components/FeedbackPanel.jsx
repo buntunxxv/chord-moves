@@ -204,6 +204,8 @@ export default function FeedbackPanel({ isOpen, onClose, theme }) {
   const [answers, setAnswers] = useState({})
   const [direction, setDirection] = useState(1)
   const [animating, setAnimating] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
   const textareaRef = useRef(null)
   // Every step transition (picking a profile card, answering a choice
   // question, footer Back/Next) delays its actual stage/questionIndex
@@ -272,7 +274,15 @@ export default function FeedbackPanel({ isOpen, onClose, theme }) {
   }
 
   function navigate(step) {
-    if (animating) return
+    if (animating || submitting) return
+    setSubmitError(null)
+    // Submitting waits for the save before moving on, so a failed insert
+    // keeps the tester on this screen with their answers intact instead of
+    // thanking them for feedback that never arrived.
+    if (stage === 'final' && step === 1) {
+      submitFeedback()
+      return
+    }
     setDirection(step)
     setAnimating(true)
     scheduleTransition(() => {
@@ -291,27 +301,39 @@ export default function FeedbackPanel({ isOpen, onClose, theme }) {
         if (step === -1) {
           setStage('questions')
           setQuestionIndex(questions.length - 1)
-        } else if (step === 1) {
-          submitFeedback()
-          setStage('done')
         }
       }
       setAnimating(false)
     }, 260)
   }
 
+  // supabase-js reports insert failures in the returned { error } rather
+  // than throwing, so both paths have to be checked.
   async function submitFeedback() {
+    setSubmitting(true)
+    setSubmitError(null)
+    let failure = null
     try {
-      await supabase.from('chord_moves_feedback').insert({
+      const { error } = await supabase.from('chord_moves_feedback').insert({
         user_type: userType,
         answers,
       })
+      failure = error
     } catch (err) {
-      console.error('[Chord Moves Feedback] submit failed', err)
+      failure = err
     }
+    setSubmitting(false)
+    if (failure) {
+      console.error('[Chord Moves Feedback] submit failed', failure)
+      setSubmitError("Your feedback didn't send. Check your connection and try again. Your answers are still here.")
+      return
+    }
+    setDirection(1)
+    setStage('done')
   }
 
   function startOver() {
+    setSubmitError(null)
     setStage('type')
     setUserType(null)
     setQuestionIndex(0)
@@ -456,6 +478,10 @@ export default function FeedbackPanel({ isOpen, onClose, theme }) {
         </div>
 
         {/* Footer nav */}
+        {stage === 'final' && submitError && (
+          <p className="fp-error" role="alert">{submitError}</p>
+        )}
+
         {stage !== 'done' && (
           <div className="fp-footer">
             {(stage === 'questions' || stage === 'final') && (
@@ -467,13 +493,13 @@ export default function FeedbackPanel({ isOpen, onClose, theme }) {
             <button
               className="fp-btn fp-btn--primary"
               onClick={() => navigate(1)}
-              disabled={!canAdvance()}
+              disabled={!canAdvance() || submitting}
               type="button"
             >
               {stage === 'type'
                 ? 'Start →'
                 : stage === 'final'
-                ? 'Submit'
+                ? (submitting ? 'Sending…' : submitError ? 'Try again' : 'Submit')
                 : 'Next →'}
             </button>
           </div>
