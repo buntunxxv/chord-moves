@@ -10,7 +10,6 @@ lockZoom()
 
 const App = lazy(() => import('./App'))
 const UpgradePage = lazy(() => import('./UpgradePage'))
-const AdminFeedback = lazy(() => import('./AdminFeedback'))
 const ToolHome = lazy(() => import('./app/ToolHome'))
 const Metronome = lazy(() => import('./tools/metronome/Metronome'))
 const EarTrainer = lazy(() => import('./tools/ear-trainer/EarTrainer'))
@@ -27,7 +26,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/ear-trainer" element={<EarTrainer />} />
           <Route path="/chord-scales" element={<ChordScaleExplorer />} />
           <Route path="/upgrade" element={<UpgradePage />} />
-          <Route path="/admin/feedback" element={<AdminFeedback />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

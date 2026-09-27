@@ -2,5 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "redirects": [
+    { "source": "/admin/feedback", "destination": "https://www.kyndalearning.co.uk/admin/feedback/chord-compass", "permanent": false }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
