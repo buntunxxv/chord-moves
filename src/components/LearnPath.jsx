@@ -9,6 +9,7 @@ import {
   readLearnCompletions,
 } from '../utils/learnProgress'
 import './LearnPath.css'
+import { formatChordName } from '../utils/formatChordName'
 
 const PREDICT_HOLD_SECONDS = 1.2
 const PATTERN_STEP_SECONDS = 1.3
@@ -236,7 +237,7 @@ export default function LearnPath({ onBackToBuild }) {
                       onClick={() => handlePick(chord)}
                       disabled={!!currentGuess}
                     >
-                      {chord.symbol}
+                      {formatChordName(chord.symbol)}
                     </button>
                   ))}
                 </div>
@@ -244,10 +245,10 @@ export default function LearnPath({ onBackToBuild }) {
                 {currentGuess && (
                   <div className={`learn-path__feedback ${currentGuess.correct ? 'learn-path__feedback--correct' : 'learn-path__feedback--miss'}`} role="status">
                     <p>
-                      You picked <strong>{currentGuess.picked.symbol}</strong>
+                      You picked <strong>{formatChordName(currentGuess.picked.symbol)}</strong>
                       {currentGuess.correct
                         ? ' — matches the pattern!'
-                        : ` — the pattern's next chord is ${currentGuess.actual?.symbol ?? '—'}`}
+                        : ` — the pattern's next chord is ${currentGuess.actual ? formatChordName(currentGuess.actual.symbol) : '—'}`}
                     </p>
                     <button type="button" className="learn-path__next-btn" onClick={goNext}>
                       {stepIndex + 1 < activeChallenge.romanNumerals.length ? 'Next chord →' : 'See full pattern →'}
@@ -262,7 +263,7 @@ export default function LearnPath({ onBackToBuild }) {
                   {activeChallenge.romanNumerals.map((step, i) => (
                     <li key={i} className="learn-path__reveal-item">
                       <span className="learn-path__reveal-numeral">{formatNumeral(step)}</span>
-                      <span className="learn-path__reveal-chord">{resolvedChords[i]?.symbol ?? '—'}</span>
+                      <span className="learn-path__reveal-chord">{resolvedChords[i] ? formatChordName(resolvedChords[i].symbol) : '—'}</span>
                     </li>
                   ))}
                 </ol>

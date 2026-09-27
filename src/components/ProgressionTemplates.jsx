@@ -6,6 +6,7 @@ import DeckNav from './DeckNav'
 import { ROOTS, ROOT_DISPLAY } from './ChordSelector'
 import Dropdown from './Dropdown'
 import './ProgressionTemplates.css'
+import { formatChordName } from '../utils/formatChordName'
 
 export default function ProgressionTemplates({ keyRoot, keyMode, onKeyRootChange, onKeyModeChange, onLoad }) {
   // Only the templates written in the selected key's mode. That is what makes
@@ -97,7 +98,7 @@ export default function ProgressionTemplates({ keyRoot, keyMode, onKeyRootChange
                 <div className="progression-templates__degrees">
                   {resolved.map((entry, j) => (
                     <span key={j} className="progression-templates__resolved-chord">
-                      <span className="progression-templates__resolved-chord-name">{entry.chord}</span>
+                      <span className="progression-templates__resolved-chord-name">{formatChordName(entry.chord)}</span>
                       <span className="progression-templates__degree-pill">{entry.degree}</span>
                     </span>
                   ))}

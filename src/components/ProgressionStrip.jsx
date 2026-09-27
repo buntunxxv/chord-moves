@@ -7,6 +7,7 @@ import InstrumentDock from './InstrumentDock'
 import PianoDisplay from './PianoDisplay'
 import { useDismissOnOutsidePress } from '../hooks/useDismiss'
 import './ProgressionStrip.css'
+import { formatChordName } from '../utils/formatChordName'
 
 const BPM_MIN = 60
 const BPM_MAX = 140
@@ -25,7 +26,7 @@ const PAGE_SIZE = GRID_COLUMNS * 4
 
 function formatProgressionText(progression) {
   return progression
-    .map(entry => (entry.degree ? `${entry.chord} (${entry.degree})` : entry.chord))
+    .map(entry => (entry.degree ? `${formatChordName(entry.chord)} (${entry.degree})` : formatChordName(entry.chord)))
     .join(' – ')
 }
 
@@ -341,7 +342,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
       <div className="progression-strip__dock">
         <div className="progression-strip__dock-current">
           <span className="progression-strip__dock-label">Current chord</span>
-          <span className="progression-strip__dock-chord">{currentChordName || '—'}</span>
+          <span className="progression-strip__dock-chord">{currentChordName ? formatChordName(currentChordName) : '—'}</span>
         </div>
 
         {/* The same PianoDisplay the expanded workspace renders, in its
@@ -365,7 +366,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
             className={`progression-strip__dock-play ${isChordPlaying ? 'progression-strip__dock-play--playing' : ''}`}
             onClick={onPlayChord}
             disabled={isChordPlaying || !canPlayChord}
-            aria-label={`Play chord ${currentChordName || ''}`.trim()}
+            aria-label={`Play chord ${currentChordName ? formatChordName(currentChordName) : ''}`.trim()}
           >
             <span aria-hidden="true">{isChordPlaying ? '♪' : '▶'}</span>
             {isChordPlaying ? 'Playing…' : 'Play chord'}
@@ -479,10 +480,10 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
                               aria-pressed={selectedChordIndex === index}
                               disabled={!tappable}
                               onClick={() => onSelectChord?.(index, entry.chord)}
-                              title={tappable ? `Select ${entry.chord}` : undefined}
+                              title={tappable ? `Select ${formatChordName(entry.chord)}` : undefined}
                             >
                               <span className="progression-strip__slot-index">{index + 1}</span>
-                              <span className="progression-strip__slot-chord">{entry.chord}</span>
+                              <span className="progression-strip__slot-chord">{formatChordName(entry.chord)}</span>
                             </button>
                           )
                         })}
