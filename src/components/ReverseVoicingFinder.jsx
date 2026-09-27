@@ -9,6 +9,7 @@ import { useCardDeck } from '../hooks/useCardDeck'
 import { Note } from 'tonal'
 import { findVoicings, soundingNotes, respellNotes, detectChordName, PITCH_CLASS_NAMES } from '../utils/reverseVoicingLookup'
 import { formatChordName, normalizeChordName } from '../utils/formatChordName'
+import { toUnicodeAccidentals } from '../utils/formatNotes'
 import './ReverseVoicingFinder.css'
 
 const STRING_COUNT = 6
@@ -185,7 +186,7 @@ export default function ReverseVoicingFinder({ onAddToProgression, onImportSeque
 
       <div className="reverse-finder__selection-row">
         <span className="reverse-finder__selection">
-          {selectedNoteNames.length > 0 ? `Selected: ${pickedNoteLabels.join(', ')}` : 'No notes selected yet'}
+          {selectedNoteNames.length > 0 ? `Selected: ${pickedNoteLabels.map(toUnicodeAccidentals).join(', ')}` : 'No notes selected yet'}
         </span>
         {selected.length > 0 && (
           <button type="button" className="reverse-finder__clear-btn" onClick={() => setSelected([])}>
@@ -223,7 +224,7 @@ export default function ReverseVoicingFinder({ onAddToProgression, onImportSeque
         isOpen={sheetOpen && shapes.length > 0}
         onClose={() => setSheetOpen(false)}
         eyebrow="Identify"
-        title={`Shapes for ${pickedNoteLabels.join(', ')}`}
+        title={`Shapes for ${pickedNoteLabels.map(toUnicodeAccidentals).join(', ')}`}
         footer={deckFooter}
       >
         {/* Chips are the rank, not the chord name: three voicings of one chord
