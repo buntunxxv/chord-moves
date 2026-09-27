@@ -5,18 +5,15 @@
 // here so both read the exact same rules for "what color is this key,"
 // rather than one drifting out of sync with the other over time.
 
-// Resolve enharmonic equivalents to sharp form, keeping the octave correct
-// (Cb sits in the octave below the C it borrows its number from)
-const ENHARMONIC = { Cb: 'B', Db: 'C#', Eb: 'D#', Fb: 'E', Gb: 'F#', Ab: 'G#', Bb: 'A#' }
-const ENHARMONIC_OCTAVE_SHIFT = { Cb: -1 }
+import { Note } from 'tonal'
 
+// Resolve any spelling to one canonical sharp form, keeping the exact pitch:
+// Eb4 -> D#4, Cb4 -> B3 (the B below the C it borrows its number from),
+// E#4 -> F4, B#3 -> C4. Anything that is not a note with an octave passes
+// through unchanged.
 export function normalizeNote(note) {
-  const m = note.replace('♯', '#').replace('♭', 'b').match(/^([A-G][#b]?)(\d)$/)
-  if (!m) return note
-  const [, pitch, octaveStr] = m
-  const mappedPitch = ENHARMONIC[pitch] ?? pitch
-  const octave = parseInt(octaveStr, 10) + (ENHARMONIC_OCTAVE_SHIFT[pitch] ?? 0)
-  return `${mappedPitch}${octave}`
+  const midi = Note.midi(note.replace(/♯/g, '#').replace(/♭/g, 'b'))
+  return midi == null ? note : Note.fromMidiSharps(midi)
 }
 
 export function noteMatches(keyNote, chordNotes) {
@@ -52,7 +49,7 @@ export function findSpelling(keyNote, chordNotes) {
   const normalizedKey = normalizeNote(keyNote)
   const match = chordNotes.find(n => normalizeNote(n) === normalizedKey)
   if (!match) return null
-  return match.replace(/\d+$/, '').replace('#', '♯').replace('b', '♭')
+  return match.replace(/\d+$/, '').replace(/#/g, '♯').replace(/b/g, '♭')
 }
 
 // Work out fill + whether the key gets a "shared" ring for a single key.

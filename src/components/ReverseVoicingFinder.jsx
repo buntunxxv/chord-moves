@@ -6,7 +6,8 @@ import MidiImportPanel from './MidiImportPanel'
 import DeckNav from './DeckNav'
 import BottomSheet from './BottomSheet'
 import { useCardDeck } from '../hooks/useCardDeck'
-import { findVoicings, soundingNotes, detectChordName, PITCH_CLASS_NAMES } from '../utils/reverseVoicingLookup'
+import { Note } from 'tonal'
+import { findVoicings, soundingNotes, respellNotes, detectChordName, PITCH_CLASS_NAMES } from '../utils/reverseVoicingLookup'
 import { formatChordName, normalizeChordName } from '../utils/formatChordName'
 import './ReverseVoicingFinder.css'
 
@@ -92,16 +93,30 @@ export default function ReverseVoicingFinder({ onAddToProgression, onImportSeque
     // first picked note when detection found no confident match
     // (detected.name is then just a plain note list, which Chord.get can't
     // resolve a tonic from).
-    const root = Chord.get(detected.name).tonic || selectedNoteNames[0]
+    const root = detected.root || Chord.get(detected.name).tonic || selectedNoteNames[0]
     return { result, detected, rawName, name, root }
   }), [results, selectedNoteNames])
+
+  // The picked notes, spelled the way the best match spells them: D#, E#,
+  // F#, B for Badd#11 rather than D#, F, F#, B. Until there is a named match
+  // there is no key to spell them in, so they keep the plain sharp names.
+  const pickedNoteLabels = useMemo(() => {
+    const spelling = shapes[0]?.detected.spelledNotes
+    if (!spelling) return selectedNoteNames
+    return selectedNoteNames.map(n => spelling.find(s => Note.chroma(s) === Note.chroma(n)) ?? n)
+  }, [shapes, selectedNoteNames])
 
   const { index, isDeck, trackRef, cardRefs, chipRefs, goTo, handleChipKeyDown } = useCardDeck(shapes, sheetOpen)
 
   const lastChordName = progression && progression.length > 0 ? progression[progression.length - 1].chord : null
 
   function addShape(shape) {
-    onAddToProgression?.(shape.rawName, soundingNotes(shape.result.frets))
+    // The notes go in spelled as the chord spells them (E#3, not F3) -- same
+    // pitch, so playback is unchanged, but the piano and fretboard label them
+    // correctly when the chip is tapped later. The frets go with them so that
+    // tap can show this exact fingering.
+    const { frets } = shape.result
+    onAddToProgression?.(shape.rawName, respellNotes(soundingNotes(frets), shape.detected.spelledNotes), frets)
     // Close on add: the dock is behind the backdrop, so leaving the sheet up
     // would hide the only feedback that the chord actually landed anywhere.
     setSheetOpen(false)
@@ -170,7 +185,7 @@ export default function ReverseVoicingFinder({ onAddToProgression, onImportSeque
 
       <div className="reverse-finder__selection-row">
         <span className="reverse-finder__selection">
-          {selectedNoteNames.length > 0 ? `Selected: ${selectedNoteNames.join(', ')}` : 'No notes selected yet'}
+          {selectedNoteNames.length > 0 ? `Selected: ${pickedNoteLabels.join(', ')}` : 'No notes selected yet'}
         </span>
         {selected.length > 0 && (
           <button type="button" className="reverse-finder__clear-btn" onClick={() => setSelected([])}>
@@ -208,7 +223,7 @@ export default function ReverseVoicingFinder({ onAddToProgression, onImportSeque
         isOpen={sheetOpen && shapes.length > 0}
         onClose={() => setSheetOpen(false)}
         eyebrow="Identify"
-        title={`Shapes for ${selectedNoteNames.join(', ')}`}
+        title={`Shapes for ${pickedNoteLabels.join(', ')}`}
         footer={deckFooter}
       >
         {/* Chips are the rank, not the chord name: three voicings of one chord
@@ -243,7 +258,7 @@ export default function ReverseVoicingFinder({ onAddToProgression, onImportSeque
                 {detected.isDetected && detected.alternates.length > 0 && (
                   <div className="reverse-finder__result-alt">also: {detected.alternates.map(formatChordName).join(', ')}</div>
                 )}
-                <GuitarDisplay shape={{ frets: result.frets }} notes={selectedNoteNames} root={root} compact />
+                <GuitarDisplay shape={{ frets: result.frets }} notes={detected.spelledNotes ?? selectedNoteNames} root={root} compact />
                 <div className="reverse-finder__result-stats">{statsLine(result)}</div>
                 {!isDeck && (
                   <button

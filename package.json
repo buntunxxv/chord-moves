@@ -16,6 +16,6 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/tools/metronome/tapTempo.test.js src/tools/chord-scales/compatibility.test.js src/utils/walkthroughs.test.js src/utils/learnProgress.test.js src/utils/migrateStorageKeys.test.js"
+    "test": "node --test src/tools/metronome/tapTempo.test.js src/tools/chord-scales/compatibility.test.js src/utils/walkthroughs.test.js src/utils/learnProgress.test.js src/utils/migrateStorageKeys.test.js src/utils/reverseVoicingLookup.test.js"
   }
 }

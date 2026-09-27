@@ -15,6 +15,7 @@ import { GUITAR_SHAPES } from '../guitarData.js'
 import { GUITAR_INVERSION_SHAPES } from '../guitarInversions.js'
 import { GUITAR_ALT_POSITIONS } from '../guitarPositions.js'
 import { GUITAR_INVERSION_ALT_POSITIONS } from '../guitarInversionPositions.js'
+import { Note } from 'tonal'
 import { isInChordTone } from './slashChord.js'
 
 // Map selector state to CHORD_DATA key
@@ -100,6 +101,25 @@ export function chordNameToSelection(name) {
   const qual = SUFFIX_TO_SELECTION[suffix]
   if (!qual) return null
   return { root, ...qual }
+}
+
+// The closest chord the builder CAN show, for a name it cannot: Badd#11 ->
+// B major, Gm7/D -> Gm7, Cmaj7b9 -> Cmaj7. The slash bass is dropped and the
+// suffix cut back to the longest prefix the builder knows; roots the builder
+// has no entry for (E#, B#, Cb, Fb, double accidentals) move to their plain
+// enharmonic name. Returns null only when not even the root parses.
+export function nearestSelectionForName(name) {
+  // A bare note list ("F# · B · F") is not a chord name at all.
+  if (!name || name.includes('·')) return null
+  const m = name.split('/')[0].match(/^([A-G](?:##|bb|#|b)?)(.*)$/)
+  if (!m) return null
+  let [, root, suffix] = m
+  if (/^(E#|B#|Cb|Fb)$/.test(root) || root.length > 2) root = Note.enharmonic(root)
+  for (let end = suffix.length; end >= 0; end--) {
+    const qual = SUFFIX_TO_SELECTION[suffix.slice(0, end)]
+    if (qual) return { root, ...qual }
+  }
+  return null
 }
 
 // Guitar-shape/position resolution for a chord identified by its own

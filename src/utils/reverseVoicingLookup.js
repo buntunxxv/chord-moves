@@ -192,6 +192,139 @@ export function voicingLabel(frets) {
   return soundingNoteNames(frets).join(' · ')
 }
 
+// Tonal has no chord type for a triad or seventh with one added tension it
+// does not list itself -- B-D#-F#-E# (B major plus a #11/#4) comes back from
+// Chord.detect as nothing at all, so a perfectly nameable chord used to show
+// up as a bare note list. When detect finds nothing, this looks for a known
+// base chord on some root plus exactly ONE added tone, and names it the way
+// a musician would: "add" for a triad (Badd#11), the tension written straight
+// after a seventh or sixth (B7#11 style). Anything that needs two or more
+// added tones stays unnamed -- at that point any name is a guess.
+const BASE_CHORDS = [
+  { suffix: '', intervals: ['1P', '3M', '5P'], triad: true },
+  { suffix: 'm', intervals: ['1P', '3m', '5P'], triad: true },
+  { suffix: 'sus4', intervals: ['1P', '4P', '5P'], triad: true },
+  { suffix: 'sus2', intervals: ['1P', '2M', '5P'], triad: true },
+  { suffix: 'dim', intervals: ['1P', '3m', '5d'], triad: true },
+  { suffix: 'aug', intervals: ['1P', '3M', '5A'], triad: true },
+  { suffix: '7', intervals: ['1P', '3M', '5P', '7m'] },
+  { suffix: 'maj7', intervals: ['1P', '3M', '5P', '7M'] },
+  { suffix: 'm7', intervals: ['1P', '3m', '5P', '7m'] },
+  { suffix: 'm7b5', intervals: ['1P', '3m', '5d', '7m'] },
+  { suffix: '6', intervals: ['1P', '3M', '5P', '6M'] },
+  { suffix: 'm6', intervals: ['1P', '3m', '5P', '6M'] },
+]
+
+// Semitones above the root -> the added tension's name and its interval, so
+// the added note is spelled as what it IS: the #11 of B is E#, not F. 4, 7,
+// 10 and 11 are chord tones of some base above, never "added" ones.
+const ADDED_TONES = {
+  1: { label: 'b9', interval: '9m' },
+  2: { label: '9', interval: '9M' },
+  3: { label: '#9', interval: '9A' },
+  5: { label: '11', interval: '11P' },
+  6: { label: '#11', interval: '11A' },
+  8: { label: 'b13', interval: '13m' },
+  9: { label: '13', interval: '13M' },
+}
+
+// Which pitch class to call the root, and so which name wins, when a set
+// reads more than one way: the bass note first (what a player hears as home),
+// then the plainer base chord (earlier in BASE_CHORDS).
+export function detectAddedToneChord(pitchClasses, bassPc = null) {
+  const set = new Set(pitchClasses)
+  let best = null
+  for (const root of set) {
+    BASE_CHORDS.forEach((base, baseIndex) => {
+      const basePcs = base.intervals.map(i => (root + Interval.semitones(i)) % 12)
+      if (!basePcs.every(pc => set.has(pc))) return
+      const extras = [...set].filter(pc => !basePcs.includes(pc))
+      if (extras.length !== 1) return
+      const tone = ADDED_TONES[(extras[0] - root + 12) % 12]
+      if (!tone) return
+      const rank = (root === bassPc ? 0 : 100) + baseIndex
+      if (best && best.rank <= rank) return
+      const suffix = base.triad ? `${base.suffix}add${tone.label}` : `${base.suffix}${tone.label}`
+      best = { rank, rootPc: root, suffix, intervals: [...base.intervals, tone.interval] }
+    })
+  }
+  if (!best) return null
+  const { root, notes } = simplestSpelling(best.rootPc, best.intervals)
+  return { name: `${root}${best.suffix}`, root, spelledNotes: notes }
+}
+
+function accidentalCount(notes) {
+  return notes.reduce((sum, n) => sum + (n.match(/[#b]/g) || []).length, 0)
+}
+
+// Spell a chord from whichever name of its root gives the plainer note set:
+// Bb-D-F rather than A#-C##-E#. On a tie the sharp name (PITCH_CLASS_NAMES)
+// is kept, which is how the root was picked in the first place.
+function simplestSpelling(rootPc, intervals) {
+  const sharpName = PITCH_CLASS_NAMES[rootPc]
+  const candidates = [sharpName, Note.enharmonic(sharpName)].filter((n, i, all) => n && all.indexOf(n) === i)
+  let best = null
+  for (const root of candidates) {
+    const notes = intervals.map(i => Note.pitchClass(Note.transpose(root, i)))
+    const score = accidentalCount(notes)
+    if (!best || score < best.score) best = { root, notes, score }
+  }
+  return { root: best.root, notes: best.notes }
+}
+
+// A tonal chord name, respelled from its plainer root (see simplestSpelling),
+// with its notes spelled to match. A slash bass takes the spelling that note
+// has inside the chord. Names tonal cannot parse come back unchanged.
+export function spellChordName(name) {
+  const [head, bass] = name.split('/')
+  const chord = Chord.get(head)
+  if (chord.empty || !chord.tonic) return { name, spelledNotes: null }
+  const { root, notes } = simplestSpelling(Note.chroma(chord.tonic), chord.intervals)
+  let spelledBass = bass
+  if (bass) spelledBass = notes.find(n => Note.chroma(n) === Note.chroma(bass)) ?? bass
+  return {
+    name: `${root}${head.slice(chord.tonic.length)}${spelledBass ? `/${spelledBass}` : ''}`,
+    root,
+    spelledNotes: notes,
+  }
+}
+
+// Respell sounding notes (with octaves) to a chord's own spelling, keeping
+// each one's exact pitch: F4 as the #11 of B becomes E#4, and B#3 (not B#4)
+// is the spelling of C4. Notes the spelling does not cover pass through.
+export function respellNotes(notes, spelledNotes) {
+  if (!spelledNotes) return notes
+  return notes.map(note => {
+    const midi = Note.midi(note)
+    const pc = spelledNotes.find(n => Note.chroma(n) === Note.chroma(note))
+    if (midi == null || !pc) return note
+    const octave = Note.get(note).oct
+    for (const o of [octave, octave - 1, octave + 1]) {
+      if (Note.midi(`${pc}${o}`) === midi) return `${pc}${o}`
+    }
+    return note
+  })
+}
+
+function detectFromPitchClasses(pitchClasses, bassPc, fallbackLabel) {
+  const names = pitchClasses.map(pc => PITCH_CLASS_NAMES[pc])
+  const matches = Chord.detect(names)
+  if (matches.length > 0) {
+    const primary = spellChordName(matches[0])
+    return {
+      name: primary.name,
+      root: primary.root || null,
+      spelledNotes: primary.spelledNotes,
+      isDetected: true,
+      alternates: matches.slice(1).map(m => spellChordName(m).name),
+    }
+  }
+  const added = detectAddedToneChord(pitchClasses, bassPc)
+  if (added) return { ...added, isDetected: true, alternates: [] }
+  return { name: fallbackLabel, root: null, spelledNotes: null, isDetected: false, alternates: [] }
+}
+
+
 // Best-effort chord name for one specific shape's actual sounding notes --
 // call this per result, not once for the whole picked set, since two
 // ranked shapes can genuinely sound a different pitch-class SET from each
@@ -209,35 +342,23 @@ export function voicingLabel(frets) {
 // lowest for this particular fingering -- that's a voicing/inversion
 // detail the guitar diagram itself already shows.
 //
-// Falls back to the plain note list (voicingLabel) when detection returns
-// nothing -- a genuinely ambiguous cluster (e.g. a bare 2nd, or three
-// adjacent semitones) has no chord name worth fabricating.
+// Falls back to the plain note list (voicingLabel) when neither Chord.detect
+// nor detectAddedToneChord finds a name -- a genuinely ambiguous cluster
+// (e.g. a bare 2nd, or three adjacent semitones) has no chord name worth
+// fabricating. `root` is returned alongside the name because an added-tone
+// name ("Badd#11") is not one Chord.get can parse a tonic back out of.
 export function detectChordName(frets) {
-  const names = soundingPitchClasses(frets).map(pc => PITCH_CLASS_NAMES[pc])
-  const matches = Chord.detect(names)
-  return {
-    name: matches[0] || soundingNoteNames(frets).join(' · '),
-    isDetected: matches.length > 0,
-    alternates: matches.slice(1),
-  }
+  const lowest = frets.findIndex(f => f !== 'x')
+  const bassPc = lowest === -1 ? null : (OPEN_PITCH_CLASS[lowest] + Number(frets[lowest])) % 12
+  return detectFromPitchClasses(soundingPitchClasses(frets), bassPc, soundingNoteNames(frets).join(' · '))
 }
 
 // Same best-effort naming as detectChordName above, but for an arbitrary
 // raw pitch-class set (0-11 integers) instead of a guitar fret array --
 // MIDI import's "chord moments" are just the notes sounding at some point
-// in a file, not a fingering, so there's no frets array to derive them
-// from. Same fixed-ascending-pitch-class-order-into-Chord.detect approach
-// and the same reasoning applies (see detectChordName's comment): a fixed
-// order keeps the name about the pitch content's identity, not whichever
-// note happened to sound first/lowest in the source data. Falls back to
-// the plain sorted pitch-class list when detection returns nothing.
+// in a file, not a fingering, so there's no frets array (and no bass string)
+// to derive them from. Falls back to the plain sorted pitch-class list.
 export function detectChordNameFromPitchClasses(pitchClasses) {
   const sorted = [...new Set(pitchClasses)].sort((a, b) => a - b)
-  const names = sorted.map(pc => PITCH_CLASS_NAMES[pc])
-  const matches = Chord.detect(names)
-  return {
-    name: matches[0] || names.join(' · '),
-    isDetected: matches.length > 0,
-    alternates: matches.slice(1),
-  }
+  return detectFromPitchClasses(sorted, null, sorted.map(pc => PITCH_CLASS_NAMES[pc]).join(' · '))
 }
