@@ -172,15 +172,32 @@ export default function UpgradePage() {
         </div>
         )}
 
-        <ul className="upgrade-page__features">
-          <li>5 next-chord suggestions per chord</li>
-          <li>Extended chord types — 9th, 11th, 13th, altered</li>
-          <li>Slash chords and inversions</li>
-          <li>Longer progressions — no 4-chord limit</li>
-          <li>Save and export progressions</li>
-          <li>Multiple piano voicings</li>
-          <li>"Explain this like I'm writing a song" mode</li>
-        </ul>
+        {/* Live vs. not yet built is checked against the app, not aspiration:
+            move an item up only once it actually ships. */}
+        <div className="upgrade-page__features">
+          <h2 className="upgrade-page__features-heading">Live now</h2>
+          <ul className="upgrade-page__feature-list">
+            <li>5 next-chord suggestions per chord</li>
+            <li>Extended chord types — 9th, 11th, 13th, altered</li>
+            <li>Slash chords and inversions</li>
+            <li>Longer progressions — no 4-chord limit</li>
+            <li>Save and export progressions</li>
+            <li>Multiple piano voicings</li>
+          </ul>
+          <h2 className="upgrade-page__features-heading upgrade-page__features-heading--planned">Still being built</h2>
+          <ul className="upgrade-page__feature-list upgrade-page__feature-list--planned">
+            <li>"Explain this like I'm writing a song" mode</li>
+          </ul>
+        </div>
+
+        {/* Below the feature list rather than above the price: the list
+            already marks what is live and what is not, and this line states
+            the general caveat once, quietly. Shown to Pro users too, since it
+            stays true for them. */}
+        <p className="upgrade-page__dev-notice" role="note">
+          Chord Moves is still in development. Some features are unfinished or missing, and things will change as
+          it grows. Pro includes everything live today and each new feature as it arrives.
+        </p>
 
         <div className="upgrade-page__unlock">
           <h2 className="upgrade-page__unlock-title">

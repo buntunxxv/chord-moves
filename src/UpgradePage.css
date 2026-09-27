@@ -203,31 +203,68 @@
   line-height: 1.4;
 }
 
+.upgrade-page__dev-notice {
+  width: 100%;
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .upgrade-page__features {
   width: 100%;
   background: var(--white);
   border-radius: var(--radius);
   padding: 24px 28px;
   box-shadow: var(--shadow);
+}
+
+.upgrade-page__features-heading {
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.upgrade-page__features-heading--planned {
+  margin-top: 22px;
+}
+
+.upgrade-page__feature-list {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.upgrade-page__features li {
+.upgrade-page__feature-list li {
   font-size: 15px;
   color: var(--text);
   padding-left: 24px;
   position: relative;
 }
 
-.upgrade-page__features li::before {
+.upgrade-page__feature-list li::before {
   content: '✓';
   position: absolute;
   left: 0;
   color: var(--teal);
   font-weight: 700;
+}
+
+/* Not built yet: an open circle instead of a tick, and muted text, so it
+   cannot be mistaken for something you get today. */
+.upgrade-page__feature-list--planned li {
+  color: var(--text-muted);
+}
+
+.upgrade-page__feature-list--planned li::before {
+  content: '○';
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 .upgrade-page__unlock {
