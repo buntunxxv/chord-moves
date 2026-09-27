@@ -44,6 +44,12 @@
   text-transform: uppercase;
 }
 
+.overlay-page__eyebrow--chord {
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .overlay-page__header h2 {
   font-size: clamp(1.5rem, 4vw, 2.15rem);
   line-height: 1.12;

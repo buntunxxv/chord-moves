@@ -6,15 +6,6 @@
   box-shadow: none;
 }
 
-.next-chords__title {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 16px;
-}
-
 .next-chords__tabs {
   display: flex;
   gap: 10px;

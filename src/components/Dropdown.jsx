@@ -76,6 +76,13 @@ export default function Dropdown({ id, value, options, onChange, disabled, label
 
   const selected = options.find(o => o.value === value)
 
+  // Long lists of short labels (the 17 roots, extensions, bass notes) lay out
+  // as a grid of note-sized buttons instead of one row per option. As a single
+  // column the root list ran ~780px and scrolled on every phone; as a grid the
+  // whole choice is on screen at once. Badged options get a wider cell.
+  const isGrid = options.length > 6 && options.every(o => String(o.label).length <= 5)
+  const gridColumns = options.some(o => o.badge) ? 3 : 4
+
   function selectHighlighted() {
     const opt = options[highlightedIndex]
     if (!opt || opt.disabled) return
@@ -95,9 +102,19 @@ export default function Dropdown({ id, value, options, onChange, disabled, label
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setHighlightedIndex(idx => nextEnabledIndex(options, idx, 1))
+        setHighlightedIndex(idx => nextEnabledIndex(options, idx, isGrid ? gridColumns : 1))
         break
       case 'ArrowUp':
+        e.preventDefault()
+        setHighlightedIndex(idx => nextEnabledIndex(options, idx, isGrid ? -gridColumns : -1))
+        break
+      case 'ArrowRight':
+        if (!isGrid) break
+        e.preventDefault()
+        setHighlightedIndex(idx => nextEnabledIndex(options, idx, 1))
+        break
+      case 'ArrowLeft':
+        if (!isGrid) break
         e.preventDefault()
         setHighlightedIndex(idx => nextEnabledIndex(options, idx, -1))
         break
@@ -163,7 +180,8 @@ export default function Dropdown({ id, value, options, onChange, disabled, label
         <ul
           id={listboxId}
           ref={listRef}
-          className="dropdown__panel"
+          className={`dropdown__panel${isGrid ? ' dropdown__panel--grid' : ''}`}
+          style={isGrid ? { '--dropdown-columns': gridColumns } : undefined}
           role="listbox"
           tabIndex={-1}
           aria-activedescendant={highlightedIndex >= 0 ? `${listboxId}-option-${highlightedIndex}` : undefined}
@@ -199,7 +217,7 @@ export default function Dropdown({ id, value, options, onChange, disabled, label
                 {opt.label}
                 {opt.badge && <span className="dropdown__pro-badge">{opt.badge}</span>}
               </span>
-              {opt.value === value && (
+              {opt.value === value && !isGrid && (
                 <svg className="dropdown__check" width="13" height="10" viewBox="0 0 14 10" aria-hidden="true">
                   <path d="M1 5l4 4 8-8" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>

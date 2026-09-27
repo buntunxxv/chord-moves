@@ -70,7 +70,9 @@ export default function NextChordSuggestions({ suggestions, currentNotes, bpm, p
 
   return (
     <div className="next-chords" id="wt-next-chords">
-      <h2 className="next-chords__title">Choose your next move</h2>
+      {/* No heading of its own: the overlay this opens in is already titled
+          "Choose where this chord goes next", and a second one only pushed
+          the Add to progression button further down the screen. */}
       <div className="next-chords__tabs">
         {visibleSuggestions.map((s, i) => {
           const labelStyle = labelColors[s.label] || labelFallback

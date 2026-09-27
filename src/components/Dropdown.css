@@ -150,6 +150,12 @@
   list-style: none;
 }
 
+.dropdown__panel--grid {
+  display: grid;
+  grid-template-columns: repeat(var(--dropdown-columns, 4), minmax(0, 1fr));
+  gap: 8px;
+}
+
 .dropdown__option {
   display: flex;
   align-items: center;
@@ -210,4 +216,23 @@
   color: var(--suggest);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* Grid cells: centred, bordered so each reads as its own tap target, and no
+   checkmark -- the selected fill already says which one is chosen. */
+.dropdown__panel--grid .dropdown__option {
+  justify-content: center;
+  min-height: 48px;
+  padding: 8px 6px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.dropdown__panel--grid .dropdown__option--selected {
+  border-color: var(--teal);
+}
+
+.dropdown__panel--grid .dropdown__option-label {
+  flex-direction: column;
+  gap: 2px;
 }
