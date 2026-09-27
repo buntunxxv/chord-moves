@@ -205,19 +205,11 @@
 
 .upgrade-page__dev-notice {
   width: 100%;
-  padding: 16px 20px;
-  border: 1px solid color-mix(in srgb, var(--warn-text) 35%, transparent);
-  border-radius: var(--radius);
-  background: var(--warn-bg);
-  color: var(--text);
-  font-size: 14px;
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: 13px;
   line-height: 1.5;
-}
-
-.upgrade-page__dev-notice-title {
-  margin-bottom: 4px;
-  color: var(--warn-text);
-  font-weight: 700;
+  text-align: center;
 }
 
 .upgrade-page__features {
