@@ -2,7 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- No zooming, pinch or on-focus: see src/utils/lockZoom.js for the parts
+         a meta tag cannot reach on iOS or desktop. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>Chord Moves — Kynda Learning</title>
 
     <!-- The .ico carries 16/32/48 so each browser picks its own size instead

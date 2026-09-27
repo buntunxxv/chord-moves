@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
+import { useBackdropDismiss } from '../hooks/useDismiss'
 import './OverlayPage.css'
 
 // `eyebrowIsChord` is for an eyebrow that is a chord name. The eyebrow is set
@@ -7,12 +8,15 @@ import './OverlayPage.css'
 export default function OverlayPage({ isOpen, onClose, eyebrow, eyebrowIsChord = false, title, children, intro = false, wide = false, docked = false }) {
   const titleId = useId()
   const closeRef = useRef(null)
+  // The intro closes on tap-away and Escape too -- it is a welcome screen, not
+  // a gate. It still has no × of its own; its button says what closing does.
+  const backdropProps = useBackdropDismiss(onClose)
 
   useEffect(() => {
     if (!isOpen) return undefined
     const previouslyFocused = document.activeElement
     const handleKeyDown = event => {
-      if (event.key === 'Escape' && !intro) onClose?.()
+      if (event.key === 'Escape') onClose?.()
     }
     document.addEventListener('keydown', handleKeyDown)
     closeRef.current?.focus()
@@ -20,7 +24,7 @@ export default function OverlayPage({ isOpen, onClose, eyebrow, eyebrowIsChord =
       document.removeEventListener('keydown', handleKeyDown)
       previouslyFocused?.focus?.()
     }
-  }, [isOpen, intro, onClose])
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 
@@ -28,9 +32,7 @@ export default function OverlayPage({ isOpen, onClose, eyebrow, eyebrowIsChord =
     <div
       className={`overlay-page ${docked ? 'overlay-page--docked' : ''}`}
       role="presentation"
-      onMouseDown={event => {
-        if (!intro && event.target === event.currentTarget) onClose?.()
-      }}
+      {...backdropProps}
     >
       <section
         className={`overlay-page__panel ${wide ? 'overlay-page__panel--wide' : ''} ${intro ? 'overlay-page__panel--intro' : ''}`}
