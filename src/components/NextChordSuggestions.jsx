@@ -7,6 +7,7 @@ import { formatNoteNames } from '../utils/formatNotes'
 import { logEvent } from '../analytics/events'
 import { scrollRevealIntoView } from '../utils/scrollReveal'
 import './NextChordSuggestions.css'
+import { formatChordName } from '../utils/formatChordName'
 
 export default function NextChordSuggestions({ suggestions, currentNotes, bpm, previewIndex, onPreviewChange, onAddToProgression, theme, isPro }) {
   const labelColors = theme === 'dark' ? LABEL_COLORS_DARK : LABEL_COLORS
@@ -85,7 +86,7 @@ export default function NextChordSuggestions({ suggestions, currentNotes, bpm, p
               onClick={() => handleCardClick(i)}
               aria-pressed={isSelected}
             >
-              <span className="next-chords__chord-name">{s.chord}</span>
+              <span className="next-chords__chord-name">{formatChordName(s.chord)}</span>
               <span
                 className="next-chords__label-badge"
                 style={{ background: labelStyle.bg, color: labelStyle.text }}
@@ -121,14 +122,14 @@ export default function NextChordSuggestions({ suggestions, currentNotes, bpm, p
                 className={`next-chords__hear-btn ${isPlaying ? 'next-chords__hear-btn--playing' : ''}`}
                 onClick={() => handleHear(i, s.notes)}
                 disabled={playingIndex !== null}
-                aria-label={`Hear movement to ${s.chord}`}
+                aria-label={`Hear movement to ${formatChordName(s.chord)}`}
               >
                 {isPlaying ? '♪ Playing…' : 'Hear →'}
               </button>
               <button
                 className="next-chords__add-btn"
                 onClick={() => onAddToProgression(s.chord, s.notes)}
-                aria-label={`Add to progression ${s.chord}`}
+                aria-label={`Add to progression ${formatChordName(s.chord)}`}
               >
                 + Add to progression
               </button>

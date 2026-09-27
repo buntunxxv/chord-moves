@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Chord, Note, Interval } from 'tonal'
 import { toUnicodeAccidentals } from './utils/formatNotes'
+import { formatChordName } from './utils/formatChordName'
 import { CHORD_DATA } from './chordData'
 import { GUITAR_SHAPES } from './guitarData'
 import { GUITAR_INVERSION_SHAPES } from './guitarInversions'
@@ -1004,7 +1005,7 @@ export default function App() {
         </main>
       </div>
 
-      <OverlayPage isOpen={suggestionsOpen} onClose={() => setSuggestionsOpen(false)} eyebrow={displayName} eyebrowIsChord title="Choose where this chord goes next" wide docked>
+      <OverlayPage isOpen={suggestionsOpen} onClose={() => setSuggestionsOpen(false)} eyebrow={formatChordName(displayName)} eyebrowIsChord title="Choose where this chord goes next" wide docked>
         {available && chordEntry?.next && (
           <NextChordSuggestions
             suggestions={chordEntry.next}
