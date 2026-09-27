@@ -104,6 +104,25 @@ button, select, input {
   cursor: pointer;
 }
 
+/* No zooming anywhere (see src/utils/lockZoom.js). `manipulation` turns off
+   double-tap-to-zoom while keeping taps and scrolling; set on html, it limits
+   every element below it. */
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* iOS zooms the page in on any text field set below 16px when it takes focus.
+   Touch screens only, so desktop keeps each field's own designed size. */
+@media (pointer: coarse) {
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
 .route-loading {
   min-height: 100vh;
   display: grid;

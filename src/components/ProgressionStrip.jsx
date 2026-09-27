@@ -5,6 +5,7 @@ import { computePlaybackProgression } from '../utils/voiceLeading'
 import { buildProgressionMidiBytes, downloadMidiFile } from '../utils/midiExport'
 import InstrumentDock from './InstrumentDock'
 import PianoDisplay from './PianoDisplay'
+import { useDismissOnOutsidePress } from '../hooks/useDismiss'
 import './ProgressionStrip.css'
 
 const BPM_MIN = 60
@@ -141,6 +142,11 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
   const savedEditInputRef = useRef(null)
   const exportResetRef = useRef(null)
   const savedListStatusResetRef = useRef(null)
+  const stripRef = useRef(null)
+  const saveInlineRef = useRef(null)
+  const savedPanelRef = useRef(null)
+  const savedToggleRef = useRef(null)
+  const savedEditItemRef = useRef(null)
 
   useEffect(() => {
     localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedProgressions))
@@ -233,6 +239,16 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
     setSavedEditName('')
   }
 
+  // Tap-away closes each secondary surface: an inline name box cancels (the
+  // same as its ✕), the saved list folds away, and the floating workspace
+  // drops back to the dock. On a phone the workspace is full screen, so there
+  // is no "away" to tap and only the smaller surfaces inside it are affected.
+  useDismissOnOutsidePress(showSaveInput, handleCancelSave, [saveInlineRef])
+  useDismissOnOutsidePress(savedEditingIndex != null, cancelSavedRename, [savedEditItemRef])
+  useDismissOnOutsidePress(showSavedPanel, () => setShowSavedPanel(false), [savedPanelRef, savedToggleRef])
+  useDismissOnOutsidePress(expanded, () => onExpandedChange?.(false), [stripRef])
+
+
   function confirmSavedRename(index) {
     const name = savedEditName.trim()
     if (!name) {
@@ -315,7 +331,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
   const hasSelection = selectedChordIndex != null && selectedChordIndex < chordCount
 
   return (
-    <div className={`progression-strip ${expanded ? 'progression-strip--expanded' : 'progression-strip--collapsed'}`} id="wt-progression">
+    <div ref={stripRef} className={`progression-strip ${expanded ? 'progression-strip--expanded' : 'progression-strip--collapsed'}`} id="wt-progression">
       {/* ─── Collapsed dock ──────────────────────────────────────────────────
           A plain container, NOT a role="button": the version this replaces
           nested real <button>s inside a tabbable div that announced itself as
@@ -611,7 +627,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
 
             <div className="progression-strip__pro-group">
               {showSaveInput ? (
-                <div className="progression-strip__save-inline">
+                <div className="progression-strip__save-inline" ref={saveInlineRef}>
                   <input
                     ref={saveInputRef}
                     type="text"
@@ -671,6 +687,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
 
               {isPro && (
                 <button
+                  ref={savedToggleRef}
                   className="progression-strip__saved-toggle"
                   aria-expanded={showSavedPanel}
                   aria-controls="prog-saved-panel"
@@ -696,14 +713,14 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
             )}
 
             {isPro && showSavedPanel && (
-              <div id="prog-saved-panel">
+              <div id="prog-saved-panel" ref={savedPanelRef}>
                 <div className="progression-strip__saved-panel">
                   {savedProgressions.length === 0 ? (
                     <p className="progression-strip__saved-empty">No saved progressions yet — build one and tap Save</p>
                   ) : (
                     <ul className="progression-strip__saved-list">
                       {savedProgressions.map((saved, i) => (
-                        <li key={i} className="progression-strip__saved-item">
+                        <li key={i} className="progression-strip__saved-item" ref={savedEditingIndex === i ? savedEditItemRef : undefined}>
                           <div className="progression-strip__saved-info">
                             {savedEditingIndex === i ? (
                               <input

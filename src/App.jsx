@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Chord, Note } from 'tonal'
 import { CHORD_DATA } from './chordData'
@@ -23,6 +23,7 @@ import ThemeToggle from './components/ThemeToggle'
 import LearnPath from './components/LearnPath'
 import OverlayPage from './components/OverlayPage'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
+import { useDismissOnOutsidePress } from './hooks/useDismiss'
 import './App.css'
 
 const PROGRESSION_LIMIT = 4
@@ -83,8 +84,15 @@ export default function App() {
   const [bpm, setBpm] = useState(90)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  // Tapping anywhere outside the open menu closes it. The hamburger counts as
+  // inside, so tapping it still toggles rather than closing and reopening.
+  const menuRef = useRef(null)
+  const hamburgerRef = useRef(null)
+  useDismissOnOutsidePress(menuOpen, () => setMenuOpen(false), [menuRef, hamburgerRef])
   const [walkthroughFlow, setWalkthroughFlow] = useState(null)
   const [introOpen, setIntroOpen] = useState(true)
+  // Start building, tap-away and Escape all close the welcome screen the same way.
+  const closeIntro = useCallback(() => { setPath('build'); setIntroOpen(false) }, [])
   // Progression/instrument bottom sheet -- collapsed by default so the
   // chord builder gets the vast majority of a mobile viewport. Lives here
   // (not inside ProgressionStrip) only because App.css's bottom-padding
@@ -737,6 +745,7 @@ export default function App() {
             </button>
             <ThemeToggle preference={themePreference} onChange={setThemePreference} />
             <button
+              ref={hamburgerRef}
               className="app__hamburger"
               onClick={() => setMenuOpen(o => !o)}
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -762,7 +771,7 @@ export default function App() {
           </div>
         </div>
         {menuOpen && (
-          <div className="app__mobile-menu">
+          <div className="app__mobile-menu" ref={menuRef}>
             <SuiteMenuLinks
               className="app__mobile-menu-link"
               currentClassName="app__mobile-menu-link--current"
@@ -993,7 +1002,7 @@ export default function App() {
       )}
       </div>
 
-      <OverlayPage isOpen={introOpen} intro eyebrow="Welcome to Chord Moves" title="Find the next chord without losing your place">
+      <OverlayPage isOpen={introOpen} intro onClose={closeIntro} eyebrow="Welcome to Chord Moves" title="Find the next chord without losing your place">
         <div className="app__intro-page">
           <p className="app__intro-lead">Three ways to find a chord, side by side—swipe or tap between them. Whatever you find lands in the progression bar at the bottom.</p>
           <ol className="app__intro-steps">
@@ -1004,7 +1013,7 @@ export default function App() {
           <button
             type="button"
             className="app__intro-start"
-            onClick={() => { setPath('build'); setIntroOpen(false) }}
+            onClick={closeIntro}
           >
             Start building
           </button>

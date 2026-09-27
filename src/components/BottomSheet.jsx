@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useBackdropDismiss } from '../hooks/useDismiss'
 import './BottomSheet.css'
 
 // A sheet that rises from the bottom edge over a dimmed backdrop, for choices
@@ -9,7 +10,7 @@ import './BottomSheet.css'
 // where the thumb already is, and it leaves the thing you just tapped visible
 // above it.
 //
-// Escape, backdrop-click and focus handling follow OverlayPage, so every modal
+// Escape, tap-away (useBackdropDismiss) and focus handling follow OverlayPage, so every modal
 // surface in the app behaves the same way -- focus moves to the close button on
 // open and returns to whatever opened the sheet on close.
 //
@@ -30,6 +31,7 @@ import './BottomSheet.css'
 export default function BottomSheet({ isOpen, onClose, eyebrow, title, children, footer, initialFocusRef }) {
   const titleId = useId()
   const closeRef = useRef(null)
+  const backdropProps = useBackdropDismiss(onClose)
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -51,9 +53,7 @@ export default function BottomSheet({ isOpen, onClose, eyebrow, title, children,
     <div
       className="bottom-sheet"
       role="presentation"
-      onMouseDown={event => {
-        if (event.target === event.currentTarget) onClose?.()
-      }}
+      {...backdropProps}
     >
       <section
         className="bottom-sheet__panel"

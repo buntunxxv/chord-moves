@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ThemeToggle from '../components/ThemeToggle'
 import SuiteMenuLinks from './SuiteMenuLinks'
 import { useTheme } from '../hooks/useTheme'
+import { useDismissOnOutsidePress } from '../hooks/useDismiss'
 import './ToolShell.css'
 
 export default function ToolShell({ title, eyebrow, learningAction, children }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+  const hamburgerRef = useRef(null)
+  useDismissOnOutsidePress(menuOpen, () => setMenuOpen(false), [menuRef, hamburgerRef])
   const { preference, resolvedTheme, setPreference } = useTheme()
 
   return (
@@ -37,6 +41,7 @@ export default function ToolShell({ title, eyebrow, learningAction, children }) 
             )}
             <ThemeToggle preference={preference} onChange={setPreference} />
             <button
+              ref={hamburgerRef}
               type="button"
               className="tool-shell__hamburger"
               onClick={() => setMenuOpen(open => !open)}
@@ -51,7 +56,7 @@ export default function ToolShell({ title, eyebrow, learningAction, children }) 
           </div>
         </div>
         {menuOpen && (
-          <nav id="tool-shell-menu" className="tool-shell__mobile-menu" aria-label="Tool menu">
+          <nav id="tool-shell-menu" ref={menuRef} className="tool-shell__mobile-menu" aria-label="Tool menu">
             <SuiteMenuLinks
               className="tool-shell__mobile-menu-link"
               currentClassName="tool-shell__mobile-menu-link--current"
