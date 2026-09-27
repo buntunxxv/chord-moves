@@ -134,6 +134,16 @@ export default function UpgradePage() {
           <p className="upgrade-page__subtitle">More directions. More movement. More song.</p>
         </div>
 
+        {/* Said up front, before the price, so nobody pays expecting a
+            finished product. Shown to Pro users too: it stays true for them. */}
+        <div className="upgrade-page__dev-notice" role="note">
+          <p className="upgrade-page__dev-notice-title">Chord Moves is still in development</p>
+          <p>
+            Some features are unfinished and some are still missing. Things will change, and you may hit rough edges
+            along the way. Pro gives you everything below that is live today, and every new feature as it arrives.
+          </p>
+        </div>
+
         {/* No buy button for someone who already paid -- they keep the
             feature list below, which now reads as what they have. */}
         {!isPro && (
@@ -172,15 +182,23 @@ export default function UpgradePage() {
         </div>
         )}
 
-        <ul className="upgrade-page__features">
-          <li>5 next-chord suggestions per chord</li>
-          <li>Extended chord types — 9th, 11th, 13th, altered</li>
-          <li>Slash chords and inversions</li>
-          <li>Longer progressions — no 4-chord limit</li>
-          <li>Save and export progressions</li>
-          <li>Multiple piano voicings</li>
-          <li>"Explain this like I'm writing a song" mode</li>
-        </ul>
+        {/* Live vs. not yet built is checked against the app, not aspiration:
+            move an item up only once it actually ships. */}
+        <div className="upgrade-page__features">
+          <h2 className="upgrade-page__features-heading">Live now</h2>
+          <ul className="upgrade-page__feature-list">
+            <li>5 next-chord suggestions per chord</li>
+            <li>Extended chord types — 9th, 11th, 13th, altered</li>
+            <li>Slash chords and inversions</li>
+            <li>Longer progressions — no 4-chord limit</li>
+            <li>Save and export progressions</li>
+            <li>Multiple piano voicings</li>
+          </ul>
+          <h2 className="upgrade-page__features-heading upgrade-page__features-heading--planned">Still being built</h2>
+          <ul className="upgrade-page__feature-list upgrade-page__feature-list--planned">
+            <li>"Explain this like I'm writing a song" mode</li>
+          </ul>
+        </div>
 
         <div className="upgrade-page__unlock">
           <h2 className="upgrade-page__unlock-title">
