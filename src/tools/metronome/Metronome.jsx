@@ -3,6 +3,7 @@ import ToolShell from '../../app/ToolShell'
 import { useMetronome } from './useMetronome'
 import { assessPulseTiming, calculateTapBpm } from './tapTempo'
 import './Metronome.css'
+import { safeStorage } from '../../utils/safeStorage'
 
 const LESSON_BPM = 80
 
@@ -14,7 +15,7 @@ const SIGNATURES = [
 ]
 
 function initialBpm() {
-  const stored = Number(localStorage.getItem('kyndaTools.metronome.bpm'))
+  const stored = Number(safeStorage.getItem('kyndaTools.metronome.bpm'))
   return Number.isFinite(stored) && stored >= 40 && stored <= 240 ? stored : 100
 }
 
@@ -36,7 +37,7 @@ export default function Metronome() {
   function setBpm(next) {
     const clamped = Math.max(40, Math.min(240, Math.round(Number(next))))
     setBpmState(clamped)
-    localStorage.setItem('kyndaTools.metronome.bpm', String(clamped))
+    safeStorage.setItem('kyndaTools.metronome.bpm', String(clamped))
   }
 
   function tapTempo() {

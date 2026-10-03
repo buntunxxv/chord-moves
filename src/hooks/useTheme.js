@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { safeStorage } from '../utils/safeStorage'
 
 const STORAGE_KEY = 'chordMovesThemePreference'
 const VALID_PREFERENCES = ['light', 'dark', 'system']
@@ -16,7 +17,7 @@ function resolveTheme(preference) {
 // preference is "system"
 export function useTheme() {
   const [preference, setPreferenceState] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = safeStorage.getItem(STORAGE_KEY)
     return VALID_PREFERENCES.includes(stored) ? stored : 'system'
   })
   const [resolvedTheme, setResolvedTheme] = useState(() => resolveTheme(preference))
@@ -37,7 +38,7 @@ export function useTheme() {
 
   const setPreference = useCallback(next => {
     if (!VALID_PREFERENCES.includes(next)) return
-    localStorage.setItem(STORAGE_KEY, next)
+    safeStorage.setItem(STORAGE_KEY, next)
     setPreferenceState(next)
   }, [])
 

@@ -4,8 +4,9 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import { migrateStorageKeys } from './utils/migrateStorageKeys.js'
 import { lockZoom } from './utils/lockZoom.js'
+import { safeStorage } from './utils/safeStorage.js'
 
-migrateStorageKeys(window.localStorage)
+migrateStorageKeys(safeStorage)
 lockZoom()
 
 const App = lazy(() => import('./App'))

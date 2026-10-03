@@ -8,6 +8,7 @@ import PianoDisplay from './PianoDisplay'
 import { useDismissOnOutsidePress } from '../hooks/useDismiss'
 import './ProgressionStrip.css'
 import { formatChordName } from '../utils/formatChordName'
+import { safeStorage } from '../utils/safeStorage'
 
 const BPM_MIN = 60
 const BPM_MAX = 140
@@ -114,7 +115,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
 
   const [savedProgressions, setSavedProgressions] = useState(() => {
     try {
-      const stored = localStorage.getItem(SAVED_STORAGE_KEY)
+      const stored = safeStorage.getItem(SAVED_STORAGE_KEY)
       return stored ? JSON.parse(stored) : []
     } catch {
       return []
@@ -150,7 +151,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
   const savedEditItemRef = useRef(null)
 
   useEffect(() => {
-    localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedProgressions))
+    safeStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedProgressions))
   }, [savedProgressions])
 
   useEffect(() => () => {

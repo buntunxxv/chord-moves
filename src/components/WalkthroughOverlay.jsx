@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { WALKTHROUGH_CONFIGS } from '../utils/walkthroughs'
 import './WalkthroughOverlay.css'
+import { safeStorage } from '../utils/safeStorage'
 
 const PAD = 6
 // Guess used for the very first paint of a step, before the tooltip has
@@ -103,7 +104,7 @@ export default function WalkthroughOverlay({ isOpen, onClose, flow = 'build' }) 
   }
 
   function close() {
-    localStorage.setItem(config.storageKey, '1')
+    safeStorage.setItem(config.storageKey, '1')
     onClose()
   }
 

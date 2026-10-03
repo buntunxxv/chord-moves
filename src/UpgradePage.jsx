@@ -4,6 +4,7 @@ import { logEvent } from './analytics/events'
 import { useTheme } from './hooks/useTheme'
 import ThemeToggle from './components/ThemeToggle'
 import './UpgradePage.css'
+import { safeStorage } from './utils/safeStorage'
 
 // The Stripe payment link for Founder Access (GBP 9, one-time). It is the
 // same link api/stripe-webhook.js gates on: only checkout sessions whose
@@ -25,7 +26,7 @@ export default function UpgradePage() {
   // There is no account or session -- "logged in" means this browser holds
   // the cm_tier flag that App.jsx reads to gate every Pro feature. So
   // logging out is removing that flag, and it is per device and per browser.
-  const [isPro, setIsPro] = useState(() => localStorage.getItem('cm_tier') === 'pro')
+  const [isPro, setIsPro] = useState(() => safeStorage.getItem('cm_tier') === 'pro')
 
   useEffect(() => {
     logEvent('upgrade_page_view')
@@ -70,7 +71,7 @@ export default function UpgradePage() {
       })
       const data = await res.json()
       if (res.ok && data.isPro) {
-        localStorage.setItem('cm_tier', 'pro')
+        safeStorage.setItem('cm_tier', 'pro')
         setUnlockStep('success')
         setUnlockStatus('idle')
         logEvent('pro_unlock_success')
@@ -98,7 +99,7 @@ export default function UpgradePage() {
   }
 
   function handleLogOut() {
-    localStorage.removeItem('cm_tier')
+    safeStorage.removeItem('cm_tier')
     setIsPro(false)
     // A fresh unlock in this same visit leaves unlockStep on 'success';
     // without this reset the page would keep showing "Pro unlocked" after
