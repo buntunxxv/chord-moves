@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      # Forced-dark and blocked-storage rendering on every route; see the
+      # header of scripts/verify-theme-rendering.mjs for what it proves.
+      - run: npm run test:themes
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: theme-check-screenshots
+          path: theme-check-output/
+          if-no-files-found: ignore
