@@ -66,7 +66,18 @@
   }
 }
 
+/* Which scheme the page itself is drawn in. `only light` is the part that
+   matters: it forbids browsers with a "force dark" mode (Android WebViews
+   such as DuckDuckGo, Samsung Internet, Chrome's auto-dark) from inverting
+   our light theme -- their inversion is what left text unreadable. Our dark
+   theme already declares `dark`, so they leave that alone too. Also gives
+   native controls (scrollbars, selects, date pickers) matching colours. */
+[data-theme="light"] {
+  color-scheme: only light;
+}
+
 [data-theme="dark"] {
+  color-scheme: dark;
   --teal: #22B8B0;
   --teal-dark: #1A938C;
   --teal-tint: #123433;

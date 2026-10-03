@@ -88,12 +88,6 @@
   background: var(--teal-dark);
 }
 
-@media (prefers-color-scheme: dark) {
-  .wt-spotlight {
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.70);
-  }
-}
-
 :root[data-theme="dark"] .wt-spotlight {
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.70);
 }

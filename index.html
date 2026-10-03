@@ -38,6 +38,31 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#119392" />
+
+    <!-- Tell the browser this page draws its own light AND dark theme.
+         Without it, Android browsers that "force dark" every site
+         (DuckDuckGo, Samsung Internet, in-app WebViews, Chrome's
+         auto-dark flag) run their own colour inversion on top of ours,
+         which can leave text dark-on-dark and unreadable. The script
+         below then pins the exact scheme before first paint. -->
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // Mirrors src/hooks/useTheme.js (same storage key and rules) so the
+      // right theme is on <html> before any CSS paints -- no light flash,
+      // and the browser knows which scheme we chose before it decides
+      // whether to darken the page itself. Storage can throw (blocked site
+      // data, some private modes), so every read is guarded.
+      (function () {
+        var pref = 'system'
+        try {
+          var stored = localStorage.getItem('chordMovesThemePreference')
+          if (stored === 'light' || stored === 'dark' || stored === 'system') pref = stored
+        } catch (e) {}
+        var dark = pref === 'dark' ||
+          (pref === 'system' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+      })()
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

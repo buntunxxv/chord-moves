@@ -26,6 +26,7 @@ import LearnPath from './components/LearnPath'
 import OverlayPage from './components/OverlayPage'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
 import { useDismissOnOutsidePress } from './hooks/useDismiss'
+import { safeStorage } from './utils/safeStorage'
 import './App.css'
 
 const PROGRESSION_LIMIT = 4
@@ -136,16 +137,16 @@ export default function App() {
   // Top-level Learn/Build path (distinct from `mode`, the build/find tab
   // inside the builder panel above) -- persisted so the choice survives a
   // reload.
-  const [path, setPath] = useState(() => localStorage.getItem('cm_path') || 'build')
+  const [path, setPath] = useState(() => safeStorage.getItem('cm_path') || 'build')
 
   useEffect(() => {
-    localStorage.setItem('cm_path', path)
+    safeStorage.setItem('cm_path', path)
   }, [path])
 
   const [previewIndex, setPreviewIndex] = useState(null)
   const [progression, setProgression] = useState(() => {
     try {
-      const stored = localStorage.getItem(PROGRESSION_STORAGE_KEY)
+      const stored = safeStorage.getItem(PROGRESSION_STORAGE_KEY)
       return stored ? JSON.parse(stored) : []
     } catch {
       return []
@@ -216,7 +217,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    setIsPro(localStorage.getItem('cm_tier') === 'pro')
+    setIsPro(safeStorage.getItem('cm_tier') === 'pro')
   }, [])
   const [playingChordNotes, setPlayingChordNotes] = useState(null)
   const [playingRootNote, setPlayingRootNote] = useState(null)
@@ -362,7 +363,7 @@ export default function App() {
   const previewNotes = previewIndex != null ? chordEntry?.next?.[previewIndex]?.notes : null
 
   useEffect(() => {
-    localStorage.setItem(PROGRESSION_STORAGE_KEY, JSON.stringify(progression))
+    safeStorage.setItem(PROGRESSION_STORAGE_KEY, JSON.stringify(progression))
   }, [progression])
 
   // Adds after the currently tapped chip (whichever chord is driving the
@@ -710,7 +711,7 @@ export default function App() {
   // mount would put a tour behind a modal that covers everything it points at.
   useEffect(() => {
     if (introOpen) return
-    if (shouldAutoOpenWalkthrough(path, localStorage)) setWalkthroughFlow(walkthroughFlowForPath(path))
+    if (shouldAutoOpenWalkthrough(path, safeStorage)) setWalkthroughFlow(walkthroughFlowForPath(path))
   }, [introOpen, path])
 
   // A tab click scrolls the track; a swipe scrolls it directly. Both have to

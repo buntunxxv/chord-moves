@@ -10,6 +10,7 @@ import {
 } from '../utils/learnProgress'
 import './LearnPath.css'
 import { formatChordName } from '../utils/formatChordName'
+import { safeStorage } from '../utils/safeStorage'
 
 const PREDICT_HOLD_SECONDS = 1.2
 const PATTERN_STEP_SECONDS = 1.3
@@ -39,7 +40,7 @@ export default function LearnPath({ onBackToBuild }) {
   // Completion is local-only and per key: completing I-IV-V-I in C does
   // not mark the same pattern complete in G. A Set keeps list lookups cheap
   // while the helper owns JSON persistence and malformed-data recovery.
-  const [completedChallenges, setCompletedChallenges] = useState(() => readLearnCompletions(localStorage))
+  const [completedChallenges, setCompletedChallenges] = useState(() => readLearnCompletions(safeStorage))
   const synthRef = useRef(null)
 
   function ensureSynth() {
@@ -111,7 +112,7 @@ export default function LearnPath({ onBackToBuild }) {
       setRevealed(true)
       if (didPassLearnChallenge(guesses, activeChallenge.romanNumerals.length)) {
         setCompletedChallenges(previous => (
-          markLearnChallengeComplete(localStorage, previous, selectedKey, activeChallenge.id)
+          markLearnChallengeComplete(safeStorage, previous, selectedKey, activeChallenge.id)
         ))
       }
     }
