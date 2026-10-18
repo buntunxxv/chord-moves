@@ -79,6 +79,9 @@ export default async function handler(req, res) {
         stripe_payment_intent_id: session.payment_intent || null,
         amount_paid: session.amount_total,
         currency: session.currency,
+        // A purchase is permanent; it also upgrades an existing student or
+        // comp row, so access survives the student's lessons ending.
+        source: 'purchase',
       },
       { onConflict: 'email' }
     )

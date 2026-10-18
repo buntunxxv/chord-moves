@@ -217,7 +217,27 @@ export default function App() {
   }
 
   useEffect(() => {
-    setIsPro(safeStorage.getItem('cm_tier') === 'pro')
+    const pro = safeStorage.getItem('cm_tier') === 'pro'
+    setIsPro(pro)
+    // Pro granted through lessons is removed server-side when the lessons
+    // stop; re-check the unlock email so this device follows suit. Only a
+    // definite "not Pro" downgrades -- an offline or failed check keeps Pro.
+    const email = safeStorage.getItem('cm_pro_email')
+    if (!pro || !email) return
+    fetch('/api/check-entitlement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data && data.isPro === false) {
+          safeStorage.removeItem('cm_tier')
+          safeStorage.removeItem('cm_pro_email')
+          setIsPro(false)
+        }
+      })
+      .catch(() => {})
   }, [])
   const [playingChordNotes, setPlayingChordNotes] = useState(null)
   const [playingRootNote, setPlayingRootNote] = useState(null)
