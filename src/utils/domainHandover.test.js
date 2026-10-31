@@ -83,7 +83,17 @@ test('old host with blocked storage still moves, without data', () => {
   const win = fakeWindow('https://tools.kyndalearning.co.uk/', null)
   Object.defineProperty(win, 'localStorage', { get() { throw new Error('SecurityError') } })
   assert.equal(runDomainHandover(win, memoryStorage()), true)
-  assert.equal(win.calls.replace, `${CANONICAL_ORIGIN}/`)
+  assert.equal(win.calls.replace, `${CANONICAL_ORIGIN}/tools`)
+})
+
+test('old host root lands on the tools directory; other paths keep theirs', () => {
+  const s = memoryStorage({ cm_tier: 'pro' })
+  const root = fakeWindow('https://tools.kyndalearning.co.uk/?ref=bio', s)
+  runDomainHandover(root, s)
+  assert.ok(root.calls.replace.startsWith(`${CANONICAL_ORIGIN}/tools?ref=bio#cm-handover=`))
+  const upgrade = fakeWindow('https://tools.kyndalearning.co.uk/upgrade', s)
+  runDomainHandover(upgrade, s)
+  assert.ok(upgrade.calls.replace.startsWith(`${CANONICAL_ORIGIN}/upgrade#cm-handover=`))
 })
 
 test('new host without a handover does nothing', () => {

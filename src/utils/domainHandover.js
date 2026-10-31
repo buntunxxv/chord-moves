@@ -17,6 +17,9 @@
 
 export const CANONICAL_ORIGIN = 'https://www.chordmoves.co.uk'
 export const LEGACY_HOSTS = ['tools.kyndalearning.co.uk']
+// The old host's bare address lands on the tools directory, not Chord Moves:
+// "tools." should mean the tools. Every other path keeps its own page.
+const LEGACY_ROOT_DESTINATION = '/tools'
 
 const HASH_PREFIX = '#cm-handover='
 // Every key the app writes starts with one of these (see safeStorage callers).
@@ -89,7 +92,8 @@ export function runDomainHandover(win, storage) {
   if (LEGACY_HOSTS.includes(location.hostname)) {
     let state = {}
     try { state = collectAppState(win.localStorage) } catch { /* storage blocked: move without data */ }
-    location.replace(buildHandoverUrl(location, state))
+    const pathname = location.pathname === '/' ? LEGACY_ROOT_DESTINATION : location.pathname
+    location.replace(buildHandoverUrl({ pathname, search: location.search }, state))
     return true
   }
   const state = readHandover(location.hash)
