@@ -12,11 +12,16 @@
 // so it does not reach request logs. Keys already present on the new origin
 // win: a handover link can fill gaps but never overwrite someone's work.
 //
-// Once the old host has been handing over long enough that returning users
-// have passed through, it can become a plain 308 redirect in Vercel.
+// The old host is now the Kynda tools library (see src/app/sites.js), so it
+// only hands over on Chord Moves' own deep links (e.g. /upgrade, where Stripe
+// sends buyers). Its root is the library directory, whose Chord Moves card
+// hands over on click (src/app/SiteLink.jsx).
 
-export const CANONICAL_ORIGIN = 'https://www.chordmoves.co.uk'
+import { CHORD_MOVES_ORIGIN, CHORD_MOVES_PATHS } from '../app/sites.js'
+
+export const CANONICAL_ORIGIN = CHORD_MOVES_ORIGIN
 export const LEGACY_HOSTS = ['tools.kyndalearning.co.uk']
+const HANDOVER_PATHS = CHORD_MOVES_PATHS.filter(p => p !== '/')
 
 const HASH_PREFIX = '#cm-handover='
 // Every key the app writes starts with one of these (see safeStorage callers).
@@ -82,11 +87,11 @@ export function applyHandover(storage, state) {
   return written
 }
 
-// Startup hook. Returns true when the page is navigating away (old host),
-// in which case the caller should not render.
+// Startup hook. Returns true when the page is navigating away (a Chord Moves
+// deep link on the old host), in which case the caller should not render.
 export function runDomainHandover(win, storage) {
   const { location, history } = win
-  if (LEGACY_HOSTS.includes(location.hostname)) {
+  if (LEGACY_HOSTS.includes(location.hostname) && HANDOVER_PATHS.includes(location.pathname)) {
     let state = {}
     try { state = collectAppState(win.localStorage) } catch { /* storage blocked: move without data */ }
     location.replace(buildHandoverUrl(location, state))

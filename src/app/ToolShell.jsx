@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import SiteLink from './SiteLink'
 import ThemeToggle from '../components/ThemeToggle'
 import SuiteMenuLinks from './SuiteMenuLinks'
 import { useTheme } from '../hooks/useTheme'
@@ -17,14 +17,14 @@ export default function ToolShell({ title, eyebrow, learningAction, children }) 
     <div className="tool-shell">
       <header className="tool-shell__header">
         <div className="tool-shell__header-inner">
-          <Link to="/tools" className="tool-shell__brand" aria-label="Kynda Tools home">
+          <SiteLink to="/tools" className="tool-shell__brand" aria-label="Kynda Tools home">
             <img
               src={resolvedTheme === 'dark' ? '/kynda-logo-white.png' : '/kynda-logo-full.png'}
               alt="Kynda Learning"
             />
             <span className="tool-shell__brand-divider" aria-hidden="true" />
             <span className="tool-shell__brand-name">Tools</span>
-          </Link>
+          </SiteLink>
           <div className="tool-shell__header-actions">
             {learningAction && (
               <button

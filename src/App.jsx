@@ -25,6 +25,7 @@ import ThemeToggle from './components/ThemeToggle'
 import LearnPath from './components/LearnPath'
 import OverlayPage from './components/OverlayPage'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
+import SiteLink from './app/SiteLink'
 import { useDismissOnOutsidePress } from './hooks/useDismiss'
 import { safeStorage } from './utils/safeStorage'
 import './App.css'
@@ -794,7 +795,7 @@ export default function App() {
               <img src={resolvedTheme === 'dark' ? '/kynda-logo-white.png' : '/kynda-logo-full.png'} alt="Kynda Learning" />
             </a>
             <span className="app__header-divider" aria-hidden="true" />
-            <Link to="/tools" className="app__suite-link">Tools</Link>
+            <SiteLink to="/tools" className="app__suite-link">Tools</SiteLink>
           </div>
           <div className="app__header-tool">
             <button

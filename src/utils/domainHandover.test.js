@@ -66,24 +66,33 @@ test('never overwrites existing data or writes foreign keys', () => {
   assert.deepEqual(s.dump(), { chordMovesSavedProgressions: '[]', cm_tier: 'pro' })
 })
 
-test('old host hands everything to the new origin and stops rendering', () => {
+test('old host hands a Chord Moves deep link to the new origin and stops rendering', () => {
   const old = memoryStorage({ cm_tier: 'pro', cm_pro_email: 'a@b.co', chordMovesSavedProgressions: SAVED })
-  const oldWin = fakeWindow('https://tools.kyndalearning.co.uk/metronome', old)
+  const oldWin = fakeWindow('https://tools.kyndalearning.co.uk/upgrade', old)
   assert.equal(runDomainHandover(oldWin, old), true)
-  assert.ok(oldWin.calls.replace.startsWith(`${CANONICAL_ORIGIN}/metronome#cm-handover=`))
+  assert.ok(oldWin.calls.replace.startsWith(`${CANONICAL_ORIGIN}/upgrade#cm-handover=`))
 
   const fresh = memoryStorage()
   const newWin = fakeWindow(oldWin.calls.replace, fresh)
   assert.equal(runDomainHandover(newWin, fresh), false)
   assert.deepEqual(fresh.dump(), old.dump())
-  assert.equal(newWin.calls.replaceState, '/metronome')
+  assert.equal(newWin.calls.replaceState, '/upgrade')
 })
 
 test('old host with blocked storage still moves, without data', () => {
-  const win = fakeWindow('https://tools.kyndalearning.co.uk/', null)
+  const win = fakeWindow('https://tools.kyndalearning.co.uk/upgrade', null)
   Object.defineProperty(win, 'localStorage', { get() { throw new Error('SecurityError') } })
   assert.equal(runDomainHandover(win, memoryStorage()), true)
-  assert.equal(win.calls.replace, `${CANONICAL_ORIGIN}/`)
+  assert.equal(win.calls.replace, `${CANONICAL_ORIGIN}/upgrade`)
+})
+
+test('old host serves the library: root and tools render in place', () => {
+  for (const path of ['/', '/tools', '/metronome', '/ear-trainer', '/chord-scales']) {
+    const s = memoryStorage({ cm_tier: 'pro' })
+    const win = fakeWindow(`https://tools.kyndalearning.co.uk${path}`, s)
+    assert.equal(runDomainHandover(win, s), false, path)
+    assert.equal(win.calls.replace, null, path)
+  }
 })
 
 test('new host without a handover does nothing', () => {

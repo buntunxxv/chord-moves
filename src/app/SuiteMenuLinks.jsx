@@ -1,5 +1,7 @@
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { SUITE_MENU_ITEMS } from './suiteMenu'
+import SiteLink from './SiteLink'
+import { CURRENT_SITE, resolveLink } from './sites'
 
 // Renders the shared suite menu items (see suiteMenu.js) as a flat list of
 // link elements, styled by the caller's own className so Chord Moves'
@@ -26,7 +28,7 @@ export default function SuiteMenuLinks({ className, currentClassName, childClass
       )
     }
 
-    if (item.to === pathname) {
+    if (resolveLink(item.to, CURRENT_SITE).internal === pathname) {
       return (
         <span key={item.key} className={`${itemClassName} ${currentClassName}`} aria-current="page">
           {item.label}
@@ -35,9 +37,9 @@ export default function SuiteMenuLinks({ className, currentClassName, childClass
     }
 
     return (
-      <Link key={item.key} to={item.to} className={itemClassName} onClick={onNavigate}>
+      <SiteLink key={item.key} to={item.to} className={itemClassName} onClick={onNavigate}>
         {item.label}
-      </Link>
+      </SiteLink>
     )
   })
 }
