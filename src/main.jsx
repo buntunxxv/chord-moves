@@ -5,8 +5,12 @@ import './index.css'
 import { migrateStorageKeys } from './utils/migrateStorageKeys.js'
 import { lockZoom } from './utils/lockZoom.js'
 import { safeStorage } from './utils/safeStorage.js'
+import { runDomainHandover } from './utils/domainHandover.js'
 
 migrateStorageKeys(safeStorage)
+// Old host: hand saved state to www.chordmoves.co.uk and stop. New host:
+// take in any handed-over state before anything below reads storage.
+const leaving = runDomainHandover(window, safeStorage)
 lockZoom()
 
 const App = lazy(() => import('./App'))
@@ -16,7 +20,7 @@ const Metronome = lazy(() => import('./tools/metronome/Metronome'))
 const EarTrainer = lazy(() => import('./tools/ear-trainer/EarTrainer'))
 const ChordScaleExplorer = lazy(() => import('./tools/chord-scales/ChordScaleExplorer'))
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+if (!leaving) ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <Suspense fallback={<div className="route-loading" role="status">Loading…</div>}>
