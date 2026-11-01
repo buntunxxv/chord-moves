@@ -25,6 +25,7 @@ import ThemeToggle from './components/ThemeToggle'
 import LearnPath from './components/LearnPath'
 import OverlayPage from './components/OverlayPage'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
+import SiteLink from './app/SiteLink'
 import { useDismissOnOutsidePress } from './hooks/useDismiss'
 import { safeStorage } from './utils/safeStorage'
 import './App.css'
@@ -217,7 +218,27 @@ export default function App() {
   }
 
   useEffect(() => {
-    setIsPro(safeStorage.getItem('cm_tier') === 'pro')
+    const pro = safeStorage.getItem('cm_tier') === 'pro'
+    setIsPro(pro)
+    // Pro granted through lessons is removed server-side when the lessons
+    // stop; re-check the unlock email so this device follows suit. Only a
+    // definite "not Pro" downgrades -- an offline or failed check keeps Pro.
+    const email = safeStorage.getItem('cm_pro_email')
+    if (!pro || !email) return
+    fetch('/api/check-entitlement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data && data.isPro === false) {
+          safeStorage.removeItem('cm_tier')
+          safeStorage.removeItem('cm_pro_email')
+          setIsPro(false)
+        }
+      })
+      .catch(() => {})
   }, [])
   const [playingChordNotes, setPlayingChordNotes] = useState(null)
   const [playingRootNote, setPlayingRootNote] = useState(null)
@@ -774,7 +795,7 @@ export default function App() {
               <img src={resolvedTheme === 'dark' ? '/kynda-logo-white.png' : '/kynda-logo-full.png'} alt="Kynda Learning" />
             </a>
             <span className="app__header-divider" aria-hidden="true" />
-            <Link to="/tools" className="app__suite-link">Tools</Link>
+            <SiteLink to="/tools" className="app__suite-link">Tools</SiteLink>
           </div>
           <div className="app__header-tool">
             <button
