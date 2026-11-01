@@ -1048,6 +1048,20 @@
   align-self: center;
 }
 
+/* Side by side (tablet and up), centring both panels in the full-height slide
+   left a band of empty card above them. Pin them to the top instead; the
+   phone's single panel keeps its centring. */
+@media (min-width: 761px) {
+  .app__builder-workspace {
+    align-items: start;
+  }
+
+  .app__builder-controls,
+  .app__builder-result {
+    align-self: start;
+  }
+}
+
 .app__workspace-hint {
   margin: 0;
   color: var(--text-faint);
