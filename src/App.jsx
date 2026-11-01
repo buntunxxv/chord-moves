@@ -24,6 +24,8 @@ import WalkthroughOverlay from './components/WalkthroughOverlay'
 import ThemeToggle from './components/ThemeToggle'
 import LearnPath from './components/LearnPath'
 import OverlayPage from './components/OverlayPage'
+import DemoVideo from './components/DemoVideo'
+import { getDemo } from './demo/demoVideos'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
 import SiteLink from './app/SiteLink'
 import { useDismissOnOutsidePress } from './hooks/useDismiss'
@@ -32,6 +34,7 @@ import './App.css'
 
 const PROGRESSION_LIMIT = 4
 const PROGRESSION_STORAGE_KEY = 'chordMovesProgression'
+const INTRO_DEMO_ID = 'build-a-progression'
 const PROGRESSION_TEASER = 'Longer progressions are coming in Chord Moves Pro.'
 // How long the one-step "Undo" after a template load stays available before
 // it silently expires -- it also clears sooner, immediately, on any other
@@ -116,6 +119,10 @@ export default function App() {
   const [introOpen, setIntroOpen] = useState(true)
   // Start building, tap-away and Escape all close the welcome screen the same way.
   const closeIntro = useCallback(() => { setPath('build'); setIntroOpen(false) }, [])
+  const [demoOpen, setDemoOpen] = useState(false)
+  const introDemo = getDemo(INTRO_DEMO_ID)
+  const watchIntroDemo = useCallback(() => { closeIntro(); setDemoOpen(true) }, [closeIntro])
+  const closeDemo = useCallback(() => setDemoOpen(false), [])
   // Progression/instrument bottom sheet -- collapsed by default so the
   // chord builder gets the vast majority of a mobile viewport. Lives here
   // (not inside ProgressionStrip) only because App.css's bottom-padding
@@ -1090,15 +1097,24 @@ export default function App() {
             <li><span>2</span><div><strong>Identify</strong><p>Know the notes but not the name? Tap them and get the shapes that fit.</p></div></li>
             <li><span>3</span><div><strong>Templates</strong><p>Start from a progression that already works, in any key.</p></div></li>
           </ol>
-          <button
-            type="button"
-            className="app__intro-start"
-            onClick={closeIntro}
-          >
-            Start building
-          </button>
+          <div className="app__intro-actions">
+            <button
+              type="button"
+              className="app__intro-start"
+              onClick={closeIntro}
+            >
+              Start building
+            </button>
+            {introDemo && (
+              <button type="button" className="app__intro-watch" onClick={watchIntroDemo}>
+                ▶ Watch how it works · {introDemo.lengthLabel}
+              </button>
+            )}
+          </div>
         </div>
       </OverlayPage>
+
+      <DemoVideo demoId={INTRO_DEMO_ID} isOpen={demoOpen} onClose={closeDemo} />
 
       {/* Feedback panel — state persists while closed */}
       <FeedbackPanel

@@ -5,13 +5,15 @@
 // Needs a build: npm run build && node scripts/capture-demo-screenshots.mjs
 // Options: THEME=dark for dark mode, PRO=1 to show the Pro tier.
 // Frames land in demo-screenshots/<theme>[-pro]/<device>/NN-step.png.
-import { spawn } from 'node:child_process'
 import { mkdirSync, rmSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
+import {
+  DEMO_CHAIN, startPreview, seedStorage, visible, settle, inChordPanel,
+  suggestionTab, assertOffered, pickedSuggestionAdd,
+} from './lib/demoFlow.mjs'
 
 const PORT = 4181
-const BASE = `http://localhost:${PORT}`
+let BASE
 const THEME = process.env.THEME || 'light' // 'light' or 'dark'
 const PRO = process.env.PRO === '1' // show the Pro tier instead of free
 const OUT = `demo-screenshots/${THEME}${PRO ? '-pro' : ''}`
@@ -25,42 +27,19 @@ const DEVICES = [
   { name: 'desktop', viewport: { width: 1440, height: 900 }, scale: 2, isMobile: false, hasTouch: false },
 ]
 
-const visible = (page, role, name) => page.getByRole(role, { name }).locator('visible=true').first()
-
-async function settle(page, ms = 500) {
-  await page.evaluate(() => document.fonts.ready)
-  await page.waitForTimeout(ms)
-}
-
-// The chord panel (add, explore next) sits behind the "Explore" tab on a phone.
-async function inChordPanel(page, name) {
-  const btn = visible(page, 'button', name)
-  if (!(await btn.isVisible().catch(() => false))) {
-    await visible(page, 'button', /^Explore$/).click()
-    await settle(page, 300)
-  }
-  return btn
-}
-
 async function openSuggestions(page) {
   await (await inChordPanel(page, /Explore next chords/)).click()
   await settle(page)
 }
 
 async function pickSuggestion(page, chord) {
-  const tabs = page.locator('.overlay-page--docked .next-chords__tab')
-  const tab = tabs.filter({ hasText: new RegExp(`^\\s*${chord}(?![a-z0-9♯♭#/])`) }).first()
-  if (!(await tab.count())) {
-    const offered = (await tabs.allInnerTexts()).map(t => t.split('\n')[0]).join(', ')
-    throw new Error(`${chord} is not offered here (offered: ${offered})`)
-  }
-  await tab.click()
+  await assertOffered(page, chord)
+  await suggestionTab(page, chord).click()
   await settle(page, 300)
 }
 
 async function addPickedSuggestion(page) {
-  // The suggestion's own add button is the last visible one while the overlay is open.
-  await page.getByRole('button', { name: /Add to progression/ }).locator('visible=true').last().click()
+  await pickedSuggestionAdd(page).click()
   await settle(page)
 }
 
@@ -77,11 +56,7 @@ async function capture(device) {
     reducedMotion: 'reduce',
   })
   // Skip the first-run walkthrough so frames show the tool, not the tour.
-  await ctx.addInitScript(({ theme, pro }) => {
-    localStorage.setItem('cm_seen_intro_v3', '1')
-    localStorage.setItem('chordMovesThemePreference', theme)
-    if (pro) localStorage.setItem('cm_tier', 'pro')
-  }, { theme: THEME, pro: PRO })
+  await ctx.addInitScript(seedStorage, { theme: THEME, pro: PRO })
   const page = await ctx.newPage()
   let n = 0
   const shot = async (step, opts = {}) => {
@@ -110,11 +85,9 @@ async function capture(device) {
   await settle(page)
   await shot('first-chord-added')
 
-  // C → Am7 → Dm7 → G7: each chord is one the chord before it offers, and four
-  // chords is the free tier's progression limit., each chosen from the suggestions.
   await openSuggestions(page)
   await shot('next-chord-options')
-  for (const chord of ['Am7', 'Dm7', 'G7']) {
+  for (const chord of DEMO_CHAIN) {
     await pickSuggestion(page, chord)
     await shot(`why-${chord}`)
     await addPickedSuggestion(page)
@@ -143,15 +116,9 @@ async function capture(device) {
   await browser.close()
 }
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
-  cwd: fileURLToPath(new URL('..', import.meta.url)),
-  stdio: 'ignore',
-})
+const preview = await startPreview(PORT)
+BASE = preview.base
 try {
-  for (let i = 0; i < 50; i++) {
-    if (await fetch(BASE).then(r => r.ok, () => false)) break
-    await new Promise(r => setTimeout(r, 200))
-  }
   rmSync(OUT, { recursive: true, force: true })
   console.log(`${THEME} theme, ${PRO ? 'Pro' : 'free'} tier`)
   for (const device of DEVICES) {
@@ -159,5 +126,5 @@ try {
     await capture(device)
   }
 } finally {
-  server.kill()
+  preview.stop()
 }

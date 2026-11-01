@@ -1139,6 +1139,28 @@
   background: var(--teal-dark);
 }
 
+.app__intro-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.app__intro-watch {
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--teal);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.app__intro-watch:hover {
+  border-color: var(--teal);
+}
+
 .overlay-page .next-chords,
 .overlay-page .progression-templates,
 .overlay-page .reverse-voicing-finder {

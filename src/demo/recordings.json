@@ -1,0 +1,49 @@
+{
+  "build-a-progression": {
+    "recordedAt": "2026-11-01",
+    "variants": {
+      "portrait": {
+        "sources": [
+          {
+            "src": "/demo/build-a-progression-portrait.webm",
+            "type": "video/webm"
+          },
+          {
+            "src": "/demo/build-a-progression-portrait.mp4",
+            "type": "video/mp4"
+          }
+        ],
+        "poster": "/demo/build-a-progression-portrait.jpg",
+        "width": 780,
+        "height": 1688,
+        "duration": 27.3,
+        "beats": {
+          "pick": 0,
+          "explore": 6.6,
+          "build": 19.9
+        }
+      },
+      "landscape": {
+        "sources": [
+          {
+            "src": "/demo/build-a-progression-landscape.webm",
+            "type": "video/webm"
+          },
+          {
+            "src": "/demo/build-a-progression-landscape.mp4",
+            "type": "video/mp4"
+          }
+        ],
+        "poster": "/demo/build-a-progression-landscape.jpg",
+        "width": 1920,
+        "height": 1080,
+        "duration": 26.8,
+        "beats": {
+          "pick": 0,
+          "explore": 5.9,
+          "build": 19.4
+        }
+      }
+    }
+  }
+}
