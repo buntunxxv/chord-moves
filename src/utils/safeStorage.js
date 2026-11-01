@@ -22,20 +22,36 @@ function backing() {
 
 const store = typeof window === 'undefined' ? null : backing()
 
+// The live demo runs the real app on a throwaway store, so playing it never
+// reads or overwrites the viewer's own progressions and settings. Once a
+// sandbox starts, every call below goes to it until the page is left.
+let sandbox = null
+
+export function startSandbox(seed = {}) {
+  sandbox = new Map(Object.entries(seed).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))
+}
+
+export function inSandbox() {
+  return sandbox !== null
+}
+
 export const safeStorage = {
   getItem(key) {
+    if (sandbox) return sandbox.has(key) ? sandbox.get(key) : null
     if (store) {
       try { return store.getItem(key) } catch { /* fall through */ }
     }
     return memory.has(key) ? memory.get(key) : null
   },
   setItem(key, value) {
+    if (sandbox) { sandbox.set(key, String(value)); return }
     if (store) {
       try { store.setItem(key, String(value)); return } catch { /* quota or revoked */ }
     }
     memory.set(key, String(value))
   },
   removeItem(key) {
+    if (sandbox) { sandbox.delete(key); return }
     if (store) {
       try { store.removeItem(key) } catch { /* ignore */ }
     }

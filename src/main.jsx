@@ -4,14 +4,20 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import { migrateStorageKeys } from './utils/migrateStorageKeys.js'
 import { lockZoom } from './utils/lockZoom.js'
-import { safeStorage } from './utils/safeStorage.js'
+import { safeStorage, startSandbox } from './utils/safeStorage.js'
 import { runDomainHandover } from './utils/domainHandover.js'
 import { CURRENT_SITE, TOOLS_ORIGIN } from './app/sites.js'
+import { DEMO_FRAME_PARAM, demoSeed } from './demo/demoFrameSeed.js'
 
-migrateStorageKeys(safeStorage)
+// Inside the live demo's frame (/demo embeds /?demo-frame), the app runs on a
+// throwaway store seeded with the viewer's theme, and nothing else here runs.
+const demoFrame = new URLSearchParams(window.location.search).has(DEMO_FRAME_PARAM)
+if (demoFrame) startSandbox(demoSeed(safeStorage))
+
+if (!demoFrame) migrateStorageKeys(safeStorage)
 // Old host: hand saved state to www.chordmoves.co.uk and stop. New host:
 // take in any handed-over state before anything below reads storage.
-const leaving = runDomainHandover(window, safeStorage)
+const leaving = !demoFrame && runDomainHandover(window, safeStorage)
 lockZoom()
 
 // index.html is shared, so its canonical/og:url name Chord Moves. On the
@@ -28,8 +34,19 @@ const ToolHome = lazy(() => import('./app/ToolHome'))
 const Metronome = lazy(() => import('./tools/metronome/Metronome'))
 const EarTrainer = lazy(() => import('./tools/ear-trainer/EarTrainer'))
 const ChordScaleExplorer = lazy(() => import('./tools/chord-scales/ChordScaleExplorer'))
+const DemoPage = lazy(() => import('./demo/DemoPage'))
+const DemoFrame = lazy(() => import('./demo/DemoFrame'))
 
-if (!leaving) ReactDOM.createRoot(document.getElementById('root')).render(
+if (demoFrame) ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <Suspense fallback={null}>
+        <DemoFrame />
+      </Suspense>
+    </BrowserRouter>
+  </React.StrictMode>
+)
+else if (!leaving) ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <Suspense fallback={<div className="route-loading" role="status">Loading…</div>}>
@@ -41,6 +58,7 @@ if (!leaving) ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/ear-trainer" element={<EarTrainer />} />
           <Route path="/chord-scales" element={<ChordScaleExplorer />} />
           <Route path="/upgrade" element={<UpgradePage />} />
+          <Route path="/demo" element={<DemoPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
