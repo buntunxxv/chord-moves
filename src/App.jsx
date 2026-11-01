@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Chord, Note, Interval } from 'tonal'
 import { toUnicodeAccidentals } from './utils/formatNotes'
 import { formatChordName } from './utils/formatChordName'
@@ -24,8 +24,6 @@ import WalkthroughOverlay from './components/WalkthroughOverlay'
 import ThemeToggle from './components/ThemeToggle'
 import LearnPath from './components/LearnPath'
 import OverlayPage from './components/OverlayPage'
-import DemoVideo from './components/DemoVideo'
-import { getDemo } from './demo/demoVideos'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
 import SiteLink from './app/SiteLink'
 import { useDismissOnOutsidePress } from './hooks/useDismiss'
@@ -34,7 +32,6 @@ import './App.css'
 
 const PROGRESSION_LIMIT = 4
 const PROGRESSION_STORAGE_KEY = 'chordMovesProgression'
-const INTRO_DEMO_ID = 'build-a-progression'
 const PROGRESSION_TEASER = 'Longer progressions are coming in Chord Moves Pro.'
 // How long the one-step "Undo" after a template load stays available before
 // it silently expires -- it also clears sooner, immediately, on any other
@@ -105,7 +102,10 @@ function getDisplayName(root, quality, extension) {
   return c.symbol || symbol
 }
 
-export default function App() {
+// `demo`: running inside the live demo's frame (src/demo/DemoFrame.jsx), on
+// sandboxed storage, with the welcome screen skipped.
+export default function App({ demo = false }) {
+  const location = useLocation()
   const [selection, setSelection] = useState({ root: 'C', quality: 'major', extension: 'none', bassNote: 'none' })
   const [bpm, setBpm] = useState(90)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -116,13 +116,10 @@ export default function App() {
   const hamburgerRef = useRef(null)
   useDismissOnOutsidePress(menuOpen, () => setMenuOpen(false), [menuRef, hamburgerRef])
   const [walkthroughFlow, setWalkthroughFlow] = useState(null)
-  const [introOpen, setIntroOpen] = useState(true)
+  // Skipped inside the demo, and when leaving it via "Try it yourself".
+  const [introOpen, setIntroOpen] = useState(() => !demo && !location.state?.fromDemo)
   // Start building, tap-away and Escape all close the welcome screen the same way.
   const closeIntro = useCallback(() => { setPath('build'); setIntroOpen(false) }, [])
-  const [demoOpen, setDemoOpen] = useState(false)
-  const introDemo = getDemo(INTRO_DEMO_ID)
-  const watchIntroDemo = useCallback(() => { closeIntro(); setDemoOpen(true) }, [closeIntro])
-  const closeDemo = useCallback(() => setDemoOpen(false), [])
   // Progression/instrument bottom sheet -- collapsed by default so the
   // chord builder gets the vast majority of a mobile viewport. Lives here
   // (not inside ProgressionStrip) only because App.css's bottom-padding
@@ -1105,16 +1102,14 @@ export default function App() {
             >
               Start building
             </button>
-            {introDemo && (
-              <button type="button" className="app__intro-watch" onClick={watchIntroDemo}>
-                ▶ Watch how it works · {introDemo.lengthLabel}
-              </button>
+            {!demo && (
+              <Link to="/demo" className="app__intro-watch">
+                ▶ Watch it in action · 30s
+              </Link>
             )}
           </div>
         </div>
       </OverlayPage>
-
-      <DemoVideo demoId={INTRO_DEMO_ID} isOpen={demoOpen} onClose={closeDemo} />
 
       {/* Feedback panel — state persists while closed */}
       <FeedbackPanel

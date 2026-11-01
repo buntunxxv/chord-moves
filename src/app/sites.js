@@ -1,6 +1,6 @@
 // One codebase, two public sites (decided 31 Oct 2026):
 //
-//   www.chordmoves.co.uk        Chord Moves, the flagship: "/" and "/upgrade"
+//   www.chordmoves.co.uk        Chord Moves, the flagship: "/", "/upgrade", "/demo"
 //   tools.kyndalearning.co.uk   the Kynda tools library: "/" is the directory,
 //                               plus the metronome, ear trainer and chord-scales
 //
@@ -19,7 +19,7 @@ const CHORD_MOVES_HOSTS = ['www.chordmoves.co.uk', 'chordmoves.co.uk', 'www.chor
 const TOOLS_HOSTS = ['tools.kyndalearning.co.uk']
 
 // Logical paths owned by Chord Moves; every other app path is a library tool.
-export const CHORD_MOVES_PATHS = ['/', '/upgrade']
+export const CHORD_MOVES_PATHS = ['/', '/upgrade', '/demo']
 // The library's directory. Its logical path is /tools; on its own host it is
 // served at the root.
 export const LIBRARY_PATH = '/tools'

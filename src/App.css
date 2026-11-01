@@ -1147,6 +1147,9 @@
 .app__intro-watch {
   min-height: 44px;
   padding: 8px 18px;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: transparent;

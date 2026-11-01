@@ -22,6 +22,9 @@ jobs:
       # Forced-dark and blocked-storage rendering on every route; see the
       # header of scripts/verify-theme-rendering.mjs for what it proves.
       - run: npm run test:themes
+      # Plays the live demo (/demo) end to end at phone, tablet and desktop
+      # sizes; a UI change that breaks a demo step fails here, naming it.
+      - run: npm run test:demo
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

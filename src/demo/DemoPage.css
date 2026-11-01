@@ -1,0 +1,359 @@
+.demo-page {
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+/* ---- Chapter bar ---- */
+
+.demo-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px clamp(16px, 3vw, 32px) 14px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+}
+
+.demo-bar__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.demo-bar__eyebrow {
+  margin: 0;
+  white-space: nowrap;
+  color: var(--teal);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.demo-bar__tools {
+  display: flex;
+  gap: 8px;
+}
+
+.demo-bar__tool {
+  min-height: 36px;
+  white-space: nowrap;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.demo-bar__tool--exit {
+  color: var(--teal);
+}
+
+.demo-bar__caption {
+  margin: 0;
+  min-height: 1.25em;
+  font-size: clamp(17px, 2.4vw, 24px);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.demo-bar__controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.demo-bar__transport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.demo-bar__transport svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.demo-bar__transport .demo-bar__fill {
+  fill: currentColor;
+  stroke-width: 1.5;
+}
+
+.demo-bar__step,
+.demo-bar__play {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font: inherit;
+  cursor: pointer;
+}
+
+.demo-bar__step {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.demo-bar__step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.demo-bar__play {
+  border: 0;
+  background: var(--teal);
+  color: var(--on-accent);
+}
+
+.demo-bar__play:hover {
+  background: var(--teal-dark);
+}
+
+.demo-bar__chapters {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+  list-style: none;
+}
+
+.demo-bar__chapter {
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.demo-bar__chapter-num {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--teal-tint);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.demo-bar__chapter-title {
+  min-width: 0;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.demo-bar__chapter--done {
+  color: var(--text);
+}
+
+.demo-bar__chapter[aria-current='step'] {
+  border-color: var(--teal);
+  background: var(--teal-tint);
+  color: var(--text);
+}
+
+.demo-bar__chapter[aria-current='step'] .demo-bar__chapter-num,
+.demo-bar__chapter--done .demo-bar__chapter-num {
+  background: var(--teal);
+  color: var(--on-accent);
+}
+
+/* Phones: chapters become numbered pills, the current one highlighted. */
+@media (max-width: 760px) {
+  .demo-bar {
+    gap: 8px;
+    padding: 10px 16px 12px;
+  }
+
+  .demo-bar__controls {
+    gap: 8px;
+  }
+
+  .demo-bar__transport {
+    gap: 4px;
+  }
+
+  .demo-bar__step {
+    width: 40px;
+    height: 40px;
+  }
+
+  .demo-bar__chapters {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .demo-bar__chapter {
+    width: 34px;
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .demo-bar__chapter-title,
+  .demo-bar__eyebrow-brand {
+    display: none;
+  }
+}
+
+/* ---- Stage: the live app ---- */
+
+.demo-stage {
+  position: relative;
+  min-height: 0;
+}
+
+.demo-stage__app {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bg);
+}
+
+.demo-stage__shield {
+  position: absolute;
+  inset: 0;
+}
+
+.demo-stage__card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(360px, calc(100% - 32px));
+  transform: translate(-50%, -50%);
+  padding: 22px;
+  display: grid;
+  gap: 10px;
+  justify-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--white);
+  box-shadow: var(--panel-shadow);
+  text-align: center;
+}
+
+.demo-stage__card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.demo-stage__primary,
+.demo-stage__secondary {
+  min-height: 48px;
+  padding: 10px 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.demo-stage__primary {
+  border: 0;
+  background: var(--teal);
+  color: var(--on-accent);
+}
+
+.demo-stage__primary:hover {
+  background: var(--teal-dark);
+}
+
+.demo-stage__secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--teal);
+}
+
+.demo-stage__badge {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(8, 27, 32, 0.84);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Where each scripted tap lands, drawn over the frame. */
+.demo-taps {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.demo-tap {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border: 3px solid var(--teal);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--teal) 28%, transparent);
+  animation: demo-tap 0.6s ease-out forwards;
+}
+
+@keyframes demo-tap {
+  from { transform: scale(0.4); opacity: 1; }
+  to { transform: scale(1.25); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-tap {
+    animation: none;
+    opacity: 0.8;
+  }
+}
