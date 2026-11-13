@@ -1048,6 +1048,20 @@
   align-self: center;
 }
 
+/* Side by side (tablet and up), centring both panels in the full-height slide
+   left a band of empty card above them. Pin them to the top instead; the
+   phone's single panel keeps its centring. */
+@media (min-width: 761px) {
+  .app__builder-workspace {
+    align-items: start;
+  }
+
+  .app__builder-controls,
+  .app__builder-result {
+    align-self: start;
+  }
+}
+
 .app__workspace-hint {
   margin: 0;
   color: var(--text-faint);
@@ -1123,6 +1137,31 @@
 
 .app__intro-start:hover {
   background: var(--teal-dark);
+}
+
+.app__intro-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.app__intro-watch {
+  min-height: 44px;
+  padding: 8px 18px;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--teal);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.app__intro-watch:hover {
+  border-color: var(--teal);
 }
 
 .overlay-page .next-chords,

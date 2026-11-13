@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Chord, Note, Interval } from 'tonal'
 import { toUnicodeAccidentals } from './utils/formatNotes'
 import { formatChordName } from './utils/formatChordName'
@@ -102,7 +102,10 @@ function getDisplayName(root, quality, extension) {
   return c.symbol || symbol
 }
 
-export default function App() {
+// `demo`: running inside the live demo's frame (src/demo/DemoFrame.jsx), on
+// sandboxed storage, with the welcome screen skipped.
+export default function App({ demo = false }) {
+  const location = useLocation()
   const [selection, setSelection] = useState({ root: 'C', quality: 'major', extension: 'none', bassNote: 'none' })
   const [bpm, setBpm] = useState(90)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -113,7 +116,8 @@ export default function App() {
   const hamburgerRef = useRef(null)
   useDismissOnOutsidePress(menuOpen, () => setMenuOpen(false), [menuRef, hamburgerRef])
   const [walkthroughFlow, setWalkthroughFlow] = useState(null)
-  const [introOpen, setIntroOpen] = useState(true)
+  // Skipped inside the demo, and when leaving it via "Try it yourself".
+  const [introOpen, setIntroOpen] = useState(() => !demo && !location.state?.fromDemo)
   // Start building, tap-away and Escape all close the welcome screen the same way.
   const closeIntro = useCallback(() => { setPath('build'); setIntroOpen(false) }, [])
   // Progression/instrument bottom sheet -- collapsed by default so the
@@ -1090,13 +1094,20 @@ export default function App() {
             <li><span>2</span><div><strong>Identify</strong><p>Know the notes but not the name? Tap them and get the shapes that fit.</p></div></li>
             <li><span>3</span><div><strong>Templates</strong><p>Start from a progression that already works, in any key.</p></div></li>
           </ol>
-          <button
-            type="button"
-            className="app__intro-start"
-            onClick={closeIntro}
-          >
-            Start building
-          </button>
+          <div className="app__intro-actions">
+            <button
+              type="button"
+              className="app__intro-start"
+              onClick={closeIntro}
+            >
+              Start building
+            </button>
+            {!demo && (
+              <Link to="/demo" className="app__intro-watch">
+                ▶ Watch it in action · 30s
+              </Link>
+            )}
+          </div>
         </div>
       </OverlayPage>
 
