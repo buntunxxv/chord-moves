@@ -177,41 +177,46 @@ export default function DemoPage() {
       </header>
 
       <div className="demo-stage">
-        <iframe
-          ref={iframeRef}
-          className="demo-stage__app"
-          src={DEMO_FRAME_SRC}
-          title="Chord Moves, playing the demo"
-          allow="autoplay"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-        {/* Taps on the app pause and resume it; the app itself only follows
-            the script, so it can't drift out of step. */}
-        <div className="demo-stage__shield" onClick={status === 'playing' || status === 'paused' ? togglePlay : undefined} aria-hidden="true" />
+        {/* A plain frame around the live app, so it reads as a demo and not
+            the app itself. */}
+        <div className="demo-frame">
+          <p className="demo-frame__label" aria-hidden="true">Demo</p>
+          <iframe
+            ref={iframeRef}
+            className="demo-stage__app"
+            src={DEMO_FRAME_SRC}
+            title="Chord Moves, playing the demo"
+            allow="autoplay"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          {/* Taps on the app pause and resume it; the app itself only follows
+              the script, so it can't drift out of step. */}
+          <div className="demo-stage__shield" onClick={status === 'playing' || status === 'paused' ? togglePlay : undefined} aria-hidden="true" />
 
-        {status === 'idle' && (
-          <div className="demo-stage__card">
-            <button type="button" className="demo-stage__primary" onClick={() => playFrom(0)}>Play the demo</button>
-            <p>About 30 seconds · {DEMO_CHAPTERS.length} chapters · jump to any chapter above</p>
-          </div>
-        )}
-        {status === 'paused' && <p className="demo-stage__badge">Paused · tap to resume</p>}
-        {status === 'ended' && (
-          <div className="demo-stage__card">
-            <Link to="/" state={EXIT_STATE} className="demo-stage__primary">Try it yourself</Link>
-            <button type="button" className="demo-stage__secondary" onClick={() => playFrom(0)}>Watch again</button>
-          </div>
-        )}
-        {status === 'error' && (
-          <div className="demo-stage__card">
-            <p>This chapter didn’t play as expected.</p>
-            {state.chapter < DEMO_CHAPTERS.length - 1 && (
-              <button type="button" className="demo-stage__secondary" onClick={() => playFrom(state.chapter + 1)}>Skip to the next chapter</button>
-            )}
-            <Link to="/" state={EXIT_STATE} className="demo-stage__primary">Open the app</Link>
-          </div>
-        )}
+          {status === 'idle' && (
+            <div className="demo-stage__card">
+              <button type="button" className="demo-stage__primary" onClick={() => playFrom(0)}>Play the demo</button>
+              <p>About 30 seconds · {DEMO_CHAPTERS.length} chapters · jump to any chapter above</p>
+            </div>
+          )}
+          {status === 'paused' && <p className="demo-stage__badge">Paused · tap to resume</p>}
+          {status === 'ended' && (
+            <div className="demo-stage__card">
+              <Link to="/" state={EXIT_STATE} className="demo-stage__primary">Try it yourself</Link>
+              <button type="button" className="demo-stage__secondary" onClick={() => playFrom(0)}>Watch again</button>
+            </div>
+          )}
+          {status === 'error' && (
+            <div className="demo-stage__card">
+              <p>This chapter didn’t play as expected.</p>
+              {state.chapter < DEMO_CHAPTERS.length - 1 && (
+                <button type="button" className="demo-stage__secondary" onClick={() => playFrom(state.chapter + 1)}>Skip to the next chapter</button>
+              )}
+              <Link to="/" state={EXIT_STATE} className="demo-stage__primary">Open the app</Link>
+            </div>
+          )}
+        </div>
       </div>
 
       <div ref={tapLayerRef} className="demo-taps" aria-hidden="true" />
