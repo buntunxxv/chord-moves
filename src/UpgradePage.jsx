@@ -206,14 +206,14 @@ export default function UpgradePage() {
 
         <div className="upgrade-page__unlock">
           <h2 className="upgrade-page__unlock-title">
-            {isPro ? 'Pro is unlocked on this device' : 'Already backed the project?'}
+            {isPro ? 'Pro is unlocked on this device' : 'Already have Pro?'}
           </h2>
           <p className="upgrade-page__unlock-hint">
             {isPro
               ? 'Unlocking is stored per device and per browser, so logging out here only affects this one.'
               : unlockStep === 'code'
               ? `We sent a code to ${unlockEmail.trim()}. Enter it below to unlock Pro.`
-              : 'Enter the email you used at checkout to unlock Pro features.'}
+              : 'Bought Pro, or a Kynda Learning student? Enter the email you paid with, or the one on your lessons.'}
           </p>
           {unlockStep === 'success' ? (
             <div className="upgrade-page__unlock-success" role="status">
@@ -228,7 +228,7 @@ export default function UpgradePage() {
                   flag. Saying so up front stops it reading like "delete my
                   account", which it is not -- there is no account. */}
               <p className="upgrade-page__logout-note">
-                You can unlock again any time with the email you paid with. Your saved
+                You can unlock again any time with the same email. Your saved
                 progressions stay on this device either way.
               </p>
             </>
