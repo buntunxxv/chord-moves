@@ -55,6 +55,18 @@ async function renderAll(forceDark, pref) {
   })
   const ctx = await browser.newContext({ colorScheme: 'dark', viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   if (pref) await ctx.addInitScript(p => localStorage.setItem('chordMovesThemePreference', p), pref)
+  // The comparison needs both renders to draw the same page, and Rhythm Dice
+  // rolls random dice on load. Seed Math.random identically in every render
+  // so the only thing that can differ is what the browser's darkening does.
+  await ctx.addInitScript(() => {
+    let seed = 0x2f6b9a1d
+    Math.random = () => {
+      seed = (seed + 0x6d2b79f5) | 0
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+  })
   const page = await ctx.newPage()
   const shots = {}
   for (const route of ROUTES) {
