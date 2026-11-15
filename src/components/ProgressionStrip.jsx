@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import * as Tone from 'tone'
 import { createKeysSynth, startAudioContext } from '../audio/synth'
 import { computePlaybackProgression } from '../utils/voiceLeading'
-import { buildProgressionMidiBytes, downloadMidiFile } from '../utils/midiExport'
+import { buildProgressionMidiBytes, downloadMidiFile, sanitizeFilename } from '../utils/midiExport'
 import InstrumentDock from './InstrumentDock'
 import PianoDisplay from './PianoDisplay'
 import { useDismissOnOutsidePress } from '../hooks/useDismiss'
@@ -33,6 +33,13 @@ function formatProgressionText(progression) {
 
 function snapBpm(val) {
   return Math.abs(val - BPM_MID) <= SNAP_THRESHOLD ? BPM_MID : val
+}
+
+// Export filename for the progression: the saved project's name when there
+// is one, otherwise the generic default.
+function exportFilename(projectName) {
+  const base = projectName ? sanitizeFilename(projectName.trim()) : ''
+  return `${base || 'chord-progression'}.mid`
 }
 
 export default function ProgressionStrip({ expanded, onExpandedChange, currentChordName, onPlayChord, isChordPlaying, canPlayChord, progression, selectedChordIndex, bpm, onBpmChange, onClear, onRemoveSelected, onSelectChord, onReorder, onLoadSaved, teaserMessage, onPlayingChordChange, chordNotes, previewNotes, bassHighlightNote, keysRootNote, keysPositionIndex, onKeysPositionChange, guitarPositionIndex, onGuitarPositionChange, root, guitarShape, guitarSlashNotice, guitarInversionUnavailable, guitarPositions, templateInfo, canUndoLoad, onUndoLoad, isPro }) {
@@ -113,6 +120,14 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
     setPage(current => Math.min(current, lastPage))
   }, [progression.length])
 
+  useEffect(() => {
+    if (progression.length === 0) setActiveProject(null)
+  }, [progression.length])
+
+  useEffect(() => {
+    if (templateInfo) setActiveProject(null)
+  }, [templateInfo])
+
   const [savedProgressions, setSavedProgressions] = useState(() => {
     try {
       const stored = safeStorage.getItem(SAVED_STORAGE_KEY)
@@ -121,6 +136,12 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
       return []
     }
   })
+  // The saved project the progression on screen came from (just saved, or
+  // loaded from the saved list), as { name, savedAt }. Its name becomes the
+  // export filename; savedAt identifies it so a rename or delete in the
+  // saved list stays in step. Cleared when the strip empties or a template
+  // replaces the progression, so an unrelated progression never inherits it.
+  const [activeProject, setActiveProject] = useState(null)
   const [showSaveInput, setShowSaveInput] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [justSaved, setJustSaved] = useState(false)
@@ -176,7 +197,9 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
   function handleConfirmSave() {
     const name = saveName.trim()
     if (!name) return
-    setSavedProgressions(prev => [...prev, { name, chords: progression, savedAt: Date.now() }])
+    const savedAt = Date.now()
+    setSavedProgressions(prev => [...prev, { name, chords: progression, savedAt }])
+    setActiveProject({ name, savedAt })
     setShowSaveInput(false)
     setSaveName('')
     setJustSaved(true)
@@ -210,7 +233,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
       try {
         const voicedProgression = computePlaybackProgression(progression, isPro)
         const bytes = buildProgressionMidiBytes(voicedProgression, bpm)
-        downloadMidiFile(bytes, 'chord-progression.mid')
+        downloadMidiFile(bytes, exportFilename(activeProject?.name))
         setExportStatus('success')
       } catch (err) {
         setExportStatus('error')
@@ -220,8 +243,9 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
     }, 0)
   }
 
-  function handleLoadSaved(chords) {
-    onLoadSaved?.(chords)
+  function handleLoadSaved(saved) {
+    onLoadSaved?.(saved.chords)
+    setActiveProject({ name: saved.name, savedAt: saved.savedAt })
     setShowSavedPanel(false)
   }
 
@@ -257,7 +281,9 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
       cancelSavedRename()
       return
     }
+    const target = savedProgressions[index]
     setSavedProgressions(prev => prev.map((saved, i) => (i === index ? { ...saved, name } : saved)))
+    if (target && activeProject?.savedAt === target.savedAt) setActiveProject({ ...activeProject, name })
     cancelSavedRename()
     flashSavedListStatus('Progression renamed')
   }
@@ -272,6 +298,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
     if (!target) return
     if (!window.confirm(`Delete saved progression "${target.name}"?`)) return
     setSavedProgressions(prev => prev.filter((_, i) => i !== index))
+    if (activeProject?.savedAt === target.savedAt) setActiveProject(null)
     // Deleting shifts every later index down by one -- if an unrelated item
     // was mid-rename, keep that edit pointed at the right row rather than
     // silently dropping or misattributing it; only clear it outright if the
@@ -762,7 +789,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
                               <>
                                 <button
                                   className="progression-strip__saved-load-btn"
-                                  onClick={() => handleLoadSaved(saved.chords)}
+                                  onClick={() => handleLoadSaved(saved)}
                                 >
                                   Load
                                 </button>
