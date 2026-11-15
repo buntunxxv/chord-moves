@@ -27,4 +27,10 @@ export const TOOLS = [
     path: '/chord-scales',
     icon: '◎',
   },
+  {
+    name: 'Rhythm Dice',
+    description: 'Roll a bar of rhythm, clap it back, and keep the ones you choose.',
+    path: '/rhythm-dice',
+    icon: '⚄',
+  },
 ]
