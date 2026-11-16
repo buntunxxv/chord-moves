@@ -1,17 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatOffsetMs } from './scoring'
+import { countName } from './counting'
 
-const SYLLABLES = { 0: null, 3: 'e', 6: '&', 9: 'a' }
-
-// Counting name for an onset: "1", "2&", "3e"... -- the words students say.
-export function countName(tick, beatTicks) {
-  const beat = Math.floor(tick / beatTicks) + 1
-  const within = tick % beatTicks
-  const syl = SYLLABLES[within]
-  if (syl === null) return String(beat)
-  if (syl) return `${beat}${syl}`
-  return `${beat} + ${within}/${beatTicks}`
-}
+export { countName }
 
 const VIEW_W = 1000
 const PAD_LEFT = 70

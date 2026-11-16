@@ -135,6 +135,15 @@ export function blockUnit(faces) {
   return faces.flatMap(f => f.events.map(e => e.ticks)).reduce(gcd)
 }
 
+// One die's cell size in the blocks view. Faces on the semiquaver grid keep
+// 3-tick cells (so a crotchet still reads as one attack and three sustains);
+// triplet faces use 4-tick cells (three per beat) and sextuplets 2-tick cells
+// (six per beat), so the blocks show how the beat is divided.
+export function faceUnit(face) {
+  if (face.events.every(e => e.ticks % 3 === 0)) return 3
+  return blockUnit([face])
+}
+
 // Blocks view: one cell per tick group, each attack / sustain / rest.
 export function faceBlocks(face, unit, { tiedIn = false, tiedOut = false } = {}) {
   const cells = []

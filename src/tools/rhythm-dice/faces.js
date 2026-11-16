@@ -126,5 +126,14 @@ export function levelById(id) {
   return LEVELS.find(l => l.id === id) ?? null
 }
 
-// The free levels (Decisions, 15 Nov). L4 and L5 are Pro and arrive in PR 3/4.
+// Free levels and Pro levels (Decisions, 15 Nov). L5 arrives in PR 4.
 export const AVAILABLE_LEVEL_IDS = ['L1', 'L2', 'L3']
+export const PRO_LEVEL_IDS = ['L4']
+
+const PRO_FACE_IDS = new Set(LEVELS.filter(l => l.tier === 'pro').flatMap(l => l.faces.map(f => f.id)))
+
+// Does this bar use a Pro face? Kept bars and phrases made while Pro was on
+// stay Pro after it ends.
+export function needsPro(faces) {
+  return faces.some(f => PRO_FACE_IDS.has(f.id))
+}
