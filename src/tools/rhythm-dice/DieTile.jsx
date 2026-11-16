@@ -20,9 +20,12 @@ export function DieFace({ face, view, beatTicks, unit, tiedIn = false, tieOut = 
   return (
     <span className={`rd-die rd-die--${size}`}>
       {view === 'notes' ? (
-        <span className="rd-die__notes" ref={ref} />
+        // Keyed per view: VexFlow draws into this element outside React, so
+        // React must never reuse it for the blocks (it would leave the notes
+        // drawn underneath them).
+        <span key="notes" className="rd-die__notes" ref={ref} />
       ) : (
-        <span className="rd-die__blocks" style={{ gridTemplateColumns: `repeat(${beatTicks / unit}, 1fr)` }}>
+        <span key="blocks" className="rd-die__blocks" style={{ gridTemplateColumns: `repeat(${beatTicks / unit}, 1fr)` }}>
           {faceBlocks(face, unit, { tiedIn, tiedOut: tieOut }).map((cell, i) => (
             <i key={i} className={`rd-block rd-block--${cell.state}${cell.tieOut ? ' rd-block--tie' : ''}`} />
           ))}

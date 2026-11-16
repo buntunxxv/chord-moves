@@ -131,6 +131,13 @@ try {
 
     await page.getByRole('radio', { name: 'Blocks' }).click()
     await verify(page, `${name}: blocks view`, `${slug}-blocks`)
+    // Switching views must replace the face, never draw blocks over notes.
+    const mixed = await page.locator('.rd-tray .rd-die svg').count()
+    check(`${name}: blocks view shows no notes`, mixed === 0, `${mixed} note drawings left under the blocks`)
+    await page.getByRole('radio', { name: 'Notes' }).click()
+    const notes = await page.locator('.rd-tray .rd-die__notes svg').count()
+    const blocks = await page.locator('.rd-tray .rd-block').count()
+    check(`${name}: back to notes`, notes === 4 && blocks === 0, `${notes} note drawings, ${blocks} blocks`)
     await ctx.close()
   }
 } finally {
