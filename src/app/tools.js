@@ -10,6 +10,12 @@ export const TOOLS = [
     icon: '⌁',
   },
   {
+    name: 'Rhythm Dice',
+    description: 'Roll a bar of rhythm, clap it back, and keep the ones you choose.',
+    path: '/rhythm-dice',
+    icon: '⚄',
+  },
+  {
     name: 'Metronome',
     description: 'Set a pulse, choose a time signature, or find a tempo by tapping.',
     path: '/metronome',
@@ -26,11 +32,5 @@ export const TOOLS = [
     description: 'Find scales for a chord—or chords that belong to a scale.',
     path: '/chord-scales',
     icon: '◎',
-  },
-  {
-    name: 'Rhythm Dice',
-    description: 'Roll a bar of rhythm, clap it back, and keep the ones you choose.',
-    path: '/rhythm-dice',
-    icon: '⚄',
   },
 ]

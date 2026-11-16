@@ -8,14 +8,15 @@
 }
 
 /* Fills whatever vertical space the lede leaves inside .tool-shell__main --
-   a fixed 2x2 grid (never a single stacked column, at any width) so the
-   directory always fits one screen instead of growing with the card count. */
+   two columns (never a single stacked column, at any width) with every row
+   sharing the height equally, however many tools there are, so the directory
+   always fits one screen instead of growing with the card count. */
 .tool-home__grid {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
   gap: clamp(8px, 2vw, 18px);
 }
 
@@ -87,4 +88,12 @@
 
 .tool-home__label--muted {
   color: var(--text-faint);
+}
+
+/* Landscape screens are short: three columns keep every row tall enough for
+   its card, with Chord Moves and Rhythm Dice still side by side at the top. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .tool-home__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
