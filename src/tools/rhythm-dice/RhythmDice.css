@@ -1,0 +1,619 @@
+/* Rhythm Dice -- "the practice table".
+   Dice are white with black ink in both themes, like the physical set.
+   Teal is sound: attacks, the beat lights, the grid you are measured against.
+   Gold is ownership: a locked die, a kept bar. It never means "good".
+   Ink (black in light, white in dark) carries the one main action, Perform.
+   The reflection sentence is set in the italic serif, like a teacher's note,
+   and always comes before any number. */
+
+.rhythm-dice {
+  --die-surface: #FFFFFF;
+  --die-ink: #1A1A1A;
+  --die-edge: #E1E1E1;
+  --rd-ink: var(--black);
+  --rd-on-ink: var(--white);
+  --rd-rest: #E1E1E1;
+  --rd-rest-line: #B9C2C2;
+  --rd-gold-ink: #1A1A1A;
+  /* One screen, no scrolling: header, tray, controls and stage share the
+     shell's fixed height. The tray and the stage take what is left. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1.2fr);
+  gap: clamp(8px, 1.5vh, 16px);
+}
+
+[data-theme="dark"] .rhythm-dice {
+  --rd-rest: #2A3036;
+  --rd-rest-line: #4A525A;
+}
+
+.rd-visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- header row ---------- */
+
+.rd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+
+.rd-head__copy { min-width: 0; }
+
+/* Matches Chord Moves' page header (.app__eyebrow, .app__builder-intro h1). */
+.rd-head__eyebrow {
+  margin-bottom: 6px;
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rd-head__title {
+  font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  padding-bottom: 0.1em; /* room for descenders at this tight line height */
+}
+
+.rd-head__controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+/* ---------- segmented controls ---------- */
+
+.rd-seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.rd-seg button {
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rd-seg button.is-on {
+  color: var(--text);
+  background: var(--teal-tint);
+  box-shadow: inset 0 0 0 1.5px var(--teal);
+}
+
+.rd-seg button:disabled { cursor: not-allowed; opacity: 0.55; }
+.rd-seg--small button { padding: 0 10px; font-size: 13px; }
+
+/* ---------- the tray ---------- */
+
+.rd-tray {
+  container: tray / size;
+  min-height: 0;
+  padding: clamp(8px, 1.6vh, 18px) clamp(10px, 2.4vw, 24px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(8px, 2vw, 22px);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+/* The time signature, set like the opening of a stave. */
+.rd-tray__meter {
+  display: grid;
+  color: var(--text);
+  font-family: var(--font-script);
+  font-size: clamp(24px, 14cqh, 40px);
+  font-weight: 600;
+  line-height: 0.92;
+  text-align: center;
+}
+
+.rd-tray__dice {
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: clamp(6px, 2vw, 20px);
+}
+
+.rd-slot {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rd-die-button {
+  /* As big as the column allows, but never taller than the tray: the label
+     under it needs about 30px. */
+  width: min(100%, calc(100cqh - 30px), 200px);
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 24%;
+  transition: transform 0.12s ease;
+}
+
+.rd-die-button:active { transform: scale(0.97); }
+.rd-die-button:focus-visible { outline: 3px solid var(--teal); outline-offset: 4px; }
+.rd-die-button:disabled { cursor: default; }
+
+.rd-die {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--die-surface);
+  border-radius: 22%;
+  box-shadow:
+    inset 0 0 0 1px var(--die-edge),
+    inset 0 -7px 12px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+.rd-die--large { padding: 15%; }
+.rd-die--small { width: 40px; padding: 7px; border-radius: 9px; box-shadow: inset 0 0 0 1px var(--die-edge); }
+
+.rd-die__notes { width: 100%; height: 100%; display: grid; place-items: center; color: var(--die-ink); }
+.rd-die__notes svg { width: 100%; height: 100%; }
+
+.rd-die__blocks {
+  width: 100%;
+  display: grid;
+  gap: 3px;
+  height: 26%;
+  min-height: 12px;
+}
+
+.rd-die--small .rd-die__blocks { gap: 2px; height: 55%; }
+
+.rd-block { border-radius: 3px; position: relative; }
+.rd-die--small .rd-block { border-radius: 2px; }
+.rd-block--attack { background: #119392; }
+.rd-block--sustain { background: #D4ECEC; box-shadow: inset 0 0 0 1px #119392; }
+.rd-block--rest { background: repeating-linear-gradient(135deg, #E1E1E1 0 5px, transparent 5px 9px); box-shadow: inset 0 0 0 1px #B9C2C2; }
+.rd-block--tie::after { content: ''; position: absolute; right: -4px; top: 20%; bottom: 20%; width: 6px; border-radius: 3px; background: var(--gold); }
+
+.rd-slot--locked .rd-die {
+  box-shadow:
+    inset 0 0 0 1px var(--die-edge),
+    0 0 0 3px var(--gold),
+    0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+.rd-slot--lit .rd-die {
+  box-shadow:
+    inset 0 0 0 1px var(--die-edge),
+    0 0 0 3px var(--teal),
+    0 2px 10px rgba(17, 147, 146, 0.35);
+}
+
+.rd-slot__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rd-slot--locked .rd-slot__label { color: var(--text); }
+
+.rd-slot__beat {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid currentColor;
+  border-radius: 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-slot--locked .rd-slot__beat { color: var(--rd-gold-ink); background: var(--gold); border-color: var(--gold); }
+
+.rd-die-button--rolling .rd-die { animation: rd-tumble 0.46s cubic-bezier(0.3, 0.7, 0.4, 1); }
+
+@keyframes rd-tumble {
+  0% { transform: rotate(0) scale(1); }
+  30% { transform: rotate(-14deg) scale(0.9) translateY(-6px); }
+  60% { transform: rotate(9deg) scale(1.03); }
+  100% { transform: rotate(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd-die-button--rolling .rd-die { animation: none; }
+  .rd-die-button { transition: none; }
+}
+
+/* ---------- buttons ---------- */
+
+.rd-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+}
+
+.rd-btn:focus-visible, .rd-seg button:focus-visible, .rd-step:focus-visible, .rd-link:focus-visible, .rd-pad:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.rd-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.rd-btn--roll { border-color: var(--rd-ink); }
+.rd-btn--primary, .rd-btn--stop { color: var(--rd-on-ink); background: var(--rd-ink); border-color: var(--rd-ink); min-width: 120px; }
+.rd-btn--stop { background: var(--danger); border-color: var(--danger); color: var(--white); }
+.rd-btn--quiet { border-color: var(--teal); }
+.rd-btn--keep { color: var(--rd-gold-ink); background: var(--gold); border-color: var(--gold); }
+.rd-btn--small { min-height: 44px; padding: 0 12px; font-size: 13px; }
+.rd-btn--ghost { color: var(--text-muted); border-color: transparent; background: transparent; }
+
+.rd-link {
+  min-height: 44px;
+  padding: 0 2px;
+  color: var(--teal-dark);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+[data-theme="dark"] .rd-link { color: var(--teal); }
+
+/* ---------- controls ---------- */
+
+.rd-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.rd-tempo { flex: 1 1 240px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rd-tempo input { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--teal); }
+
+.rd-step {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.rd-tempo__value {
+  min-width: 70px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-tempo__value small { font-size: 11px; color: var(--text-muted); font-weight: 700; }
+
+.rd-switch { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.rd-switch input { width: 22px; height: 22px; accent-color: var(--teal); }
+
+.rd-actions { display: flex; gap: 8px; margin-left: auto; }
+.rd-actions .rd-btn { min-width: 0; }
+
+/* ---------- the stage: play / result / keep ---------- */
+
+.rd-stage {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.rd-stage__tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+
+.rd-stage__tabs button {
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rd-stage__tabs button.is-on { color: var(--text); border-bottom-color: var(--teal); }
+.rd-stage__tabs button:disabled { opacity: 0.4; cursor: not-allowed; }
+.rd-stage__tabs button:focus-visible { outline: 3px solid var(--teal); outline-offset: -3px; }
+
+.rd-stage__panel {
+  container: stage / size;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Play */
+.rd-play {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.rd-play__bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.rd-play__bar .rd-seg { justify-self: start; }
+.rd-play__bar .rd-lights { grid-column: 2; grid-row: 1; }
+.rd-play__bar .rd-switch { grid-column: 3; justify-self: end; }
+
+.rd-lights { display: flex; justify-content: center; align-items: center; gap: 14px; min-height: 18px; }
+
+.rd-light {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.rd-light.is-down { width: 18px; height: 18px; }
+.rd-light.is-on { background: var(--teal); border-color: var(--teal); }
+.rd-light.is-count { background: var(--text-muted); border-color: var(--text-muted); }
+
+.rd-pad {
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background:
+    radial-gradient(circle at 50% 40%, var(--teal-tint), transparent 70%),
+    var(--white);
+  border: 2px dashed var(--border);
+  border-radius: 18px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.rd-play.is-live .rd-pad { border-style: solid; border-color: var(--teal); color: var(--text); }
+.rd-play.is-live .rd-pad[data-flash="1"] { background: radial-gradient(circle at 50% 40%, rgba(17, 147, 146, 0.28), transparent 70%), var(--white); }
+
+.rd-pad__label { font-size: clamp(16px, 2.4vw, 22px); font-weight: 700; }
+.rd-pad__hint { color: var(--text-muted); font-size: 13px; text-align: center; }
+
+.rd-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 5;
+  width: max-content;
+  max-width: min(560px, calc(100% - 16px));
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  color: var(--white);
+  background: var(--black);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+/* Result: reflection first, then the numbers, timeline and each hit. When
+   the stage is wide there is room for everything side by side; otherwise a
+   switch shows one detail at a time. */
+.rd-results {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
+}
+
+.rd-results__lead { display: grid; gap: 8px; align-content: start; }
+
+.rd-results__reflection {
+  font-family: var(--font-script);
+  font-style: italic;
+  font-size: clamp(18px, 9cqh, 30px);
+  line-height: 1.22;
+  text-wrap: balance;
+}
+
+.rd-results__pass { color: var(--text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.rd-results__numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.rd-results__numbers div { display: grid; gap: 1px; padding: 8px 10px; background: var(--white); border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.rd-results__numbers dt { color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.rd-results__numbers dd { font-size: clamp(15px, 2vw, 22px); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.rd-results__numbers span { color: var(--text-muted); font-size: 12px; }
+
+.rd-results__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rd-results__pager { margin-left: auto; }
+.rd-results__timeline { min-height: 0; }
+.rd-timeline { width: 100%; height: auto; max-height: 100%; display: block; }
+.rd-timeline__beat { stroke: var(--border); stroke-width: 2; }
+.rd-timeline__label, .rd-timeline__lane { fill: var(--text-muted); font-size: 13px; font-weight: 700; font-family: var(--font); }
+.rd-timeline__expected { fill: var(--teal); }
+.rd-timeline__missed { fill: none; stroke: var(--teal); stroke-width: 2.5; stroke-dasharray: 4 3; }
+.rd-timeline__link { stroke: var(--text-muted); stroke-width: 1.5; }
+.rd-timeline__tap { fill: var(--text); }
+.rd-timeline__extra { fill: none; stroke: var(--danger); stroke-width: 2; }
+
+.rd-results__hits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(106px, 1fr));
+  grid-auto-rows: 28px;
+  align-content: start;
+  gap: 6px;
+  list-style: none;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rd-results__hits li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-results__hits li.is-missed { color: var(--text-muted); border-style: dashed; }
+.rd-results__count { font-family: var(--font-script); font-style: italic; font-weight: 600; font-size: 14px; }
+
+/* Compact (default): reflection, switch, then one detail at a time. */
+.rd-results { grid-template-rows: auto auto minmax(0, 1fr); }
+.rd-results--summary .rd-results__pager,
+.rd-results--timeline .rd-results__pager { display: none; }
+.rd-results--summary .rd-results__timeline,
+.rd-results--summary .rd-results__hits,
+.rd-results--timeline .rd-results__numbers,
+.rd-results--timeline .rd-results__hits,
+.rd-results--hits .rd-results__numbers,
+.rd-results--hits .rd-results__timeline { display: none; }
+
+/* Wide stage: reflection and numbers on the left; timeline over each hit
+   on the right. Everything shows, so the switch goes. */
+@container stage (min-width: 640px) and (min-height: 170px) {
+  .rd-results {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-areas: "lead timeline" "numbers timeline" "numbers bar" "numbers hits";
+    column-gap: 22px;
+    row-gap: 10px;
+  }
+  .rd-results__lead { grid-area: lead; }
+  .rd-results__switch { display: none; }
+  .rd-results__bar { grid-area: bar; justify-content: flex-end; }
+  .rd-results__pager { display: flex !important; }
+  .rd-results__numbers { grid-area: numbers; display: grid !important; align-self: start; }
+  .rd-results__timeline { grid-area: timeline; display: block !important; }
+  .rd-results__hits { grid-area: hits; display: grid !important; }
+}
+
+@container stage (max-height: 260px) {
+  .rd-results__numbers span { display: none; }
+}
+
+/* Keep */
+.rd-keep {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.rd-keep__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.rd-keep__row input, .rd-keep__row select {
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+.rd-keep__row input { flex: 1 1 200px; min-width: 0; cursor: text; }
+.rd-keep__export label { color: var(--text-muted); font-size: 13px; font-weight: 700; }
+
+.rd-kept { display: grid; grid-auto-rows: 56px; gap: 8px; align-content: start; list-style: none; min-height: 0; overflow: hidden; }
+.rd-kept__empty { align-self: center; color: var(--text-muted); font-size: 14px; }
+
+.rd-kept__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--gold);
+  border-radius: 12px;
+}
+
+.rd-kept__dice { display: flex; gap: 3px; }
+.rd-kept__text { min-width: 0; }
+.rd-kept__reason { font-family: var(--font-script); font-style: italic; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rd-kept__meta { color: var(--text-muted); font-size: 12px; }
+.rd-kept__actions { display: flex; gap: 4px; }
+
+.rd-pager { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---------- smaller screens ---------- */
+
+@media (max-width: 700px) {
+  .rhythm-dice { grid-template-rows: auto auto auto minmax(0, 1fr); }
+  .rd-tray { container-type: inline-size; }
+  .rd-die-button { width: min(100%, 120px); }
+  /* Phones: the title keeps its line; the switches share the row below. */
+  .rhythm-dice { gap: 6px; }
+  .rd-head { flex-direction: column; align-items: stretch; gap: 6px; }
+  .rd-stage { gap: 6px; }
+  .rd-results { gap: 6px; }
+  .rd-head__eyebrow { margin-bottom: 4px; font-size: 11px; }
+  .rd-head__title { font-size: 1.3rem; }
+  .rd-head__controls { flex-wrap: nowrap; gap: 6px; }
+  .rd-head__levels { flex: 1; min-width: 0; }
+  .rd-head .rd-seg button { flex: 1; padding: 0 6px; font-size: 13px; }
+  .rd-play__bar { grid-template-columns: auto auto; justify-content: space-between; row-gap: 6px; }
+  .rd-play__bar .rd-switch { grid-column: 2; grid-row: 1; }
+  .rd-play__bar .rd-lights { grid-column: 1 / -1; grid-row: 2; }
+  .rd-tray { grid-template-columns: minmax(0, 1fr); }
+  .rd-tray__meter { display: none; }
+  /* The gold ring already shows a locked die; the beat badges give their
+     row to the stage on phones. */
+  .rd-slot__label { display: none; }
+  .rd-tray { padding-block: 8px; }
+  .rd-tempo { flex-basis: 100%; }
+  .rd-actions { margin-left: 0; width: 100%; }
+  .rd-actions .rd-btn { flex: 1; padding: 0 8px; }
+  .rd-keep__export label { display: none; }
+  .rd-kept__dice .rd-die--small { width: 30px; padding: 5px; }
+  .rd-kept__item { gap: 6px; padding: 0 6px; }
+  .rd-kept__meta { display: none; }
+}

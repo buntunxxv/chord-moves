@@ -27,9 +27,17 @@ jobs:
       # Plays the live demo (/demo) end to end at phone, tablet and desktop
       # sizes; a UI change that breaks a demo step fails here, naming it.
       - run: npm run test:demo
+      # Rhythm Dice: renders 64 bars at 160 BPM through the lookahead
+      # scheduler offline and checks every click is within +/-2 ms of the grid.
+      - run: npm run test:clicks
+      # Rhythm Dice is one screen: no scrolling or cut-off content on any
+      # iPad size (both orientations) or an iPhone, in every view.
+      - run: npm run test:layout
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: theme-check-screenshots
-          path: theme-check-output/
+          path: |
+            theme-check-output/
+            rhythm-dice-layout-output/
           if-no-files-found: ignore
