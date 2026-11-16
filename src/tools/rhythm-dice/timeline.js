@@ -1,21 +1,27 @@
 // What sounds when, for one pass through the bar. Pure: the audio engine
 // pulls these events through the shared lookahead scheduler.
-import { barEvents, barTicks, countInBars, secondsPerTick, soundingNotes } from './rhythm.js'
+import { barEvents, barTicks, countInBars, dieStarts, secondsPerTick, soundingNotes } from './rhythm.js'
 
-// subdivision: 0 (off), 6 (quavers) or 3 (semiquavers), in ticks.
+// A click on every die (the beats; in 7/8 the 2+2+3 groups), the downbeat
+// accented. `subdivision` (ticks: 6 quavers, 4 triplets, 3 semiquavers, 0
+// off) adds quieter clicks inside each die it divides evenly -- triplets
+// don't divide a dotted-crotchet beat, so compound dice skip them.
 export function clickEvents(metre, bpm, barStart, subdivision = 0) {
   const spt = secondsPerTick(metre, bpm)
   const events = []
-  const step = subdivision || metre.beatTicks
-  for (let tick = 0; tick < barTicks(metre); tick += step) {
-    const onBeat = tick % metre.beatTicks === 0
-    events.push({
-      time: barStart + tick * spt,
-      kind: 'click',
-      level: tick === 0 ? 'accent' : onBeat ? 'beat' : 'sub',
-      beat: onBeat ? tick / metre.beatTicks : null,
-    })
-  }
+  dieStarts(metre).forEach((start, die) => {
+    const size = metre.dieTicks[die]
+    const step = subdivision && size % subdivision === 0 ? subdivision : size
+    for (let within = 0; within < size; within += step) {
+      const tick = start + within
+      events.push({
+        time: barStart + tick * spt,
+        kind: 'click',
+        level: tick === 0 ? 'accent' : within === 0 ? 'beat' : 'sub',
+        beat: within === 0 ? die : null,
+      })
+    }
+  })
   return events
 }
 

@@ -3,17 +3,62 @@
 // the rules are unit-tested without a browser.
 import { LEVELS, SLOTS_PER_DIE, TICKS_PER_CROTCHET } from './faces.js'
 
-// A metre names how many dice make a bar and how long each beat is.
-// BPM always counts the beat unit; MIDI tempo is always written in
-// crotchets per minute (compound: BPM x 1.5; 7/8: BPM / 2 -- later PRs).
-const simple = beats => ({ id: `${beats}/4`, dice: beats, beatTicks: 12, timeSignature: [beats, 4], midiTempoFactor: 1 })
+// A metre is a list of dice and the length of each in ticks: 12 for a
+// crotchet die, 18 for a dotted-crotchet (compound) die. 7/8 mixes them,
+// grouped 2+2+3.
+//
+// BPM always counts the beat unit (`unitTicks`): the crotchet in simple
+// metres, the dotted crotchet in compound, the quaver in 7/8. MIDI tempo is
+// always written in crotchets per minute, so it is BPM x unitTicks / 12:
+// simple x1, compound x1.5 (6/8 at 120 = 180), 7/8 /2 (quavers to crotchets).
+//
+// `pro`: compound and irregular metres need Pro (Decisions, 15 Nov).
+function metre(id, dieTicks, timeSignature, unitTicks, extra = {}) {
+  const uniform = dieTicks.every(t => t === dieTicks[0])
+  return {
+    id,
+    dieTicks,
+    dice: dieTicks.length,
+    beatTicks: uniform ? dieTicks[0] : null,
+    timeSignature,
+    unitTicks,
+    midiTempoFactor: unitTicks / TICKS_PER_CROTCHET,
+    pro: false,
+    ...extra,
+  }
+}
+const simple = beats => metre(`${beats}/4`, Array(beats).fill(12), [beats, 4], 12)
+const compound = beats => metre(`${beats * 3}/8`, Array(beats).fill(18), [beats * 3, 8], 18, { pro: true, compound: true })
+
 export const METRES = {
   '2/4': simple(2),
   '3/4': simple(3),
   '4/4': simple(4),
   '5/4': simple(5),
+  '6/8': compound(2),
+  '9/8': compound(3),
+  '12/8': compound(4),
+  '7/8': metre('7/8', [12, 12, 18], [7, 8], 6, { pro: true, grouping: '2+2+3' }),
 }
 export const SIMPLE_METRE_IDS = ['2/4', '3/4', '4/4', '5/4']
+export const COMPOUND_METRE_IDS = ['6/8', '9/8', '12/8']
+export const METRE_IDS = [...SIMPLE_METRE_IDS, ...COMPOUND_METRE_IDS, '7/8']
+
+// Where each die starts, in ticks from the downbeat.
+export function dieStarts(m) {
+  const starts = []
+  let pos = 0
+  for (const t of m.dieTicks) { starts.push(pos); pos += t }
+  return starts
+}
+
+// Which die a tick falls in, and how far into it.
+export function dieAt(m, tick) {
+  const starts = dieStarts(m)
+  let die = starts.length - 1
+  while (die > 0 && starts[die] > tick) die -= 1
+  return { die, within: tick - starts[die], size: m.dieTicks[die] }
+}
 
 // Count-in length: one bar, except that one bar of 2/4 is only two clicks,
 // too short to settle a tempo -- 2/4 counts in two bars (four clicks).
@@ -26,8 +71,8 @@ export function midiTempo(metre, bpm) {
 }
 
 export function secondsPerTick(metre, bpm) {
-  // One beat lasts 60/bpm seconds and holds metre.beatTicks ticks.
-  return 60 / bpm / metre.beatTicks
+  // One counted unit lasts 60/bpm seconds and holds metre.unitTicks ticks.
+  return 60 / bpm / metre.unitTicks
 }
 
 // "Mix levels" pools every chosen level's slots into one bag, so a face that
@@ -54,11 +99,14 @@ export function rollDie(pool, { isLastDie, rng = Math.random }) {
 }
 
 // Re-roll: locked positions keep their face, everything else rolls fresh.
-// `current` may be null for the first roll.
+// `current` may be null for the first roll. `pool` is one bag of faces for
+// every die, or a function (dieIndex) => bag when dice differ, as in 7/8
+// (crotchet dice draw simple faces; the dotted-crotchet die compound ones).
 export function rollBar(pool, metre, { current = null, locked = [], rng = Math.random } = {}) {
+  const poolFor = typeof pool === 'function' ? pool : () => pool
   return Array.from({ length: metre.dice }, (_, i) => {
     if (current && locked[i]) return current[i]
-    return rollDie(pool, { isLastDie: i === metre.dice - 1, rng })
+    return rollDie(poolFor(i), { isLastDie: i === metre.dice - 1, rng })
   })
 }
 
@@ -82,8 +130,9 @@ export function resolveTies(faces) {
 export function barEvents(faces, metre) {
   const ties = resolveTies(faces)
   const events = []
+  const starts = dieStarts(metre)
   faces.forEach((face, die) => {
-    let pos = die * metre.beatTicks
+    let pos = starts[die]
     face.events.forEach((e, index) => {
       const tiedIn = index === 0 && die > 0 && ties[die - 1] === true
       const tiedOut = index === face.events.length - 1 && ties[die] === true
@@ -96,7 +145,7 @@ export function barEvents(faces, metre) {
         onset: e.type === 'note' && !tiedIn,
         tiedIn,
         tiedOut,
-        beatStart: pos % metre.beatTicks === 0,
+        beatStart: pos === starts[die],
       })
       pos += e.ticks
     })
@@ -105,7 +154,7 @@ export function barEvents(faces, metre) {
 }
 
 export function barTicks(metre) {
-  return metre.dice * metre.beatTicks
+  return metre.dieTicks.reduce((a, b) => a + b, 0)
 }
 
 // Sounding notes with ties merged: one { start, ticks } per onset, lasting

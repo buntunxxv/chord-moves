@@ -401,3 +401,135 @@ test('triplet counting names', () => {
   assert.equal(countName(14, 12), '2·2')
   assert.equal(countName(6, 12), '1&')
 })
+
+// ---------- PR 4: compound metres, 7/8, MusicXML ----------
+
+import { COMPOUND_METRE_IDS, METRE_IDS, dieAt, dieStarts, midiTempo } from './rhythm.js'
+import { countInMetre } from './counting.js'
+import { buildMusicXml } from './musicxml.js'
+
+const M68 = METRES['6/8']
+const M78 = METRES['7/8']
+const compoundPool = slotPool(['L5'])
+
+test('compound metres are dotted-crotchet dice; 7/8 is 2+2+3; all need Pro', () => {
+  assert.deepEqual(COMPOUND_METRE_IDS.map(id => [METRES[id].dice, barTicks(METRES[id]), METRES[id].timeSignature.join('/')]),
+    [[2, 36, '6/8'], [3, 54, '9/8'], [4, 72, '12/8']])
+  assert.deepEqual(M78.dieTicks, [12, 12, 18])
+  assert.equal(barTicks(M78), 42)
+  assert.equal(M78.grouping, '2+2+3')
+  assert.deepEqual(METRE_IDS.filter(id => METRES[id].pro), ['6/8', '9/8', '12/8', '7/8'])
+  assert.deepEqual(dieStarts(M78), [0, 12, 24])
+  assert.deepEqual(dieAt(M78, 30), { die: 2, within: 6, size: 18 })
+})
+
+test('tempo: BPM counts the beat unit; MIDI tempo is in crotchets', () => {
+  assert.equal(midiTempo(M68, 120), 180) // 6/8 at 120 = 180 crotchets a minute
+  assert.equal(midiTempo(M78, 240), 120) // 7/8 counts quavers: 240 = 120 crotchets
+  assert.equal(midiTempo(METRES['4/4'], 96), 96)
+  // One dotted-crotchet beat at 60 BPM lasts one second; one quaver of 7/8 at 60 lasts one second.
+  assert.ok(Math.abs(barSecondsOf(M68, 60) - 2) < 1e-9)
+  assert.ok(Math.abs(barSecondsOf(M78, 60) - 7) < 1e-9)
+})
+
+function barSecondsOf(m, bpm) {
+  const ev = clickEvents(m, bpm, 0, 0)
+  return barTicks(m) * (ev[1].time / m.dieTicks[0])
+}
+
+test('7/8 rolls simple faces on the 2-groups and compound faces on the 3-group', () => {
+  const simplePool = slotPool(['L1', 'L2', 'L3'])
+  for (let k = 0; k < 30; k++) {
+    const bar = rollBar(i => (M78.dieTicks[i] === 18 ? compoundPool : simplePool), M78, { rng: () => (k % 6) / 6 + 0.01 })
+    bar.forEach((f, i) => assert.equal(faceTicks(f), M78.dieTicks[i]))
+    assert.ok(bar[2].id.startsWith('L5'))
+  }
+})
+
+test('clicks: one per dotted-crotchet beat in 6/8; 7/8 clicks its 2+2+3 groups', () => {
+  assert.deepEqual(clickEvents(M68, 60, 0, 0).map(c => [c.time, c.level]), [[0, 'accent'], [1, 'beat']])
+  // Quaver subdivision: three per compound beat.
+  assert.deepEqual(clickEvents(M68, 60, 0, 6).map(c => c.level), ['accent', 'sub', 'sub', 'beat', 'sub', 'sub'])
+  // Triplets don't divide a dotted crotchet: compound dice keep plain beats.
+  assert.equal(clickEvents(M68, 60, 0, 4).length, 2)
+  // 7/8 at 60 quavers a minute: groups land on quavers 0, 2 and 4.
+  assert.deepEqual(clickEvents(M78, 60, 0, 0).map(c => [c.time, c.beat]), [[0, 0], [2, 1], [4, 2]])
+  assert.equal(clickEvents(M78, 60, 0, 6).length, 7)
+})
+
+test('6/8 counts in two bars (four clicks), 9/8 and 7/8 one', () => {
+  assert.equal(countInBars(M68), 2)
+  assert.equal(countInBars(METRES['9/8']), 1)
+  assert.equal(countInBars(M78), 1)
+})
+
+test('compound and 7/8 bars: onsets, ties into the 3-group, MIDI', () => {
+  const bar = [face('L3-5'), face('L1-2'), face('L5-5')] // tie into 2 quavers, then dotted quaver–semi–quaver
+  assert.deepEqual(onsetTicks(bar, M78), [0, 18, 24, 33, 36])
+  assert.deepEqual(soundingNotes(bar, M78).slice(0, 2), [{ start: 0, ticks: 18 }, { start: 18, ticks: 6 }])
+  const back = new Midi(buildRhythmMidiBytes({ faces: bar, metre: M78, bpm: 240 }))
+  assert.deepEqual(back.header.timeSignatures[0].timeSignature, [7, 8])
+  assert.equal(Math.round(back.header.tempos[0].bpm), 120)
+  assert.deepEqual(back.tracks[0].notes.map(n => n.ticks), [0, 720, 960, 1320, 1440])
+  const six = new Midi(buildRhythmMidiBytes({ faces: [face('L5-2'), face('L5-1')], metre: M68, bpm: 120 }))
+  assert.deepEqual(six.header.timeSignatures[0].timeSignature, [6, 8])
+  assert.equal(Math.round(six.header.tempos[0].bpm), 180)
+  assert.deepEqual(six.tracks[0].notes.map(n => [n.ticks, n.durationTicks]), [[0, 240], [240, 240], [480, 240], [720, 720]])
+})
+
+test('counting names follow each die: 1-la-li in compound, groups in 7/8', () => {
+  assert.equal(countInMetre(6, M68), '1-la')
+  assert.equal(countInMetre(30, M68), '2-li')
+  assert.equal(countInMetre(21, M68), '2·2')
+  assert.equal(countInMetre(6, M78), '1&')
+  assert.equal(countInMetre(18, M78), '2&')
+  assert.equal(countInMetre(36, M78), '3-li')
+  assert.equal(countInMetre(9, METRES['4/4']), '1a')
+})
+
+// A light XML check: every element opened is closed, in order.
+function balanced(xml) {
+  const stack = []
+  for (const m of xml.replace(/<\?[^>]*\?>|<!DOCTYPE[^>]*>/g, '').matchAll(/<(\/?)([a-zA-Z-]+)[^>]*?(\/?)>/g)) {
+    const [, close, name, self] = m
+    if (self) continue
+    if (close) { if (stack.pop() !== name) return false } else stack.push(name)
+  }
+  return stack.length === 0
+}
+
+test('MusicXML: well formed, durations fill each measure, metre and tempo written', () => {
+  const bar1 = [face('L1-1'), face('L3-5'), face('L1-2'), face('L4-2')]
+  const bar2 = [face('L2-4'), face('L4-5'), face('L1-3'), face('L3-1')]
+  const xml = buildMusicXml({ bars: [bar1, bar2], metre: M44, bpm: 90 })
+  assert.ok(balanced(xml))
+  assert.match(xml, /<divisions>12<\/divisions>/)
+  assert.match(xml, /<beats>4<\/beats><beat-type>4<\/beat-type>/)
+  assert.match(xml, /<per-minute>90<\/per-minute>/)
+  const measures = xml.split('<measure ').slice(1)
+  assert.equal(measures.length, 2)
+  for (const m of measures) {
+    const total = [...m.matchAll(/<duration>(\d+)<\/duration>/g)].reduce((s, d) => s + Number(d[1]), 0)
+    assert.equal(total, 48)
+  }
+  // The tie from beat 2 into beat 3 is written on both notes.
+  assert.equal((xml.match(/<tie type="start"\/>/g) || []).length, 1)
+  assert.equal((xml.match(/<tie type="stop"\/>/g) || []).length, 1)
+  // Triplet and sextuplet brackets.
+  assert.match(xml, /<actual-notes>3<\/actual-notes><normal-notes>2<\/normal-notes>/)
+  assert.match(xml, /<actual-notes>6<\/actual-notes><normal-notes>4<\/normal-notes>/)
+})
+
+test('MusicXML: 6/8 with dotted notes, 7/8 with its grouping, and a bar that does not fit is refused', () => {
+  const x68 = buildMusicXml({ bars: [[face('L5-1'), face('L5-5')]], metre: M68, bpm: 120 })
+  assert.ok(balanced(x68))
+  assert.match(x68, /<beats>6<\/beats><beat-type>8<\/beat-type>/)
+  assert.match(x68, /<beat-unit>quarter<\/beat-unit><beat-unit-dot\/><per-minute>120<\/per-minute>/)
+  assert.match(x68, /<sound tempo="180"\/>/)
+  assert.match(x68, /<type>quarter<\/type><dot\/>/)
+  const x78 = buildMusicXml({ bars: [[face('L1-1'), face('L2-1'), face('L5-2')]], metre: M78, bpm: 240 })
+  assert.match(x78, /<words>2\+2\+3<\/words>/)
+  assert.match(x78, /<beat-unit>eighth<\/beat-unit><per-minute>240<\/per-minute>/)
+  assert.match(x78, /<sound tempo="120"\/>/)
+  assert.throws(() => buildMusicXml({ bars: [[face('L1-1'), face('L1-1')]], metre: M68, bpm: 120 }), /does not fit/)
+})
