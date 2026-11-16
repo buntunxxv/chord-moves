@@ -28,15 +28,19 @@ const VIEWPORTS = [
   ['iPhone portrait (Safari)', 390, 664],
 ]
 
-const BUSY_BAR = ['L2-1', 'L2-1', 'L2-1', 'L2-1'] // four semiquaver dice: 16 hits
+// The widest and busiest bar the free levels can make: five semiquaver dice
+// in 5/4 (20 hits). The phrase is four of them (80 hits).
+const BUSY_BAR = ['L2-1', 'L2-1', 'L2-1', 'L2-1', 'L2-1']
 const KEPT = Array.from({ length: 9 }, (_, i) => ({
   id: String(1700000000000 + i),
   keptAt: new Date(Date.UTC(2026, 10, 1 + i)).toISOString(),
-  faceIds: i === 0 ? BUSY_BAR : ['L1-1', 'L2-2', 'L1-4', 'L2-1'],
+  faceIds: i === 0 ? BUSY_BAR : i % 3 === 1 ? ['L3-5', 'L1-1', 'L3-4'] : ['L1-1', 'L2-2', 'L1-4', 'L2-1'],
+  metre: i === 0 ? '5/4' : i % 3 === 1 ? '3/4' : '4/4',
   bpm: 160,
-  levelIds: ['L1', 'L2'],
+  levelIds: ['L1', 'L2', 'L3'],
   reason: i % 2 ? 'The rest on the and of three makes four land harder than I expected it to' : '',
 }))
+const PHRASE = { metre: '5/4', bars: [BUSY_BAR, BUSY_BAR, BUSY_BAR, BUSY_BAR] }
 
 const failures = []
 function check(label, pass, detail) {
@@ -104,11 +108,15 @@ try {
   for (const [name, width, height] of VIEWPORTS) {
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
     const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, reducedMotion: 'reduce' })
-    await ctx.addInitScript(kept => {
+    await ctx.addInitScript(({ kept, phrase }) => {
+      if (sessionStorage.getItem('seeded')) return
+      sessionStorage.setItem('seeded', '1')
       localStorage.setItem('kyndaTools.rhythmDice.keptBars', JSON.stringify(kept))
-      localStorage.setItem('kyndaTools.rhythmDice.levels', 'L2')
+      localStorage.setItem('kyndaTools.rhythmDice.phrase', JSON.stringify(phrase))
+      localStorage.setItem('kyndaTools.rhythmDice.levels', 'mix')
       localStorage.setItem('kyndaTools.rhythmDice.bpm', '160')
-    }, KEPT)
+      localStorage.setItem('kyndaTools.rhythmDice.mode', 'once')
+    }, { kept: KEPT, phrase: PHRASE })
     const page = await ctx.newPage()
     await page.goto(`${BASE}/rhythm-dice`, { waitUntil: 'networkidle' })
     await page.waitForSelector('.rd-die__notes svg')
@@ -129,15 +137,36 @@ try {
       await verify(page, `${name}: Result view, each hit`, `${slug}-result-hits`)
     }
 
+    // Read ahead: the Next row joins the Play panel while a bar plays.
+    await page.getByRole('tab', { name: 'Play' }).click()
+    await page.getByRole('radio', { name: 'Read ahead' }).click()
+    await page.getByRole('button', { name: 'Perform' }).click()
+    await page.waitForSelector('.rd-next', { timeout: 5000 })
+    await verify(page, `${name}: read ahead, playing`, `${slug}-readahead`)
+    await page.getByRole('button', { name: 'Stop' }).click()
+    await page.getByRole('radio', { name: 'Once' }).click()
+
+    // Phrase: four 5/4 bars, then played with no taps (80 missed hits).
+    await page.getByRole('tab', { name: /Phrase/ }).click()
+    await verify(page, `${name}: Phrase view`, `${slug}-phrase`)
+    await page.getByRole('button', { name: 'Play phrase' }).click()
+    await page.waitForSelector('.rd-results', { timeout: 20000 })
+    await verify(page, `${name}: phrase result`, `${slug}-phrase-result`)
+    if (await hitsSwitch.isVisible()) {
+      await hitsSwitch.click()
+      await verify(page, `${name}: phrase result, each hit`, `${slug}-phrase-hits`)
+    }
+
     await page.getByRole('radio', { name: 'Blocks' }).click()
     await verify(page, `${name}: blocks view`, `${slug}-blocks`)
     // Switching views must replace the face, never draw blocks over notes.
     const mixed = await page.locator('.rd-tray .rd-die svg').count()
     check(`${name}: blocks view shows no notes`, mixed === 0, `${mixed} note drawings left under the blocks`)
     await page.getByRole('radio', { name: 'Notes' }).click()
+    const dice = await page.locator('.rd-tray .rd-die').count()
     const notes = await page.locator('.rd-tray .rd-die__notes svg').count()
     const blocks = await page.locator('.rd-tray .rd-block').count()
-    check(`${name}: back to notes`, notes === 4 && blocks === 0, `${notes} note drawings, ${blocks} blocks`)
+    check(`${name}: back to notes`, notes === dice && dice > 0 && blocks === 0, `${notes} note drawings for ${dice} dice, ${blocks} blocks`)
     await ctx.close()
   }
 } finally {

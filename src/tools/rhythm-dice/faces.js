@@ -126,5 +126,5 @@ export function levelById(id) {
   return LEVELS.find(l => l.id === id) ?? null
 }
 
-// What PR 1 offers. L3+ and the Pro levels arrive in later PRs.
-export const AVAILABLE_LEVEL_IDS = ['L1', 'L2']
+// The free levels (Decisions, 15 Nov). L4 and L5 are Pro and arrive in PR 3/4.
+export const AVAILABLE_LEVEL_IDS = ['L1', 'L2', 'L3']

@@ -1,6 +1,6 @@
 // What sounds when, for one pass through the bar. Pure: the audio engine
 // pulls these events through the shared lookahead scheduler.
-import { barEvents, barTicks, secondsPerTick, soundingNotes } from './rhythm.js'
+import { barEvents, barTicks, countInBars, secondsPerTick, soundingNotes } from './rhythm.js'
 
 // subdivision: 0 (off), 6 (quavers) or 3 (semiquavers), in ticks.
 export function clickEvents(metre, bpm, barStart, subdivision = 0) {
@@ -25,11 +25,34 @@ export function clapEvents(faces, metre, bpm, barStart) {
 }
 
 // Expected onsets for scoring, in seconds from the bar's downbeat.
-export function expectedOnsets(faces, metre, bpm) {
+export function expectedOnsets(faces, metre, bpm, { bar = 0 } = {}) {
   const spt = secondsPerTick(metre, bpm)
+  const offset = bar * barSeconds(metre, bpm)
   return barEvents(faces, metre)
     .filter(e => e.onset)
-    .map(e => ({ time: e.start * spt, offbeat: !e.beatStart, tick: e.start }))
+    .map(e => ({ time: offset + e.start * spt, offbeat: !e.beatStart, tick: e.start, bar }))
+}
+
+// A phrase is scored as one sequence: every bar's onsets, each shifted by its
+// bar's start, so the matching window between the last note of one bar and
+// the first of the next follows the same rule as within a bar.
+export function phraseOnsets(bars, metre, bpm) {
+  return bars.flatMap((faces, bar) => expectedOnsets(faces, metre, bpm, { bar }))
+}
+
+// Where one bar's taps stop and the next bar's begin, as seconds after the
+// first bar's downbeat: halfway between this bar's last onset and the next
+// bar's first. A bar with no onsets ends on its own barline. The last bar
+// keeps a short tail after its barline. `bars` is a list of onset lists, each
+// relative to its own downbeat.
+export function barBoundaries(barOnsets, barSec, tail = 0.1) {
+  return barOnsets.map((onsets, i) => {
+    const barStart = i * barSec
+    const next = barOnsets[i + 1]
+    if (!next) return barStart + barSec + tail
+    if (!onsets.length || !next.length) return barStart + barSec
+    return barStart + (onsets.at(-1).time + barSec + next[0].time) / 2
+  })
 }
 
 export function barSeconds(metre, bpm) {
@@ -40,14 +63,19 @@ export function barSeconds(metre, bpm) {
 // one count-in bar, then the bar repeated. Count-in clicks every beat with an
 // accented downbeat; bars click with the optional subdivision; claps are
 // added when `claps` is true ("hear it first").
+// `faces` is one bar's faces, or a function (pass) => faces for sources whose
+// bars change: a phrase, or read-ahead, where the next bar is rolled while the
+// current one plays. `countIn` is a number of bars (true = the metre's usual).
 export function createPassSource({ faces, metre, bpm, startTime, countIn = true, subdivision = 0, claps = false, passes = Infinity, onBarStart }) {
   const bar = barSeconds(metre, bpm)
+  const facesFor = typeof faces === 'function' ? faces : () => faces
+  const countInCount = countIn === true ? countInBars(metre) : Number(countIn) || 0
   let queue = []
   let pass = 0
   let nextBarStart = startTime
 
-  if (countIn) {
-    queue.push(...clickEvents(metre, bpm, startTime, 0).map(e => ({ ...e, countIn: true })))
+  for (let c = 0; c < countInCount; c++) {
+    queue.push(...clickEvents(metre, bpm, nextBarStart, 0).map(e => ({ ...e, countIn: true })))
     nextBarStart += bar
   }
 
@@ -57,7 +85,7 @@ export function createPassSource({ faces, metre, bpm, startTime, countIn = true,
     const events = [
       { time: barStart, kind: 'bar', pass, barStart },
       ...clickEvents(metre, bpm, barStart, subdivision),
-      ...(claps ? clapEvents(faces, metre, bpm, barStart) : []),
+      ...(claps ? clapEvents(facesFor(pass), metre, bpm, barStart) : []),
     ].sort((a, b) => a.time - b.time || order(a) - order(b))
     queue.push(...events)
     onBarStart?.(pass, barStart)
@@ -70,7 +98,8 @@ export function createPassSource({ faces, metre, bpm, startTime, countIn = true,
       if (!queue.length) refill()
       return queue.shift() ?? null
     },
-    get endTime() { return passes === Infinity ? Infinity : startTime + (countIn ? bar : 0) + passes * bar },
+    get endTime() { return passes === Infinity ? Infinity : startTime + (countInCount + passes) * bar },
+    get firstBar() { return startTime + countInCount * bar },
   }
 }
 

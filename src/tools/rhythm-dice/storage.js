@@ -12,6 +12,9 @@ export const KEYS = {
   levels: PREFIX + 'levels',
   drum: PREFIX + 'drum',
   subdivision: PREFIX + 'subdivision',
+  metre: PREFIX + 'metre',
+  mode: PREFIX + 'mode',
+  phrase: PREFIX + 'phrase',
 }
 
 export function readNumber(key, fallback, { min = -Infinity, max = Infinity } = {}) {
@@ -46,4 +49,18 @@ export function readKept() {
 
 export function writeKept(list) {
   safeStorage.setItem(KEYS.kept, JSON.stringify(list))
+}
+
+// The phrase being chained: { metre: '3/4', bars: [[faceId, ...], ...] }, up
+// to four bars, all in one metre.
+export function readPhrase() {
+  try {
+    const p = JSON.parse(safeStorage.getItem(KEYS.phrase) || 'null')
+    if (p && typeof p.metre === 'string' && Array.isArray(p.bars)) return { metre: p.metre, bars: p.bars.filter(Array.isArray).slice(0, 4) }
+  } catch { /* fall through */ }
+  return { metre: null, bars: [] }
+}
+
+export function writePhrase(phrase) {
+  safeStorage.setItem(KEYS.phrase, JSON.stringify(phrase))
 }
