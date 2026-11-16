@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatOffsetMs } from './scoring'
-import { countName } from './counting'
+import { countName, countInMetre } from './counting'
+import { dieStarts, barTicks } from './rhythm'
 
 export { countName }
 
@@ -10,17 +11,23 @@ const PAD_RIGHT = 20
 
 // Expected hits on the top lane, your taps on the bottom lane, joined where
 // they matched. Beat lines mark the grid.
-function Timeline({ result, expected, barSec, beats, beatsPerBar = beats }) {
+function Timeline({ result, expected, barSec, metre, bars }) {
   const x = t => PAD_LEFT + (t / barSec) * (VIEW_W - PAD_LEFT - PAD_RIGHT)
   const clampX = t => Math.min(VIEW_W - 6, Math.max(PAD_LEFT - 14, x(t)))
+  // A line at every die (beat; in 7/8 every group), heavier at each barline.
+  const barLen = barSec / bars
+  const lines = []
+  for (let b = 0; b < bars; b++) {
+    dieStarts(metre).forEach((start, die) => lines.push({ t: b * barLen + (start / barTicks(metre)) * barLen, label: die + 1, bar: die === 0 }))
+  }
+  lines.push({ t: barSec, label: null, bar: true })
   return (
     <svg className="rd-timeline" viewBox={`0 0 ${VIEW_W} 120`} role="img"
       aria-label={`Timeline: ${result.matched} of ${result.expectedCount} hits matched, ${result.extras.length} extra taps`}>
-      {Array.from({ length: beats + 1 }, (_, b) => (
-        <g key={b}>
-          <line x1={x((b / beats) * barSec)} x2={x((b / beats) * barSec)} y1="14" y2="106"
-            className={`rd-timeline__beat${b % beatsPerBar === 0 ? ' rd-timeline__barline' : ''}`} />
-          {b < beats && <text x={x((b / beats) * barSec) + 6} y="12" className="rd-timeline__label">{(b % beatsPerBar) + 1}</text>}
+      {lines.map((l, i) => (
+        <g key={i}>
+          <line x1={x(l.t)} x2={x(l.t)} y1="14" y2="106" className={`rd-timeline__beat${l.bar ? ' rd-timeline__barline' : ''}`} />
+          {l.label && <text x={x(l.t) + 6} y="12" className="rd-timeline__label">{l.label}</text>}
         </g>
       ))}
       <text x="4" y="40" className="rd-timeline__lane">Dice</text>
@@ -40,7 +47,9 @@ function Timeline({ result, expected, barSec, beats, beatsPerBar = beats }) {
   )
 }
 
-export default function Results({ outcome, beatTicks, beats }) {
+export default function Results({ outcome }) {
+  const { metre } = outcome
+  const bars = outcome.bars ?? 1
   const { result, reflection, expected, barSec, pass, loop } = outcome
   const [detail, setDetail] = useState('summary')
   // Each hit pages instead of scrolling: as many as fit the space left.
@@ -109,7 +118,7 @@ export default function Results({ outcome, beatTicks, beats }) {
       </dl>
 
       <div className="rd-results__timeline">
-        <Timeline result={result} expected={expected} barSec={barSec} beats={beats} beatsPerBar={outcome.beatsPerBar ?? beats} />
+        <Timeline result={result} expected={expected} barSec={barSec} metre={metre} bars={bars} />
       </div>
 
       {expected.length > 0 && (
@@ -118,7 +127,7 @@ export default function Results({ outcome, beatTicks, beats }) {
             const i = hp * perPage + j
             return (
             <li key={i} className={h.offset === null ? 'is-missed' : ''}>
-              <span className="rd-results__count">{outcome.bars > 1 ? `${expected[i].bar + 1}: ` : ''}{countName(expected[i].tick, beatTicks)}</span>
+              <span className="rd-results__count">{outcome.bars > 1 ? `${expected[i].bar + 1}: ` : ''}{countInMetre(expected[i].tick, metre)}</span>
               <span>{h.offset === null ? 'missed' : formatOffsetMs(h.offset)}</span>
             </li>
             )

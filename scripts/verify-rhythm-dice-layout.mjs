@@ -90,6 +90,35 @@ async function verify(page, label, slug) {
   if (problems.length) await page.screenshot({ path: `${OUT}/${slug}.png` })
 }
 
+// Level buttons on tablets, a level picker on phones.
+async function chooseLevel(page, n) {
+  const radio = page.getByRole('radio', { name: new RegExp(`Level ${n}`) })
+  if (await radio.isVisible()) await radio.click()
+  else await page.selectOption('.rd-level-pick select', `L${n}`)
+}
+
+// The classroom view is its own full-screen layer: it must fit too.
+async function verifyClassroom(page, label, slug) {
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))))
+  const m = await page.evaluate(() => {
+    const el = document.querySelector('.rd-class')
+    const die = document.querySelector('.rd-class__die .rd-die')?.getBoundingClientRect()
+    const actions = document.querySelector('.rd-class__actions')?.getBoundingClientRect()
+    return {
+      scroll: el.scrollHeight - el.clientHeight,
+      scrollX: el.scrollWidth - el.clientWidth,
+      die: die ? Math.round(Math.min(die.width, die.height)) : 0,
+      actionsVisible: actions ? actions.bottom <= window.innerHeight + 1 : false,
+    }
+  })
+  const problems = []
+  if (m.scroll > 1 || m.scrollX > 1) problems.push(`classroom scrolls ${m.scrollX}x${m.scroll}px`)
+  if (m.die < 120) problems.push(`classroom dice only ${m.die}px`)
+  if (!m.actionsVisible) problems.push('classroom buttons off screen')
+  check(label, problems.length === 0, problems.join(' | '))
+  if (problems.length) await page.screenshot({ path: `${OUT}/${slug}.png` })
+}
+
 async function isUp() {
   try { return (await fetch(BASE)).ok } catch { return false }
 }
@@ -122,7 +151,7 @@ try {
     await page.waitForSelector('.rd-die__notes svg')
 
     // Pro: tapping the locked Level 4 opens the unlock sheet over the page.
-    await page.getByRole('radio', { name: /Level 4/ }).click()
+    await chooseLevel(page, 4)
     await page.waitForSelector('.bottom-sheet')
     await verify(page, `${name}: Pro unlock sheet`, `${slug}-pro-sheet`)
     await page.keyboard.press('Escape')
@@ -170,9 +199,28 @@ try {
     })
     await page.reload({ waitUntil: 'networkidle' })
     await page.waitForSelector('.rd-pro-chip')
-    await page.getByRole('radio', { name: /Level 4/ }).click()
+    await chooseLevel(page, 4)
     await page.getByRole('button', { name: /^(Roll|Re-roll)$/ }).click()
     await verify(page, `${name}: Pro on, Level 4`, `${slug}-pro-on`)
+
+    // Compound time: four dotted-crotchet dice in 12/8; then 7/8's 2+2+3.
+    await page.selectOption('#rd-metre', '12/8')
+    await verify(page, `${name}: 12/8, Level 5`, `${slug}-12-8`)
+    await page.selectOption('#rd-metre', '7/8')
+    await verify(page, `${name}: 7/8`, `${slug}-7-8`)
+
+    // Classroom (tablets): one big die per group, playing.
+    const classroomBtn = page.getByRole('button', { name: 'Classroom' })
+    if (await classroomBtn.isVisible()) {
+      await page.selectOption('#rd-metre', '4/4')
+      await classroomBtn.click()
+      await page.waitForSelector('.rd-class')
+      await page.getByRole('button', { name: 'Play', exact: true }).click()
+      await page.waitForTimeout(400)
+      await verifyClassroom(page, `${name}: classroom, playing`, `${slug}-classroom`)
+      await page.keyboard.press('Escape')
+      await page.waitForSelector('.rd-class', { state: 'detached' })
+    }
 
     const blocksControl = page.getByRole('radio', { name: 'Blocks' })
     if (await blocksControl.isVisible()) await blocksControl.click()

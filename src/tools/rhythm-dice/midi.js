@@ -7,7 +7,7 @@
 // of 480 divided by our 12 ticks per crotchet is 40 MIDI ticks per grid tick.
 import { Midi } from '@tonejs/midi/dist/Midi.js'
 import { TICKS_PER_CROTCHET } from './faces.js'
-import { midiTempo, soundingNotes } from './rhythm.js'
+import { barTicks, midiTempo, soundingNotes } from './rhythm.js'
 
 export const DRUM_CHANNEL = 9 // MIDI channel 10, zero-indexed
 export const DRUM_SOUNDS = [
@@ -36,7 +36,7 @@ export function buildRhythmMidiBytes({ faces, bars, metre, bpm, drum = DEFAULT_D
   const track = midi.addTrack()
   track.name = name
   track.channel = DRUM_CHANNEL
-  const barLength = metre.dice * metre.beatTicks
+  const barLength = barTicks(metre)
   allBars.forEach((barFaces, b) => {
     for (const note of soundingNotes(barFaces, metre)) {
       track.addNote({ midi: drum, ticks: (b * barLength + note.start) * scale, durationTicks: note.ticks * scale, velocity: VELOCITY })

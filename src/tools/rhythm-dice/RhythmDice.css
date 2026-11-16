@@ -585,7 +585,7 @@
 .rd-keep__row input { flex: 1 1 200px; min-width: 0; cursor: text; }
 .rd-keep__export label { color: var(--text-muted); font-size: 13px; font-weight: 700; }
 
-.rd-kept { display: grid; grid-auto-rows: 56px; gap: 8px; align-content: start; list-style: none; min-height: 0; overflow: hidden; }
+.rd-kept { display: grid; grid-auto-rows: 52px; gap: 8px; align-content: start; list-style: none; min-height: 0; overflow: hidden; }
 .rd-kept__empty { align-self: center; color: var(--text-muted); font-size: 14px; }
 
 .rd-kept__item {
@@ -664,12 +664,12 @@
 .rd-die--next .rd-block { border-radius: 2px; }
 
 .rd-strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px; min-width: 0; }
-.rd-strip__beat { display: grid; gap: 2px; height: 14px; }
+.rd-strip__beat { display: grid; gap: 2px; height: 12px; }
 .rd-strip .rd-block { border-radius: 2px; }
 
 .rd-kept__item { grid-template-columns: auto minmax(0, 1fr) auto; }
 .rd-kept__metre { font-family: var(--font-script); font-weight: 600; font-size: 15px; color: var(--text-muted); min-width: 28px; }
-.rd-kept__text { display: grid; gap: 3px; }
+.rd-kept__text { display: grid; gap: 2px; }
 
 .rd-phrase { display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 10px; }
 .rd-phrase__intro { color: var(--text-muted); font-size: 14px; }
@@ -798,4 +798,122 @@
   }
   .rd-pro-chip { padding: 0 10px; }
   .rd-head .rd-seg button { padding: 0 4px; }
+}
+
+/* ---------- PR 4: compound metres, 7/8, classroom ---------- */
+
+.rd-tray__grouping {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Bar strips size each beat by its length, so a 7/8 bar reads 2+2+3. */
+.rd-strip { display: flex; gap: 5px; }
+.rd-strip__beat { flex: 1 1 0; min-width: 0; }
+
+.rd-classroom-btn {
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.rd-classroom-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* The projector view: big dice, big type, nothing else. Its own tokens,
+   because it is portalled outside .rhythm-dice. */
+.rd-class {
+  --rd-ink: var(--black);
+  --rd-on-ink: var(--white);
+  --rd-gold-ink: #1A1A1A;
+  --die-surface: #FFFFFF;
+  --die-ink: #1A1A1A;
+  --die-edge: #E1E1E1;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: clamp(12px, 3vh, 32px);
+  padding: clamp(16px, 3vh, 40px) clamp(16px, 4vw, 56px);
+  padding-top: max(clamp(16px, 3vh, 40px), env(safe-area-inset-top));
+  padding-bottom: max(clamp(16px, 3vh, 40px), env(safe-area-inset-bottom));
+  color: var(--text);
+  background: var(--bg);
+  outline: none;
+}
+
+.rd-class__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
+.rd-class__title { font-size: clamp(18px, 2.4vw, 28px); font-weight: 800; letter-spacing: -0.02em; }
+.rd-class__title span { color: var(--teal); }
+.rd-class__metre { font-family: var(--font-script); font-weight: 600; font-size: clamp(26px, 3.6vw, 44px); }
+.rd-class__metre small { font-family: var(--font); font-size: 0.45em; color: var(--text-muted); font-weight: 700; }
+.rd-class__tempo { display: flex; align-items: center; gap: 12px; margin-left: auto; font-size: clamp(15px, 1.8vw, 20px); }
+.rd-class__tempo strong { font-size: 1.5em; font-variant-numeric: tabular-nums; }
+.rd-class__tempo button, .rd-class__exit {
+  min-width: 48px;
+  min-height: 48px;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.rd-class__exit { padding: 0 18px; font-size: 15px; }
+
+.rd-class__dice {
+  container-type: size;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(16px, 3vw, 48px);
+  min-height: 0;
+}
+
+.rd-class__die {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(calc((100cqw - (var(--n) - 1) * clamp(16px, 3vw, 48px)) / var(--n)), calc(100cqh - 56px));
+}
+
+.rd-class__die figcaption { font-size: clamp(16px, 2.2vw, 30px); font-weight: 800; color: var(--text-muted); }
+.rd-class__die.is-lit figcaption { color: var(--teal); }
+.rd-die--class { width: 100%; padding: 13%; border-radius: 18%; }
+.rd-class__die.is-lit .rd-die { box-shadow: inset 0 0 0 1px var(--die-edge), 0 0 0 8px var(--teal), 0 8px 30px rgba(17, 147, 146, 0.35); }
+
+.rd-class__status { text-align: center; font-family: var(--font-script); font-style: italic; font-size: clamp(20px, 3vw, 40px); min-height: 1.3em; }
+.rd-class__actions { display: flex; justify-content: center; gap: 14px; }
+.rd-class__actions .rd-btn { min-height: 56px; min-width: 140px; font-size: 18px; }
+
+@media (max-width: 700px) {
+  .rd-classroom-btn { display: none; }
+}
+
+/* Phones pick the level from one compact list; tablets keep the buttons. */
+.rd-level-pick { display: none; }
+
+@media (max-width: 700px) {
+  .rd-head__levels { display: none !important; }
+  .rd-level-pick { display: block; flex: 1; min-width: 0; }
+  .rd-level-pick select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    color: var(--text);
+    background: var(--teal-tint);
+    border: 1.5px solid var(--teal);
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
 }
