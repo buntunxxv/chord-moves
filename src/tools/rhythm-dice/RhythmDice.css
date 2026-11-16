@@ -44,17 +44,31 @@
 
 .rd-head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+
+.rd-head__copy { min-width: 0; }
+
+/* Matches Chord Moves' page header (.app__eyebrow, .app__builder-intro h1). */
+.rd-head__eyebrow {
+  margin-bottom: 6px;
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .rd-head__title {
-  margin-right: auto;
-  font-size: clamp(1.35rem, 3.2vw, 2rem);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  padding-bottom: 0.1em; /* room for descenders at this tight line height */
 }
+
+.rd-head__controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 
 /* ---------- segmented controls ---------- */
 
@@ -576,10 +590,14 @@
   .rhythm-dice { grid-template-rows: auto auto auto minmax(0, 1fr); }
   .rd-tray { container-type: inline-size; }
   .rd-die-button { width: min(100%, 120px); }
-  /* The shell's header and menu already say where you are; the switches
-     need the row. */
-  .rd-head__title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .rd-head { flex-wrap: nowrap; gap: 6px; }
+  /* Phones: the title keeps its line; the switches share the row below. */
+  .rhythm-dice { gap: 6px; }
+  .rd-head { flex-direction: column; align-items: stretch; gap: 6px; }
+  .rd-stage { gap: 6px; }
+  .rd-results { gap: 6px; }
+  .rd-head__eyebrow { margin-bottom: 4px; font-size: 11px; }
+  .rd-head__title { font-size: 1.3rem; }
+  .rd-head__controls { flex-wrap: nowrap; gap: 6px; }
   .rd-head__levels { flex: 1; min-width: 0; }
   .rd-head .rd-seg button { flex: 1; padding: 0 6px; font-size: 13px; }
   .rd-play__bar { grid-template-columns: auto auto; justify-content: space-between; row-gap: 6px; }
@@ -587,7 +605,10 @@
   .rd-play__bar .rd-lights { grid-column: 1 / -1; grid-row: 2; }
   .rd-tray { grid-template-columns: minmax(0, 1fr); }
   .rd-tray__meter { display: none; }
-  .rd-slot__label .rd-slot__text { display: none; }
+  /* The gold ring already shows a locked die; the beat badges give their
+     row to the stage on phones. */
+  .rd-slot__label { display: none; }
+  .rd-tray { padding-block: 8px; }
   .rd-tempo { flex-basis: 100%; }
   .rd-actions { margin-left: 0; width: 100%; }
   .rd-actions .rd-btn { flex: 1; padding: 0 8px; }

@@ -379,8 +379,15 @@ export default function RhythmDice() {
   return (
     <ToolShell>
       <div className="rhythm-dice">
+        {/* Same page header as Chord Moves: a teal eyebrow naming the tool,
+            then one line saying what you do here; controls sit to the right,
+            where Chord Moves puts Upgrade. */}
         <header className="rd-head">
-          <h1 className="rd-head__title">Rhythm Dice</h1>
+          <div className="rd-head__copy">
+            <p className="rd-head__eyebrow">Rhythm Dice</p>
+            <h1 className="rd-head__title">Roll, play and keep a bar</h1>
+          </div>
+          <div className="rd-head__controls">
           <div className="rd-seg rd-head__levels" role="radiogroup" aria-label="Dice level">
             {LEVEL_CHOICES.map(c => (
               <button key={c.key} type="button" role="radio" aria-checked={levelKey === c.key}
@@ -396,6 +403,7 @@ export default function RhythmDice() {
                 {label}
               </button>
             ))}
+          </div>
           </div>
         </header>
 
