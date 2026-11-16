@@ -19,7 +19,7 @@ const PAD_RIGHT = 20
 
 // Expected hits on the top lane, your taps on the bottom lane, joined where
 // they matched. Beat lines mark the grid.
-function Timeline({ result, expected, barSec, beats }) {
+function Timeline({ result, expected, barSec, beats, beatsPerBar = beats }) {
   const x = t => PAD_LEFT + (t / barSec) * (VIEW_W - PAD_LEFT - PAD_RIGHT)
   const clampX = t => Math.min(VIEW_W - 6, Math.max(PAD_LEFT - 14, x(t)))
   return (
@@ -27,8 +27,9 @@ function Timeline({ result, expected, barSec, beats }) {
       aria-label={`Timeline: ${result.matched} of ${result.expectedCount} hits matched, ${result.extras.length} extra taps`}>
       {Array.from({ length: beats + 1 }, (_, b) => (
         <g key={b}>
-          <line x1={x((b / beats) * barSec)} x2={x((b / beats) * barSec)} y1="14" y2="106" className="rd-timeline__beat" />
-          {b < beats && <text x={x((b / beats) * barSec) + 6} y="12" className="rd-timeline__label">{b + 1}</text>}
+          <line x1={x((b / beats) * barSec)} x2={x((b / beats) * barSec)} y1="14" y2="106"
+            className={`rd-timeline__beat${b % beatsPerBar === 0 ? ' rd-timeline__barline' : ''}`} />
+          {b < beats && <text x={x((b / beats) * barSec) + 6} y="12" className="rd-timeline__label">{(b % beatsPerBar) + 1}</text>}
         </g>
       ))}
       <text x="4" y="40" className="rd-timeline__lane">Dice</text>
@@ -117,7 +118,7 @@ export default function Results({ outcome, beatTicks, beats }) {
       </dl>
 
       <div className="rd-results__timeline">
-        <Timeline result={result} expected={expected} barSec={barSec} beats={beats} />
+        <Timeline result={result} expected={expected} barSec={barSec} beats={beats} beatsPerBar={outcome.beatsPerBar ?? beats} />
       </div>
 
       {expected.length > 0 && (
@@ -126,7 +127,7 @@ export default function Results({ outcome, beatTicks, beats }) {
             const i = hp * perPage + j
             return (
             <li key={i} className={h.offset === null ? 'is-missed' : ''}>
-              <span className="rd-results__count">{countName(expected[i].tick, beatTicks)}</span>
+              <span className="rd-results__count">{outcome.bars > 1 ? `${expected[i].bar + 1}: ` : ''}{countName(expected[i].tick, beatTicks)}</span>
               <span>{h.offset === null ? 'missed' : formatOffsetMs(h.offset)}</span>
             </li>
             )

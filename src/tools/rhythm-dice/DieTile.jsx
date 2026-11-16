@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import { drawFace } from './notation'
-import { faceBlocks } from './rhythm'
+import { faceBlocks, resolveTies } from './rhythm'
 
 // One die. White with black ink in both themes, like the physical dice.
 // Notes view draws the face with no stave; blocks view shows attack /
@@ -10,12 +10,12 @@ export function DieFace({ face, view, beatTicks, unit, tiedIn = false, tieOut = 
   useLayoutEffect(() => {
     if (view !== 'notes' || !ref.current) return
     try {
-      drawFace(ref.current, face, { beatTicks, tieOut })
+      drawFace(ref.current, face, { beatTicks, tieOut, tiedIn })
     } catch (err) {
       console.error('Could not draw face', face.id, err)
       ref.current.textContent = face.name
     }
-  }, [face, view, beatTicks, tieOut])
+  }, [face, view, beatTicks, tieOut, tiedIn])
 
   return (
     <span className={`rd-die rd-die--${size}`}>
@@ -53,5 +53,22 @@ export default function DieTile({ index, face, locked, rolling, onToggleLock, di
         <span className="rd-slot__text">{locked ? 'Locked' : 'Tap to lock'}</span>
       </span>
     </div>
+  )
+}
+
+// A whole bar as one slim line of blocks, beat by beat: kept bars and phrase
+// slots use it, where a row of full dice would not fit.
+export function BarStrip({ faces, beatTicks, unit, label }) {
+  const ties = resolveTies(faces)
+  return (
+    <span className="rd-strip" role="img" aria-label={label ?? faces.map(f => f.name).join(', ')}>
+      {faces.map((face, i) => (
+        <span key={i} className="rd-strip__beat" style={{ gridTemplateColumns: `repeat(${beatTicks / unit}, 1fr)` }}>
+          {faceBlocks(face, unit, { tiedIn: i > 0 && ties[i - 1], tiedOut: ties[i] }).map((cell, j) => (
+            <i key={j} className={`rd-block rd-block--${cell.state}${cell.tieOut ? ' rd-block--tie' : ''}`} />
+          ))}
+        </span>
+      ))}
+    </span>
   )
 }

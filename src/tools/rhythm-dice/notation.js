@@ -3,7 +3,7 @@
 // stave is still created, because VexFlow positions notes against one, but
 // it is never drawn. Each die is exactly one beat, so beaming per die is
 // beaming per beat.
-import { Beam, Dot, Formatter, Fraction, Renderer, Stave, StaveNote, StaveTie, Tuplet, Voice } from 'vexflow/bravura'
+import { Beam, Dot, Formatter, Fraction, Renderer, Stave, StaveNote, Tuplet, Voice } from 'vexflow/bravura'
 
 const DURATIONS = { 18: 'qd', 12: 'q', 9: '8d', 6: '8', 3: '16' }
 const TRIPLET = { 4: '8', 8: 'q' }
@@ -22,10 +22,27 @@ export function vexDuration(ticks, kind) {
   return d
 }
 
+const TIE_LENGTH = 26
+
+// A tie below the notehead (stems are up), as a filled crescent. `dir` +1
+// leaves to the right of x; -1 arrives from the left of x.
+function tieArc(ctx, x, y, dir) {
+  const x1 = x
+  const x2 = x + dir * TIE_LENGTH
+  const mid = (x1 + x2) / 2
+  const top = y + 6
+  ctx.beginPath()
+  ctx.moveTo(x1, top)
+  ctx.quadraticCurveTo(mid, top + 11, x2, top)
+  ctx.quadraticCurveTo(mid, top + 8, x1, top)
+  ctx.closePath()
+  ctx.fill()
+}
+
 // el: an empty element. Renders an SVG cropped to the glyphs, centred, so
 // every face sits at the same place on its die. `tieOut` draws the tie arc
 // toward the next die when the tie applies.
-export function drawFace(el, face, { beatTicks = 12, tieOut = false, ink = '#1a1a1a' } = {}) {
+export function drawFace(el, face, { beatTicks = 12, tieOut = false, tiedIn = false, ink = '#1a1a1a' } = {}) {
   el.replaceChildren()
   const W = 220
   const H = 112
@@ -57,9 +74,12 @@ export function drawFace(el, face, { beatTicks = 12, tieOut = false, ink = '#1a1
   voice.draw(ctx, stave)
   beams.forEach(b => { b.setStyle({ fillStyle: ink, strokeStyle: ink }); b.setContext(ctx).draw() })
   tuplet?.setContext(ctx).draw()
-  if (tieOut) {
-    new StaveTie({ first_note: notes.at(-1), last_note: null, first_indices: [0], last_indices: [0] }).setContext(ctx).draw()
-  }
+  // A tie across dice is drawn in two halves: leaving this die to the right,
+  // and arriving at the next die's first note from the left.
+  // Drawn by hand, a fixed length: VexFlow's open-ended tie runs to the
+  // stave's end, which would widen the crop and shrink the note on this die.
+  if (tieOut) tieArc(ctx, notes.at(-1).getNoteHeadEndX() + 2, notes.at(-1).getYs()[0], +1)
+  if (tiedIn) tieArc(ctx, notes[0].getNoteHeadBeginX() - 2, notes[0].getYs()[0], -1)
 
   const svg = el.querySelector('svg')
   if (!svg) return

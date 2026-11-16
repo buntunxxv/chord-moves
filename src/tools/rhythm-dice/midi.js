@@ -19,7 +19,10 @@ export const DRUM_SOUNDS = [
 export const DEFAULT_DRUM = 39
 const VELOCITY = 0.8
 
-export function buildRhythmMidiBytes({ faces, metre, bpm, drum = DEFAULT_DRUM, name = 'Rhythm Dice' }) {
+// One bar (`faces`) or a phrase (`bars`, a list of bars in order). Ties never
+// cross a barline, so bars are laid end to end.
+export function buildRhythmMidiBytes({ faces, bars, metre, bpm, drum = DEFAULT_DRUM, name = 'Rhythm Dice' }) {
+  const allBars = bars ?? [faces]
   const midi = new Midi()
   const ppq = midi.header.ppq
   const scale = ppq / TICKS_PER_CROTCHET
@@ -33,12 +36,20 @@ export function buildRhythmMidiBytes({ faces, metre, bpm, drum = DEFAULT_DRUM, n
   const track = midi.addTrack()
   track.name = name
   track.channel = DRUM_CHANNEL
-  for (const note of soundingNotes(faces, metre)) {
-    track.addNote({ midi: drum, ticks: note.start * scale, durationTicks: note.ticks * scale, velocity: VELOCITY })
-  }
+  const barLength = metre.dice * metre.beatTicks
+  allBars.forEach((barFaces, b) => {
+    for (const note of soundingNotes(barFaces, metre)) {
+      track.addNote({ midi: drum, ticks: (b * barLength + note.start) * scale, durationTicks: note.ticks * scale, velocity: VELOCITY })
+    }
+  })
   return midi.toArray()
 }
 
-export function rhythmFilename(faces) {
-  return `rhythm-dice-${faces.map(f => f.id).join('_')}.mid`
+export function rhythmFilename(faces, metre) {
+  const sig = metre ? `${metre.timeSignature[0]}-${metre.timeSignature[1]}-` : ''
+  return `rhythm-dice-${sig}${faces.map(f => f.id).join('_')}.mid`
+}
+
+export function phraseFilename(bars, metre) {
+  return `rhythm-dice-phrase-${metre.timeSignature[0]}-${metre.timeSignature[1]}-${bars.length}-bars.mid`
 }

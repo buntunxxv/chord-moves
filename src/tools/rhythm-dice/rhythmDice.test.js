@@ -280,3 +280,85 @@ test('MIDI keeps a tied note as one longer note', () => {
   const back = new Midi(buildRhythmMidiBytes({ faces: bar, metre: M44, bpm: 120 }))
   assert.deepEqual(back.tracks[0].notes.map(n => [n.midi, n.ticks, n.durationTicks]), [[39, 0, 960], [39, 960, 480], [39, 1440, 480]])
 })
+
+// ---------- PR 2: metres, L3, phrases ----------
+
+import { countInBars, SIMPLE_METRE_IDS, barTicks } from './rhythm.js'
+import { barBoundaries, phraseOnsets } from './timeline.js'
+import { phraseFilename } from './midi.js'
+
+test('2/4, 3/4, 4/4 and 5/4 are 2–5 crotchet dice', () => {
+  assert.deepEqual(SIMPLE_METRE_IDS.map(id => [METRES[id].dice, barTicks(METRES[id]), METRES[id].timeSignature.join('/')]),
+    [[2, 24, '2/4'], [3, 36, '3/4'], [4, 48, '4/4'], [5, 60, '5/4']])
+  for (const id of SIMPLE_METRE_IDS) {
+    const bar = rollBar(slotPool(['L1', 'L2', 'L3']), METRES[id], { rng: seq([0.3, 0.7, 0.1, 0.9, 0.5]) })
+    assert.equal(bar.length, METRES[id].dice)
+    assert.equal(barEvents(bar, METRES[id]).reduce((s, e) => s + e.ticks, 0), barTicks(METRES[id]))
+  }
+})
+
+test('count-in: one bar, but two bars of 2/4 so there are at least four clicks', () => {
+  assert.equal(countInBars(METRES['2/4']), 2)
+  assert.equal(countInBars(METRES['3/4']), 1)
+  assert.equal(countInBars(METRES['5/4']), 1)
+  const src = createPassSource({ faces: [face('L1-1'), face('L1-1')], metre: METRES['2/4'], bpm: 120, startTime: 0, passes: 1 })
+  const ev = []
+  for (let e = src.next(); e; e = src.next()) ev.push(e)
+  assert.equal(ev.filter(e => e.countIn).length, 4)
+  assert.equal(src.firstBar, 2)
+})
+
+test('L3 in 3/4: the tie-out face never lands on beat 3, at any roll', () => {
+  const pool = slotPool(['L3'])
+  for (let k = 0; k < 60; k++) {
+    const bar = rollBar(pool, METRES['3/4'], { rng: () => (k % 6) / 6 + 0.01 })
+    assert.notEqual(bar[2].id, 'L3-5')
+  }
+})
+
+test('a tie across dice inside a 5/4 bar sounds as one note and drops one onset', () => {
+  const bar = [face('L1-1'), face('L3-5'), face('L1-2'), face('L1-3'), face('L3-1')]
+  const m = METRES['5/4']
+  assert.deepEqual(resolveTies(bar), [false, true, false, false, false])
+  assert.deepEqual(soundingNotes(bar, m).slice(0, 2), [{ start: 0, ticks: 12 }, { start: 12, ticks: 18 }])
+  assert.deepEqual(onsetTicks(bar, m), [0, 12, 30, 48, 57])
+})
+
+test('a phrase is scored as one sequence, each bar shifted by its start', () => {
+  const m = METRES['2/4']
+  const bars = [[face('L1-1'), face('L1-2')], [face('L1-3'), face('L1-1')]]
+  assert.deepEqual(phraseOnsets(bars, m, 120).map(o => [o.bar, o.time]), [[0, 0], [0, 0.5], [0, 0.75], [1, 1.5]])
+})
+
+test('bar boundaries sit halfway between one bar\'s last onset and the next bar\'s first', () => {
+  const barSec = 2
+  const a = [{ time: 0 }, { time: 1.5 }]
+  const b = [{ time: 0.5 }]
+  // Bar 1 ends halfway between 1.5 and 2.5 (bar 2's first onset); bar 2 ends
+  // halfway between 2.5 and 4.0; the last bar keeps a 0.1 s tail.
+  assert.deepEqual(barBoundaries([a, b, a], barSec), [2, 3.25, 6.1])
+  // An all-rest bar ends on its own barline.
+  assert.deepEqual(barBoundaries([[], a], barSec), [2, 4.1])
+})
+
+test('read-ahead source: claps follow whichever bar each pass is given', () => {
+  const m = METRES['2/4']
+  const barsByPass = [[face('L1-1'), face('L1-3')], [face('L1-2'), face('L1-2')]]
+  const src = createPassSource({ faces: p => barsByPass[p], metre: m, bpm: 120, startTime: 0, countIn: 0, claps: true, passes: 2 })
+  const claps = []
+  for (let e = src.next(); e; e = src.next()) if (e.kind === 'clap') claps.push(e.time)
+  assert.deepEqual(claps, [0, 1, 1.25, 1.5, 1.75])
+})
+
+test('phrase MIDI: bars laid end to end, metre and tempo written once', () => {
+  const m = METRES['3/4']
+  const bars = [[face('L1-1'), face('L1-2'), face('L1-3')], [face('L3-5'), face('L1-1'), face('L1-4')]]
+  const back = new Midi(buildRhythmMidiBytes({ bars, metre: m, bpm: 90 }))
+  assert.deepEqual(back.header.timeSignatures[0].timeSignature, [3, 4])
+  assert.equal(Math.round(back.header.tempos[0].bpm), 90)
+  assert.deepEqual(back.tracks[0].notes.map(n => [n.ticks, n.durationTicks]), [
+    [0, 480], [480, 240], [720, 240],
+    [1440, 960], [2640, 240],
+  ])
+  assert.equal(phraseFilename(bars, m), 'rhythm-dice-phrase-3-4-2-bars.mid')
+})

@@ -2,29 +2,38 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ToolShell from '../../app/ToolShell'
 import { logEvent } from '../../analytics/events'
 import { downloadMidiFile } from '../../utils/midiExport'
-import DieTile, { DieFace } from './DieTile'
+import DieTile, { BarStrip, DieFace } from './DieTile'
 import Results from './Results'
 import { createRhythmAudio } from './audioEngine'
 import { AVAILABLE_LEVEL_IDS, LEVELS } from './faces'
-import { DEFAULT_DRUM, DRUM_SOUNDS, buildRhythmMidiBytes, rhythmFilename } from './midi'
-import { METRES, blockUnit, isAllRest, resolveTies, rollBar, slotPool } from './rhythm'
+import { DEFAULT_DRUM, DRUM_SOUNDS, buildRhythmMidiBytes, phraseFilename, rhythmFilename } from './midi'
+import { METRES, SIMPLE_METRE_IDS, blockUnit, isAllRest, resolveTies, rollBar, slotPool } from './rhythm'
 import { reflect, scoreBar } from './scoring'
-import { KEYS, readKept, readNumber, readString, remove, write, writeKept } from './storage'
-import { barSeconds, calibrationOffset, createPassSource, expectedOnsets } from './timeline'
+import { KEYS, readKept, readNumber, readPhrase, readString, remove, write, writeKept, writePhrase } from './storage'
+import { barBoundaries, barSeconds, calibrationOffset, createPassSource, expectedOnsets, phraseOnsets } from './timeline'
 import './RhythmDice.css'
 
-const METRE = METRES['4/4']
 const MIN_BPM = 40
 const MAX_BPM = 160
+const PHRASE_BARS = 4
 const LEVEL_CHOICES = [
-  { key: 'L1', label: 'Level 1', levelIds: ['L1'] },
-  { key: 'L2', label: 'Level 2', levelIds: ['L2'] },
-  { key: 'mix', label: 'Mix 1 + 2', levelIds: AVAILABLE_LEVEL_IDS },
+  { key: 'L1', label: '1', levelIds: ['L1'] },
+  { key: 'L2', label: '2', levelIds: ['L2'] },
+  { key: 'L3', label: '3', levelIds: ['L3'] },
+  { key: 'mix', label: 'Mix', levelIds: AVAILABLE_LEVEL_IDS },
 ]
 const SUBDIVISIONS = [
   { ticks: 0, label: 'Beats' },
   { ticks: 6, label: 'Quavers' },
   { ticks: 3, label: 'Semis' },
+]
+// Once: play the bar and see the result. Repeat: the same bar again and
+// again, each pass scored. Read ahead: while you play one bar, the next is
+// rolled and shown, so you are always reading a bar ahead.
+const MODES = [
+  { key: 'once', label: 'Once' },
+  { key: 'repeat', label: 'Repeat' },
+  { key: 'readahead', label: 'Read ahead' },
 ]
 const CALIBRATION_BPM = 100
 const CALIBRATION_TAPS = 8
@@ -33,6 +42,11 @@ const LEAD_IN = 0.1
 const FACE_INDEX = new Map(LEVELS.flatMap(l => l.faces).map(f => [f.id, f]))
 
 const clampBpm = v => Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(Number(v) || 0)))
+const facesFromIds = ids => {
+  const faces = ids.map(id => FACE_INDEX.get(id))
+  return faces.every(Boolean) ? faces : null
+}
+const unlockedAll = n => Array.from({ length: n }, () => false)
 
 export default function RhythmDice() {
   const audioRef = useRef(null)
@@ -44,13 +58,15 @@ export default function RhythmDice() {
   const pool = useMemo(() => slotPool(levelIds), [levelIds])
   const unit = useMemo(() => blockUnit(slotPool(AVAILABLE_LEVEL_IDS)), [])
 
-  const [faces, setFaces] = useState(() => rollBar(pool, METRE))
-  const [locked, setLocked] = useState([false, false, false, false])
+  const [metreId, setMetreId] = useState(() => readString(KEYS.metre, '4/4', SIMPLE_METRE_IDS))
+  const metre = METRES[metreId]
+  const [faces, setFaces] = useState(() => rollBar(pool, METRES[readString(KEYS.metre, '4/4', SIMPLE_METRE_IDS)]))
+  const [locked, setLocked] = useState(() => unlockedAll(faces.length))
   const [rolling, setRolling] = useState(false)
   const [view, setView] = useState(() => readString(KEYS.view, 'notes', ['notes', 'blocks']))
   const [bpm, setBpmState] = useState(() => readNumber(KEYS.bpm, 80, { min: MIN_BPM, max: MAX_BPM }))
   const [subdivision, setSubdivision] = useState(() => readNumber(KEYS.subdivision, 0, { min: 0, max: 6 }))
-  const [loop, setLoop] = useState(false)
+  const [mode, setMode] = useState(() => readString(KEYS.mode, 'once', MODES.map(m => m.key)))
   const [latencyMs, setLatencyMs] = useState(() => {
     const v = readNumber(KEYS.latency, NaN, { min: -100, max: 400 })
     return Number.isFinite(v) ? v : null
@@ -64,17 +80,25 @@ export default function RhythmDice() {
   const [kept, setKept] = useState(readKept)
   const [reason, setReason] = useState('')
   const [drum, setDrum] = useState(() => readNumber(KEYS.drum, DEFAULT_DRUM))
+  const [phrase, setPhrase] = useState(readPhrase)
+  // While a phrase plays, the tray shows the bar being played (`live`), and
+  // read-ahead and phrases show the bar after it (`next`).
+  const [live, setLive] = useState(null) // { faces, bar, of } | null
+  const [nextFaces, setNextFaces] = useState(null)
   // The lower half of the screen shows one thing at a time, so the page never
-  // scrolls: the tap pad, the last result, or the keep shelf.
-  const [stage, setStage] = useState('play') // play | result | keep
+  // scrolls: the tap pad, the last result, the keep shelf or the phrase.
+  const [stage, setStage] = useState('play') // play | result | keep | phrase
   const [keptPage, setKeptPage] = useState(0)
   const [keptPerPage, setKeptPerPage] = useState(3)
   const keptListRef = useRef(null)
 
   const sessionRef = useRef(null)
   const rafRef = useRef(0)
-  const ties = useMemo(() => resolveTies(faces), [faces])
+  const shownFaces = live?.faces ?? faces
+  const ties = useMemo(() => resolveTies(shownFaces), [shownFaces])
   const busy = phase !== 'idle'
+  const phraseBars = useMemo(() => phrase.bars.map(facesFromIds).filter(Boolean), [phrase])
+  const phraseMetre = phrase.metre ? METRES[phrase.metre] : null
 
   useEffect(() => () => {
     cancelAnimationFrame(rafRef.current)
@@ -94,7 +118,7 @@ export default function RhythmDice() {
     const el = keptListRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(([entry]) => {
-      const rows = Math.max(1, Math.floor((entry.contentRect.height + 8) / 72))
+      const rows = Math.max(1, Math.floor((entry.contentRect.height + 8) / 64))
       setKeptPerPage(rows)
     })
     ro.observe(el)
@@ -116,11 +140,11 @@ export default function RhythmDice() {
       return
     }
     setNotice('')
-    setFaces(current => rollBar(pool, METRE, { current, locked }))
+    setFaces(current => rollBar(pool, metre, { current, locked }))
     setOutcome(null)
     setRolling(true)
     window.setTimeout(() => setRolling(false), 460)
-    logEvent('rhythm_dice_roll', { levels: levelIds.join('+'), locked: locked.filter(Boolean).length })
+    logEvent('rhythm_dice_roll', { levels: levelIds.join('+'), metre: metreId, locked: locked.filter(Boolean).length })
   }
 
   function toggleLock(i) {
@@ -137,7 +161,24 @@ export default function RhythmDice() {
     write(KEYS.view, next)
   }
 
-  // ----- sessions (hear it / perform / calibrate) -----
+  // A new metre is a new number of dice: roll a fresh bar, nothing locked.
+  function chooseMetre(id) {
+    if (busy || id === metreId || !METRES[id]) return
+    const m = METRES[id]
+    setMetreId(id)
+    write(KEYS.metre, id)
+    setFaces(rollBar(pool, m))
+    setLocked(unlockedAll(m.dice))
+    setOutcome(null)
+    logEvent('rhythm_dice_metre', { metre: id })
+  }
+
+  function chooseMode(key) {
+    setMode(key)
+    write(KEYS.mode, key)
+  }
+
+  // ----- sessions (hear it / perform / phrase / calibrate) -----
 
   const stopSession = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
@@ -145,6 +186,8 @@ export default function RhythmDice() {
     sessionRef.current = null
     setPhase('idle')
     setBeatLight({ beat: -1, countIn: false })
+    setLive(null)
+    setNextFaces(null)
   }, [audio])
 
   function frame() {
@@ -155,14 +198,19 @@ export default function RhythmDice() {
     if (t < s.firstBar) {
       setBeatLight({ beat: Math.max(0, Math.floor((t - s.startTime) / beatSec)) % s.beatsPerBar, countIn: true })
     } else {
-      const intoBar = (t - s.firstBar) % s.barSec
+      const bar = Math.floor((t - s.firstBar) / s.barSec)
+      const intoBar = (t - s.firstBar) - bar * s.barSec
       setBeatLight({ beat: Math.floor(intoBar / beatSec) % s.beatsPerBar, countIn: false })
+      if (bar !== s.shownBar) {
+        s.shownBar = bar
+        s.onBar?.(bar)
+      }
     }
     s.onFrame?.(t)
     if (sessionRef.current === s) rafRef.current = requestAnimationFrame(frame)
   }
 
-  async function startSession(session, source) {
+  async function startSession(session, makeSource) {
     try {
       await audio.ensure()
     } catch {
@@ -172,10 +220,11 @@ export default function RhythmDice() {
     // Space is the tap key during a session; keep it away from any button.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     const startTime = audio.now() + 0.12
-    const s = { ...session, startTime, beatsPerBar: METRE.dice }
-    s.firstBar = startTime + (s.countInSec ?? 0)
+    const source = makeSource(startTime)
+    const s = { beatsPerBar: metre.dice, shownBar: -1, ...session, startTime }
+    s.firstBar = source.firstBar ?? startTime
     sessionRef.current = s
-    audio.play(source(startTime))
+    audio.play(source)
     cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(frame)
     return s
@@ -186,53 +235,138 @@ export default function RhythmDice() {
     setNotice('')
     setStage('play')
     setPhase('listening')
-    const barSec = barSeconds(METRE, bpm)
+    const barSec = barSeconds(metre, bpm)
     const s = await startSession(
-      { kind: 'listen', bpm, barSec, countInSec: barSec },
-      startTime => createPassSource({ faces, metre: METRE, bpm, startTime, subdivision, claps: true, passes: 1 }),
+      { kind: 'listen', bpm, barSec },
+      startTime => createPassSource({ faces, metre, bpm, startTime, subdivision, claps: true, passes: 1 }),
     )
     if (!s) return setPhase('idle')
     s.onFrame = t => { if (t > s.firstBar + barSec + 0.2) stopSession() }
-    logEvent('rhythm_dice_hear_it', { bpm })
+    logEvent('rhythm_dice_hear_it', { bpm, metre: metreId })
   }
 
+  // Per-bar scoring for Once, Repeat and Read ahead. `s.bars[k]` is the bar
+  // played on pass k; read-ahead rolls each next bar as the previous starts.
   async function perform() {
     if (busy) return
     setNotice('')
     setOutcome(null)
     setStage('play')
     setPhase('performing')
-    const barSec = barSeconds(METRE, bpm)
-    const expected = expectedOnsets(faces, METRE, bpm)
-    const passes = loop ? Infinity : 1
-    // Where one bar's taps end and the next bar's begin. In a loop, halfway
-    // between this bar's last onset and the next bar's first; otherwise a
-    // short tail after the barline.
-    const end = loop && expected.length
-      ? (expected.at(-1).time + barSec + expected[0].time) / 2
-      : barSec + LEAD_IN
-    const facesAtStart = faces
+    const barSec = barSeconds(metre, bpm)
+    const passes = mode === 'once' ? 1 : Infinity
+    const lockedAtStart = locked
+    const roll = prev => rollBar(pool, metre, { current: prev, locked: lockedAtStart })
+    const bars = [faces]
+    if (mode === 'readahead') {
+      bars[1] = roll(faces)
+      setNextFaces(bars[1])
+    }
+    const facesFor = k => (mode === 'readahead' ? bars[k] : faces)
+    const expectedFor = k => expectedOnsets(facesFor(k), metre, bpm)
+    // Seconds after the first downbeat at which bar k's taps stop counting.
+    const endOf = k => (k === passes - 1
+      ? k * barSec + barSec + LEAD_IN
+      : k * barSec + barBoundaries([expectedFor(k), expectedFor(k + 1)], barSec)[0])
+
     const s = await startSession(
-      { kind: 'perform', bpm, barSec, countInSec: barSec, taps: [], scored: 0, latency: (latencyMs ?? 0) / 1000 },
-      startTime => createPassSource({ faces: facesAtStart, metre: METRE, bpm, startTime, subdivision, passes }),
+      { kind: 'perform', bpm, barSec, taps: [], scored: 0, latency: (latencyMs ?? 0) / 1000 },
+      startTime => createPassSource({ faces: facesFor, metre, bpm, startTime, subdivision, passes }),
     )
     if (!s) return setPhase('idle')
+    if (mode === 'readahead') {
+      // As bar k starts it becomes the bar on the dice, and bar k+1 is rolled
+      // and shown underneath so it can be read while bar k is played.
+      s.onBar = k => {
+        if (!bars[k + 1]) bars[k + 1] = roll(bars[k])
+        setFaces(bars[k])
+        setNextFaces(bars[k + 1])
+      }
+    }
     s.onFrame = t => {
-      while (s.scored < passes && t > s.firstBar + s.scored * barSec + end + 0.03) {
-        const barStart = s.firstBar + s.scored * barSec
-        const lo = s.scored === 0 ? -LEAD_IN : end - barSec
-        const rel = s.taps.map(tap => tap - barStart).filter(x => x >= lo && x < end)
+      while (s.scored < passes && bars[s.scored] && (mode !== 'readahead' || bars[s.scored + 1]) && t > s.firstBar + endOf(s.scored) + 0.03) {
+        const k = s.scored
+        const barStart = s.firstBar + k * barSec
+        const lo = k === 0 ? -LEAD_IN : endOf(k - 1) - k * barSec
+        const hi = endOf(k) - k * barSec
+        const rel = s.taps.map(tap => tap - barStart).filter(x => x >= lo && x < hi)
+        const expected = expectedFor(k)
         const result = scoreBar(expected, rel)
-        setOutcome({ result, reflection: reflect(result), expected, barSec, pass: s.scored, loop: passes > 1 })
-        // In a loop the pad stays up so the next pass can be played; the
-        // latest result is one tap away on the Result tab.
+        setOutcome({ result, reflection: reflect(result), expected, barSec, pass: k, loop: passes > 1, beats: metre.dice })
         if (passes === 1) setStage('result')
-        logEvent('rhythm_dice_scored', { bpm, accuracy: Math.round(result.accuracy * 100), allRest: result.allRest })
+        logEvent('rhythm_dice_scored', { bpm, metre: metreId, mode, accuracy: Math.round(result.accuracy * 100), allRest: result.allRest })
         s.scored += 1
       }
       if (s.scored >= passes) stopSession()
     }
   }
+
+  // ----- phrase -----
+
+  function addToPhrase(barFaces, barMetreId) {
+    if (busy) return
+    if (phrase.bars.length >= PHRASE_BARS) return setNotice(`A phrase holds ${PHRASE_BARS} bars. Remove one to add another.`)
+    if (phrase.bars.length && phrase.metre !== barMetreId) {
+      return setNotice(`This phrase is in ${phrase.metre}. Clear it, or add a ${phrase.metre} bar.`)
+    }
+    const next = { metre: barMetreId, bars: [...phrase.bars, barFaces.map(f => f.id)] }
+    setPhrase(next)
+    writePhrase(next)
+    setNotice(`Bar ${next.bars.length} of ${PHRASE_BARS} added to the phrase.`)
+    logEvent('rhythm_dice_phrase_add', { bars: next.bars.length, metre: barMetreId })
+  }
+
+  function removeFromPhrase(i) {
+    const bars = phrase.bars.filter((_, j) => j !== i)
+    const next = { metre: bars.length ? phrase.metre : null, bars }
+    setPhrase(next)
+    writePhrase(next)
+  }
+
+  function clearPhrase() {
+    const next = { metre: null, bars: [] }
+    setPhrase(next)
+    writePhrase(next)
+  }
+
+  async function playPhrase({ listen = false } = {}) {
+    if (busy || !phraseBars.length || !phraseMetre) return
+    setNotice('')
+    setOutcome(null)
+    setStage('play')
+    setPhase(listen ? 'listening' : 'performing')
+    const m = phraseMetre
+    const n = phraseBars.length
+    const barSec = barSeconds(m, bpm)
+    const s = await startSession(
+      { kind: listen ? 'listen' : 'phrase', bpm, barSec, beatsPerBar: m.dice, taps: [], latency: (latencyMs ?? 0) / 1000 },
+      startTime => createPassSource({ faces: k => phraseBars[k], metre: m, bpm, startTime, subdivision, claps: listen, passes: n }),
+    )
+    if (!s) return setPhase('idle')
+    setLive({ faces: phraseBars[0], bar: 0, of: n, metre: m })
+    setNextFaces(phraseBars[1] ?? null)
+    s.onBar = k => {
+      if (k >= n) return
+      setLive({ faces: phraseBars[k], bar: k, of: n, metre: m })
+      setNextFaces(phraseBars[k + 1] ?? null)
+    }
+    const total = n * barSec
+    s.onFrame = t => {
+      if (t < s.firstBar + total + LEAD_IN + 0.03) return
+      if (!listen) {
+        // The whole phrase is scored as one sequence.
+        const expected = phraseOnsets(phraseBars, m, bpm)
+        const rel = s.taps.map(tap => tap - s.firstBar).filter(x => x >= -LEAD_IN && x < total + LEAD_IN)
+        const result = scoreBar(expected, rel)
+        setOutcome({ result, reflection: reflect(result), expected, barSec: total, pass: 0, loop: false, beats: m.dice * n, beatsPerBar: m.dice, bars: n })
+        setStage('result')
+        logEvent('rhythm_dice_phrase_scored', { bpm, bars: n, metre: m.id, accuracy: Math.round(result.accuracy * 100) })
+      }
+      stopSession()
+    }
+  }
+
+  // ----- calibration -----
 
   async function calibrate() {
     if (busy) return
@@ -241,19 +375,20 @@ export default function RhythmDice() {
     setStage('play')
     setPhase('calibrating')
     const beatSec = 60 / CALIBRATION_BPM
-    const total = METRE.dice + CALIBRATION_TAPS
+    const countIn = 4
+    const total = countIn + CALIBRATION_TAPS
     let clickTimes = []
     const s = await startSession(
-      { kind: 'calibrate', bpm: CALIBRATION_BPM, barSec: beatSec * METRE.dice, countInSec: beatSec * METRE.dice, rawTaps: [] },
+      { kind: 'calibrate', bpm: CALIBRATION_BPM, barSec: beatSec * 4, beatsPerBar: 4, rawTaps: [] },
       startTime => {
         const all = Array.from({ length: total }, (_, i) => ({
           time: startTime + i * beatSec,
           kind: 'click',
-          level: i % METRE.dice === 0 ? 'accent' : 'beat',
+          level: i % 4 === 0 ? 'accent' : 'beat',
         }))
-        clickTimes = all.slice(METRE.dice).map(e => e.time)
+        clickTimes = all.slice(countIn).map(e => e.time)
         let i = 0
-        return { next: () => all[i++] ?? null }
+        return { next: () => all[i++] ?? null, firstBar: startTime + countIn * beatSec }
       },
     )
     if (!s) return setPhase('idle')
@@ -284,12 +419,13 @@ export default function RhythmDice() {
 
   const registerTap = useCallback(event => {
     const s = sessionRef.current
-    if (!s || (s.kind !== 'perform' && s.kind !== 'calibrate')) return
+    if (!s || (s.kind !== 'perform' && s.kind !== 'phrase' && s.kind !== 'calibrate')) return
     const t = audio.eventTime(event)
-    if (s.kind === 'perform') s.taps.push(t - s.latency)
-    else {
+    if (s.kind === 'calibrate') {
       s.rawTaps.push(t)
       setCalTaps(n => n + 1)
+    } else {
+      s.taps.push(t - s.latency)
     }
     setPadFlash(n => n + 1)
   }, [audio])
@@ -312,6 +448,7 @@ export default function RhythmDice() {
       id: `${Date.now()}`,
       keptAt: new Date().toISOString(),
       faceIds: faces.map(f => f.id),
+      metre: metreId,
       bpm,
       levelIds,
       reason: reason.trim(),
@@ -322,7 +459,7 @@ export default function RhythmDice() {
     setReason('')
     setKeptPage(0)
     setNotice('Bar kept on this device.')
-    logEvent('rhythm_dice_kept', { withReason: !!entry.reason })
+    logEvent('rhythm_dice_kept', { withReason: !!entry.reason, metre: metreId })
   }
 
   function removeKept(id) {
@@ -331,21 +468,26 @@ export default function RhythmDice() {
     writeKept(next)
   }
 
+  // Kept bars from before PR 2 have no metre: they were all 4/4.
+  const keptMetreId = entry => (METRES[entry.metre] ? entry.metre : '4/4')
+
   function loadKept(entry) {
-    const loaded = entry.faceIds.map(id => FACE_INDEX.get(id))
-    if (loaded.some(f => !f)) return setNotice('That kept bar uses faces this version does not have.')
+    const loaded = facesFromIds(entry.faceIds)
+    if (!loaded) return setNotice('That kept bar uses faces this version does not have.')
+    const id = keptMetreId(entry)
+    setMetreId(id)
+    write(KEYS.metre, id)
     setFaces(loaded)
-    setLocked([true, true, true, true])
+    setLocked(loaded.map(() => true))
     setBpm(entry.bpm)
     setOutcome(null)
     setStage('play')
     setNotice('Kept bar loaded and locked. Unlock dice to re-roll them.')
   }
 
-  function exportMidi(facesToExport, tempo) {
+  function download(bytes, filename) {
     try {
-      const bytes = buildRhythmMidiBytes({ faces: facesToExport, metre: METRE, bpm: tempo, drum })
-      downloadMidiFile(bytes, rhythmFilename(facesToExport))
+      downloadMidiFile(bytes, filename)
       setNotice('MIDI file downloaded.')
       logEvent('rhythm_dice_midi_export', { drum })
     } catch (err) {
@@ -354,18 +496,38 @@ export default function RhythmDice() {
     }
   }
 
+  function exportBar(barFaces, tempo, barMetre) {
+    download(buildRhythmMidiBytes({ faces: barFaces, metre: barMetre, bpm: tempo, drum }), rhythmFilename(barFaces, barMetre))
+  }
+
+  function exportPhrase() {
+    if (!phraseBars.length || !phraseMetre) return
+    download(buildRhythmMidiBytes({ bars: phraseBars, metre: phraseMetre, bpm, drum }), phraseFilename(phraseBars, phraseMetre))
+  }
+
   function chooseDrum(v) {
     const n = Number(v)
     setDrum(n)
     write(KEYS.drum, n)
   }
 
-  const allRest = isAllRest(faces)
+  function cycleSubdivision() {
+    const i = SUBDIVISIONS.findIndex(s => s.ticks === subdivision)
+    const next = SUBDIVISIONS[(i + 1) % SUBDIVISIONS.length].ticks
+    setSubdivision(next)
+    write(KEYS.subdivision, next)
+  }
+
+  // ----- render -----
+
+  const shownMetre = live?.metre ?? metre
+  const allRest = isAllRest(shownFaces)
+  const countInLabel = beatLight.countIn ? `Count-in ${beatLight.beat + 1}` : null
   const padLabel = phase === 'calibrating'
     ? (beatLight.countIn ? 'Listen…' : `Tap with each click · ${calTaps} of ${CALIBRATION_TAPS}`)
     : phase === 'performing'
-      ? (beatLight.countIn ? `Count-in ${beatLight.beat + 1}` : allRest ? 'Hold the silence' : 'Play the bar')
-      : phase === 'listening' ? 'Listening…' : 'Tap here or press Space'
+      ? (countInLabel ?? (live ? `Bar ${live.bar + 1} of ${live.of}` : allRest ? 'Hold the silence' : 'Play the bar'))
+      : phase === 'listening' ? (live ? `Listening · bar ${live.bar + 1} of ${live.of}` : 'Listening…') : 'Tap here or press Space'
 
   const keptPages = Math.max(1, Math.ceil(kept.length / keptPerPage))
   const page = Math.min(keptPage, keptPages - 1)
@@ -374,11 +536,13 @@ export default function RhythmDice() {
     { key: 'play', label: 'Play' },
     { key: 'result', label: 'Result', disabled: !outcome },
     { key: 'keep', label: kept.length ? `Keep · ${kept.length}` : 'Keep' },
+    { key: 'phrase', label: phrase.bars.length ? `Phrase · ${phrase.bars.length}` : 'Phrase' },
   ]
+  const subLabel = SUBDIVISIONS.find(s => s.ticks === subdivision)?.label ?? 'Beats'
 
   return (
     <ToolShell>
-      <div className="rhythm-dice">
+      <div className="rhythm-dice" style={{ '--rd-dice': shownMetre.dice }}>
         {/* Same page header as Chord Moves: a teal eyebrow naming the tool,
             then one line saying what you do here; controls sit to the right,
             where Chord Moves puts Upgrade. */}
@@ -388,39 +552,47 @@ export default function RhythmDice() {
             <h1 className="rd-head__title">Roll, play and keep a bar</h1>
           </div>
           <div className="rd-head__controls">
-          <div className="rd-seg rd-head__levels" role="radiogroup" aria-label="Dice level">
-            {LEVEL_CHOICES.map(c => (
-              <button key={c.key} type="button" role="radio" aria-checked={levelKey === c.key}
-                className={levelKey === c.key ? 'is-on' : ''} onClick={() => chooseLevel(c.key)} disabled={busy}>
-                {c.label}
-              </button>
-            ))}
-          </div>
-          <div className="rd-seg rd-head__view" role="radiogroup" aria-label="Show dice as">
-            {[['notes', 'Notes'], ['blocks', 'Blocks']].map(([v, label]) => (
-              <button key={v} type="button" role="radio" aria-checked={view === v}
-                className={view === v ? 'is-on' : ''} onClick={() => chooseView(v)}>
-                {label}
-              </button>
-            ))}
-          </div>
+            <div className="rd-seg rd-head__levels" role="radiogroup" aria-label="Dice level">
+              {LEVEL_CHOICES.map(c => (
+                <button key={c.key} type="button" role="radio" aria-checked={levelKey === c.key}
+                  aria-label={c.key === 'mix' ? 'Mix levels 1 to 3' : `Level ${c.label}`}
+                  className={levelKey === c.key ? 'is-on' : ''} onClick={() => chooseLevel(c.key)} disabled={busy}>
+                  {c.key !== 'mix' && <span className="rd-long" aria-hidden="true">Level </span>}{c.label}
+                </button>
+              ))}
+            </div>
+            <div className="rd-seg rd-head__view" role="radiogroup" aria-label="Show dice as">
+              {[['notes', 'Notes'], ['blocks', 'Blocks']].map(([v, label]) => (
+                <button key={v} type="button" role="radio" aria-checked={view === v}
+                  className={view === v ? 'is-on' : ''} onClick={() => chooseView(v)}>
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </header>
 
-        <section className="rd-tray" aria-label="Dice: one bar of 4/4">
-          <div className="rd-tray__meter" aria-hidden="true"><span>4</span><span>4</span></div>
+        <section className="rd-tray" aria-label={`Dice: one bar of ${shownMetre.id}`}>
+          {/* The time signature is the metre control: tap it to choose. */}
+          <label className="rd-tray__meter" title="Time signature">
+            <span aria-hidden="true"><span>{shownMetre.timeSignature[0]}</span><span>{shownMetre.timeSignature[1]}</span></span>
+            <span className="rd-visually-hidden">Time signature</span>
+            <select id="rd-metre" value={metreId} onChange={e => chooseMetre(e.target.value)} disabled={busy}>
+              {SIMPLE_METRE_IDS.map(id => <option key={id} value={id}>{id}</option>)}
+            </select>
+          </label>
           <div className="rd-tray__dice">
-            {faces.map((face, i) => (
+            {shownFaces.map((face, i) => (
               <DieTile
                 key={i}
                 index={i}
                 face={face}
-                locked={locked[i]}
+                locked={!live && locked[i]}
                 rolling={rolling}
                 disabled={busy}
                 onToggleLock={() => toggleLock(i)}
                 view={view}
-                beatTicks={METRE.beatTicks}
+                beatTicks={shownMetre.beatTicks}
                 unit={unit}
                 tiedIn={i > 0 && ties[i - 1]}
                 tieOut={ties[i]}
@@ -452,7 +624,7 @@ export default function RhythmDice() {
           </div>
         </section>
 
-        <section className="rd-stage" aria-label="Play, result and keep">
+        <section className="rd-stage" aria-label="Play, result, keep and phrase">
           <div className="rd-stage__tabs" role="tablist" aria-label="Show">
             {stages.map(t => (
               <button key={t.key} type="button" role="tab" id={`rd-tab-${t.key}`} aria-controls={`rd-panel-${t.key}`}
@@ -473,25 +645,35 @@ export default function RhythmDice() {
           {stage === 'play' && (
             <div className={`rd-stage__panel rd-play${busy ? ' is-live' : ''}`} role="tabpanel" id="rd-panel-play" aria-labelledby="rd-tab-play">
               <div className="rd-play__bar">
-                <div className="rd-seg rd-seg--small" role="radiogroup" aria-label="Click">
-                  {SUBDIVISIONS.map(s => (
-                    <button key={s.ticks} type="button" role="radio" aria-checked={subdivision === s.ticks}
-                      className={subdivision === s.ticks ? 'is-on' : ''} disabled={busy}
-                      onClick={() => { setSubdivision(s.ticks); write(KEYS.subdivision, s.ticks) }}>
-                      {s.label}
+                <button type="button" className="rd-btn rd-btn--small rd-click" onClick={cycleSubdivision} disabled={busy}
+                  aria-label={`Click: ${subLabel}. Tap to change`}>
+                  <span aria-hidden="true">Click · </span>{subLabel}
+                </button>
+                <div className="rd-seg rd-seg--small" role="radiogroup" aria-label="Play">
+                  {MODES.map(m => (
+                    <button key={m.key} type="button" role="radio" aria-checked={mode === m.key}
+                      className={mode === m.key ? 'is-on' : ''} disabled={busy} onClick={() => chooseMode(m.key)}>
+                      {m.label}
                     </button>
                   ))}
                 </div>
-                <label className="rd-switch">
-                  <input id="rd-loop" type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} disabled={busy} />
-                  <span>Repeat</span>
-                </label>
                 <div className="rd-lights" aria-hidden="true">
-                  {Array.from({ length: METRE.dice }, (_, b) => (
+                  {Array.from({ length: shownMetre.dice }, (_, b) => (
                     <span key={b} className={`rd-light${beatLight.beat === b ? (beatLight.countIn ? ' is-count' : ' is-on') : ''}${b === 0 ? ' is-down' : ''}`} />
                   ))}
                 </div>
               </div>
+              {nextFaces && (
+                <div className="rd-next" aria-label={`Next bar: ${nextFaces.map(f => f.name).join(', ')}`}>
+                  <span className="rd-next__label">Next</span>
+                  <div className="rd-next__dice">
+                    {nextFaces.map((f, i) => (
+                      <DieFace key={`${i}-${f.id}`} face={f} view={view} beatTicks={shownMetre.beatTicks} unit={unit} size="next"
+                        tiedIn={i > 0 && resolveTies(nextFaces)[i - 1]} tieOut={resolveTies(nextFaces)[i]} />
+                    ))}
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 className="rd-pad"
@@ -512,7 +694,7 @@ export default function RhythmDice() {
 
           {stage === 'result' && outcome && (
             <div className="rd-stage__panel" role="tabpanel" id="rd-panel-result" aria-labelledby="rd-tab-result">
-              <Results outcome={outcome} beatTicks={METRE.beatTicks} beats={METRE.dice} />
+              <Results outcome={outcome} beatTicks={metre.beatTicks} beats={outcome.beats} />
             </div>
           )}
 
@@ -529,31 +711,66 @@ export default function RhythmDice() {
                 <select id="rd-drum" value={drum} onChange={e => chooseDrum(e.target.value)}>
                   {DRUM_SOUNDS.map(d => <option key={d.midi} value={d.midi}>{d.label} ({d.midi})</option>)}
                 </select>
-                <button type="button" className="rd-btn rd-btn--quiet" onClick={() => exportMidi(faces, bpm)}>Export this bar</button>
+                <button type="button" className="rd-btn rd-btn--quiet" onClick={() => exportBar(faces, bpm, metre)}>Export this bar</button>
               </div>
 
               <ul className="rd-kept" ref={keptListRef} aria-label="Kept bars">
                 {kept.length === 0 && <li className="rd-kept__empty">Bars you keep appear here, with your reason.</li>}
                 {keptShown.map(k => {
-                  const kf = k.faceIds.map(id => FACE_INDEX.get(id)).filter(Boolean)
+                  const kf = facesFromIds(k.faceIds)
+                  const km = METRES[keptMetreId(k)]
                   return (
                     <li key={k.id} className="rd-kept__item">
-                      <div className="rd-kept__dice" aria-label={kf.map(f => f.name).join(', ')}>
-                        {kf.map((f, i) => <DieFace key={i} face={f} view="blocks" beatTicks={METRE.beatTicks} unit={unit} size="small" />)}
-                      </div>
+                      <span className="rd-kept__metre" aria-label={`${km.id}`}>{km.id}</span>
                       <div className="rd-kept__text">
+                        {kf ? <BarStrip faces={kf} beatTicks={km.beatTicks} unit={unit} /> : <span className="rd-kept__missing">Faces missing</span>}
                         <p className="rd-kept__reason">{k.reason || 'No reason written'}</p>
                         <p className="rd-kept__meta">{k.bpm} BPM · {new Date(k.keptAt).toLocaleDateString()}</p>
                       </div>
                       <div className="rd-kept__actions">
-                        <button type="button" className="rd-btn rd-btn--small" onClick={() => loadKept(k)} disabled={busy || kf.length !== 4}>Load</button>
-                        <button type="button" className="rd-btn rd-btn--small" onClick={() => exportMidi(kf, k.bpm)} disabled={kf.length !== 4}>MIDI</button>
+                        <button type="button" className="rd-btn rd-btn--small" onClick={() => loadKept(k)} disabled={busy || !kf}>Load</button>
+                        <button type="button" className="rd-btn rd-btn--small" onClick={() => addToPhrase(kf, km.id)} disabled={busy || !kf}
+                          aria-label={`Add to phrase: ${k.reason || 'kept bar'}`}>+ Phrase</button>
+                        <button type="button" className="rd-btn rd-btn--small rd-kept__midi" onClick={() => exportBar(kf, k.bpm, km)} disabled={!kf}>MIDI</button>
                         <button type="button" className="rd-btn rd-btn--small rd-btn--ghost" onClick={() => removeKept(k.id)} aria-label={`Remove kept bar: ${k.reason || 'no reason'}`}>✕</button>
                       </div>
                     </li>
                   )
                 })}
               </ul>
+            </div>
+          )}
+
+          {stage === 'phrase' && (
+            <div className="rd-stage__panel rd-phrase" role="tabpanel" id="rd-panel-phrase" aria-labelledby="rd-tab-phrase">
+              <p className="rd-phrase__intro">
+                {phrase.bars.length
+                  ? <>A {phrase.bars.length}-bar phrase in {phrase.metre}. Play it straight through; it is scored as one line.</>
+                  : <>Chain up to {PHRASE_BARS} bars into a phrase: add the bar on the dice, or a kept bar from Keep.</>}
+              </p>
+              <ol className="rd-phrase__slots">
+                {Array.from({ length: PHRASE_BARS }, (_, i) => {
+                  const bar = phraseBars[i]
+                  return (
+                    <li key={i} className={`rd-phrase__slot${bar ? '' : ' is-empty'}`}>
+                      <span className="rd-phrase__num">{i + 1}</span>
+                      {bar
+                        ? <BarStrip faces={bar} beatTicks={phraseMetre.beatTicks} unit={unit} label={`Bar ${i + 1}: ${bar.map(f => f.name).join(', ')}`} />
+                        : <span className="rd-phrase__empty">Empty</span>}
+                      {bar && (
+                        <button type="button" className="rd-btn rd-btn--small rd-btn--ghost" onClick={() => removeFromPhrase(i)} aria-label={`Remove bar ${i + 1}`}>✕</button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+              <div className="rd-phrase__actions">
+                <button type="button" className="rd-btn rd-btn--keep" onClick={() => addToPhrase(faces, metreId)} disabled={phrase.bars.length >= PHRASE_BARS}>Add this bar</button>
+                <button type="button" className="rd-btn rd-btn--quiet" onClick={() => playPhrase({ listen: true })} disabled={!phraseBars.length}>Hear</button>
+                <button type="button" className="rd-btn rd-btn--primary" onClick={() => playPhrase()} disabled={!phraseBars.length}>Play phrase</button>
+                <button type="button" className="rd-btn rd-btn--quiet" onClick={exportPhrase} disabled={!phraseBars.length}>MIDI</button>
+                <button type="button" className="rd-btn rd-btn--ghost" onClick={clearPhrase} disabled={!phrase.bars.length}>Clear</button>
+              </div>
             </div>
           )}
         </section>
@@ -563,3 +780,4 @@ export default function RhythmDice() {
     </ToolShell>
   )
 }
+

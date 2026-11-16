@@ -6,8 +6,19 @@ import { LEVELS, SLOTS_PER_DIE, TICKS_PER_CROTCHET } from './faces.js'
 // A metre names how many dice make a bar and how long each beat is.
 // BPM always counts the beat unit; MIDI tempo is always written in
 // crotchets per minute (compound: BPM x 1.5; 7/8: BPM / 2 -- later PRs).
+const simple = beats => ({ id: `${beats}/4`, dice: beats, beatTicks: 12, timeSignature: [beats, 4], midiTempoFactor: 1 })
 export const METRES = {
-  '4/4': { id: '4/4', dice: 4, beatTicks: 12, timeSignature: [4, 4], midiTempoFactor: 1 },
+  '2/4': simple(2),
+  '3/4': simple(3),
+  '4/4': simple(4),
+  '5/4': simple(5),
+}
+export const SIMPLE_METRE_IDS = ['2/4', '3/4', '4/4', '5/4']
+
+// Count-in length: one bar, except that one bar of 2/4 is only two clicks,
+// too short to settle a tempo -- 2/4 counts in two bars (four clicks).
+export function countInBars(metre) {
+  return metre.dice < 3 ? 2 : 1
 }
 
 export function midiTempo(metre, bpm) {
