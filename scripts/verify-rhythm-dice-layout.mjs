@@ -121,6 +121,12 @@ try {
     await page.goto(`${BASE}/rhythm-dice`, { waitUntil: 'networkidle' })
     await page.waitForSelector('.rd-die__notes svg')
 
+    // Pro: tapping the locked Level 4 opens the unlock sheet over the page.
+    await page.getByRole('radio', { name: /Level 4/ }).click()
+    await page.waitForSelector('.bottom-sheet')
+    await verify(page, `${name}: Pro unlock sheet`, `${slug}-pro-sheet`)
+    await page.keyboard.press('Escape')
+
     // Load the busiest bar from the kept list.
     await page.getByRole('tab', { name: /Keep/ }).click()
     await verify(page, `${name}: Keep view`, `${slug}-keep`)
@@ -157,12 +163,27 @@ try {
       await verify(page, `${name}: phrase result, each hit`, `${slug}-phrase-hits`)
     }
 
-    await page.getByRole('radio', { name: 'Blocks' }).click()
+    // With Pro on: five level buttons and the Pro chip share the header.
+    await page.evaluate(() => {
+      localStorage.setItem('kyndaTools.pro', 'pro')
+      localStorage.setItem('kyndaTools.proEmail', 'layout-check@example.com')
+    })
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.waitForSelector('.rd-pro-chip')
+    await page.getByRole('radio', { name: /Level 4/ }).click()
+    await page.getByRole('button', { name: /^(Roll|Re-roll)$/ }).click()
+    await verify(page, `${name}: Pro on, Level 4`, `${slug}-pro-on`)
+
+    const blocksControl = page.getByRole('radio', { name: 'Blocks' })
+    if (await blocksControl.isVisible()) await blocksControl.click()
+    else await page.locator('.rd-view-toggle').click()
     await verify(page, `${name}: blocks view`, `${slug}-blocks`)
     // Switching views must replace the face, never draw blocks over notes.
     const mixed = await page.locator('.rd-tray .rd-die svg').count()
     check(`${name}: blocks view shows no notes`, mixed === 0, `${mixed} note drawings left under the blocks`)
-    await page.getByRole('radio', { name: 'Notes' }).click()
+    const notesControl = page.getByRole('radio', { name: 'Notes' })
+    if (await notesControl.isVisible()) await notesControl.click()
+    else await page.locator('.rd-view-toggle').click()
     const dice = await page.locator('.rd-tray .rd-die').count()
     const notes = await page.locator('.rd-tray .rd-die__notes svg').count()
     const blocks = await page.locator('.rd-tray .rd-block').count()

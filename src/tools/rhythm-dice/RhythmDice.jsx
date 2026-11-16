@@ -5,7 +5,11 @@ import { downloadMidiFile } from '../../utils/midiExport'
 import DieTile, { BarStrip, DieFace } from './DieTile'
 import Results from './Results'
 import { createRhythmAudio } from './audioEngine'
-import { AVAILABLE_LEVEL_IDS, LEVELS } from './faces'
+import BottomSheet from '../../components/BottomSheet'
+import { CHORD_MOVES_ORIGIN } from '../../app/sites'
+import { readToolsPro, recheck, requestCode, signOut, verifyCode } from '../../app/toolsPro'
+import { safeStorage } from '../../utils/safeStorage'
+import { AVAILABLE_LEVEL_IDS, LEVELS, PRO_LEVEL_IDS, needsPro } from './faces'
 import { DEFAULT_DRUM, DRUM_SOUNDS, buildRhythmMidiBytes, phraseFilename, rhythmFilename } from './midi'
 import { METRES, SIMPLE_METRE_IDS, blockUnit, isAllRest, resolveTies, rollBar, slotPool } from './rhythm'
 import { reflect, scoreBar } from './scoring'
@@ -16,15 +20,19 @@ import './RhythmDice.css'
 const MIN_BPM = 40
 const MAX_BPM = 160
 const PHRASE_BARS = 4
+// Mix pools every level you can use: Levels 1–3, plus Level 4 with Pro.
 const LEVEL_CHOICES = [
   { key: 'L1', label: '1', levelIds: ['L1'] },
   { key: 'L2', label: '2', levelIds: ['L2'] },
   { key: 'L3', label: '3', levelIds: ['L3'] },
-  { key: 'mix', label: 'Mix', levelIds: AVAILABLE_LEVEL_IDS },
+  { key: 'L4', label: '4', levelIds: ['L4'], pro: true, name: 'Level 4 (triplets)' },
+  { key: 'mix', label: 'Mix', levelIds: AVAILABLE_LEVEL_IDS, proLevelIds: PRO_LEVEL_IDS },
 ]
+const levelIdsFor = (choice, isPro) => (isPro && choice.proLevelIds ? [...choice.levelIds, ...choice.proLevelIds] : choice.levelIds)
 const SUBDIVISIONS = [
   { ticks: 0, label: 'Beats' },
   { ticks: 6, label: 'Quavers' },
+  { ticks: 4, label: 'Triplets' },
   { ticks: 3, label: 'Semis' },
 ]
 // Once: play the bar and see the result. Repeat: the same bar again and
@@ -53,8 +61,16 @@ export default function RhythmDice() {
   if (!audioRef.current) audioRef.current = createRhythmAudio()
   const audio = audioRef.current
 
-  const [levelKey, setLevelKey] = useState(() => readString(KEYS.levels, 'L1', LEVEL_CHOICES.map(c => c.key)))
-  const levelIds = LEVEL_CHOICES.find(c => c.key === levelKey).levelIds
+  // Pro on the Tools site (src/app/toolsPro.js): its own keys, set only by an
+  // emailed code, re-checked against the server on every load.
+  const [pro, setPro] = useState(() => readToolsPro(safeStorage))
+  const isPro = pro.isPro
+  const [levelKey, setLevelKey] = useState(() => {
+    const stored = readString(KEYS.levels, 'L1', LEVEL_CHOICES.map(c => c.key))
+    return LEVEL_CHOICES.find(c => c.key === stored)?.pro && !readToolsPro(safeStorage).isPro ? 'L1' : stored
+  })
+  const levelChoice = LEVEL_CHOICES.find(c => c.key === levelKey)
+  const levelIds = useMemo(() => levelIdsFor(levelChoice, isPro), [levelChoice, isPro])
   const pool = useMemo(() => slotPool(levelIds), [levelIds])
   const unit = useMemo(() => blockUnit(slotPool(AVAILABLE_LEVEL_IDS)), [])
 
@@ -91,6 +107,13 @@ export default function RhythmDice() {
   const [keptPage, setKeptPage] = useState(0)
   const [keptPerPage, setKeptPerPage] = useState(3)
   const keptListRef = useRef(null)
+  // The Pro sheet: unlock (email, then code) or manage.
+  const [proSheet, setProSheet] = useState(null) // null | { reason }
+  const [proStep, setProStep] = useState('email') // email | code | done | notPro
+  const [proEmail, setProEmail] = useState('')
+  const [proCode, setProCode] = useState('')
+  const [proBusy, setProBusy] = useState(false)
+  const [proError, setProError] = useState('')
 
   const sessionRef = useRef(null)
   const rafRef = useRef(0)
@@ -104,6 +127,20 @@ export default function RhythmDice() {
     cancelAnimationFrame(rafRef.current)
     audio.close()
   }, [audio])
+
+  // Re-check Pro once per visit. Only a definite "not Pro" removes it (a
+  // student whose lessons have ended); an offline or failed check keeps it.
+  useEffect(() => {
+    let live = true
+    recheck(window.fetch.bind(window), safeStorage).then(outcome => {
+      if (!live || outcome !== 'removed') return
+      setPro(readToolsPro(safeStorage))
+      setLevelKey(k => (LEVEL_CHOICES.find(c => c.key === k)?.pro ? 'L1' : k))
+      setNotice('Pro is no longer on this device: that email no longer has Chord Moves Pro or current lessons.')
+      logEvent('tools_pro_removed_on_recheck')
+    })
+    return () => { live = false }
+  }, [])
 
   // Notices float over the bottom edge and clear themselves, so they never
   // push the layout.
@@ -152,8 +189,72 @@ export default function RhythmDice() {
   }
 
   function chooseLevel(key) {
+    const choice = LEVEL_CHOICES.find(c => c.key === key)
+    if (choice?.pro && !isPro) return openPro(`${choice.name} is part of Pro.`)
     setLevelKey(key)
     write(KEYS.levels, key)
+  }
+
+  // ----- Pro -----
+
+  function openPro(reason = '') {
+    setProStep('email')
+    setProCode('')
+    setProError('')
+    setProSheet({ reason })
+    logEvent('tools_pro_sheet_open', { reason: reason ? 'gate' : 'manage' })
+  }
+
+  const closePro = useCallback(() => setProSheet(null), [])
+
+  async function submitProEmail(e) {
+    e.preventDefault()
+    if (proBusy) return
+    setProBusy(true)
+    setProError('')
+    const r = await requestCode(window.fetch.bind(window), proEmail)
+    setProBusy(false)
+    if (r.ok) {
+      setProStep('code')
+      logEvent('tools_pro_code_requested')
+    } else setProError(r.error)
+  }
+
+  async function submitProCode(e) {
+    e.preventDefault()
+    if (proBusy) return
+    setProBusy(true)
+    setProError('')
+    const r = await verifyCode(window.fetch.bind(window), safeStorage, proEmail, proCode)
+    setProBusy(false)
+    if (!r.ok) return setProError(r.error)
+    if (!r.isPro) {
+      setProStep('notPro')
+      logEvent('tools_pro_not_found')
+      return
+    }
+    setPro(readToolsPro(safeStorage))
+    setProStep('done')
+    logEvent('tools_pro_unlocked')
+  }
+
+  function removePro() {
+    signOut(safeStorage)
+    setPro(readToolsPro(safeStorage))
+    if (levelChoice.pro) {
+      setLevelKey('L1')
+      write(KEYS.levels, 'L1')
+    }
+    setProSheet(null)
+    setNotice('Pro removed from this device.')
+    logEvent('tools_pro_removed')
+  }
+
+  // Bars that use Level 4 faces need Pro to load, add or play.
+  function proGate(barFaces) {
+    if (isPro || !barFaces || !needsPro(barFaces)) return false
+    openPro('This bar uses Level 4, which is part of Pro.')
+    return true
   }
 
   function chooseView(next) {
@@ -304,7 +405,7 @@ export default function RhythmDice() {
   // ----- phrase -----
 
   function addToPhrase(barFaces, barMetreId) {
-    if (busy) return
+    if (busy || proGate(barFaces)) return
     if (phrase.bars.length >= PHRASE_BARS) return setNotice(`A phrase holds ${PHRASE_BARS} bars. Remove one to add another.`)
     if (phrase.bars.length && phrase.metre !== barMetreId) {
       return setNotice(`This phrase is in ${phrase.metre}. Clear it, or add a ${phrase.metre} bar.`)
@@ -331,6 +432,7 @@ export default function RhythmDice() {
 
   async function playPhrase({ listen = false } = {}) {
     if (busy || !phraseBars.length || !phraseMetre) return
+    if (!isPro && phraseBars.some(needsPro)) return void openPro('This phrase uses Level 4, which is part of Pro.')
     setNotice('')
     setOutcome(null)
     setStage('play')
@@ -474,6 +576,7 @@ export default function RhythmDice() {
   function loadKept(entry) {
     const loaded = facesFromIds(entry.faceIds)
     if (!loaded) return setNotice('That kept bar uses faces this version does not have.')
+    if (proGate(loaded)) return
     const id = keptMetreId(entry)
     setMetreId(id)
     write(KEYS.metre, id)
@@ -555,12 +658,19 @@ export default function RhythmDice() {
             <div className="rd-seg rd-head__levels" role="radiogroup" aria-label="Dice level">
               {LEVEL_CHOICES.map(c => (
                 <button key={c.key} type="button" role="radio" aria-checked={levelKey === c.key}
-                  aria-label={c.key === 'mix' ? 'Mix levels 1 to 3' : `Level ${c.label}`}
-                  className={levelKey === c.key ? 'is-on' : ''} onClick={() => chooseLevel(c.key)} disabled={busy}>
+                  aria-label={c.key === 'mix' ? `Mix levels 1 to ${isPro ? 4 : 3}` : c.pro ? `${c.name}${isPro ? '' : ', Pro'}` : `Level ${c.label}`}
+                  className={`${levelKey === c.key ? 'is-on' : ''}${c.pro && !isPro ? ' is-pro-locked' : ''}`} onClick={() => chooseLevel(c.key)} disabled={busy}>
                   {c.key !== 'mix' && <span className="rd-long" aria-hidden="true">Level </span>}{c.label}
                 </button>
               ))}
             </div>
+            {isPro && (
+              <button type="button" className="rd-pro-chip" onClick={() => openPro()} aria-label="Pro is on for this device. Manage">Pro</button>
+            )}
+            <button type="button" className="rd-view-toggle" onClick={() => chooseView(view === 'notes' ? 'blocks' : 'notes')}
+              aria-label={`Showing ${view === 'notes' ? 'notes' : 'blocks'}. Show ${view === 'notes' ? 'blocks' : 'notes'}`}>
+              {view === 'notes' ? 'Notes' : 'Blocks'}
+            </button>
             <div className="rd-seg rd-head__view" role="radiogroup" aria-label="Show dice as">
               {[['notes', 'Notes'], ['blocks', 'Blocks']].map(([v, label]) => (
                 <button key={v} type="button" role="radio" aria-checked={view === v}
@@ -776,6 +886,56 @@ export default function RhythmDice() {
         </section>
 
         {notice && <p className="rd-notice" role="status">{notice}</p>}
+
+        <BottomSheet isOpen={!!proSheet} onClose={closePro} eyebrow="Rhythm Dice Pro"
+          title={isPro && proStep !== 'done' ? 'Pro is on for this device' : proStep === 'done' ? 'Pro is on' : 'Unlock Level 4'}>
+          <div className="rd-pro">
+            {isPro && proStep !== 'done' ? (
+              <>
+                <p>Unlocked with <strong>{pro.email}</strong>. It is checked each time you open the tools, so it stays while that email has Chord Moves Pro or current lessons with Kynda.</p>
+                <button type="button" className="rd-btn rd-btn--ghost rd-pro__remove" onClick={removePro}>Remove Pro from this device</button>
+              </>
+            ) : proStep === 'done' ? (
+              <>
+                <p>Level 4 (triplets) is open, and Mix now includes it. Kept bars and phrases that use it play as normal.</p>
+                <button type="button" className="rd-btn rd-btn--primary" onClick={() => { closePro(); setLevelKey('L4'); write(KEYS.levels, 'L4') }}>Try Level 4</button>
+              </>
+            ) : proStep === 'notPro' ? (
+              <>
+                <p><strong>{proEmail.trim().toLowerCase()}</strong> doesn't have Pro yet. Check it's the email you bought Chord Moves Pro with, or the one your lessons are booked under (for under-18s that's usually a parent's).</p>
+                <div className="rd-pro__row">
+                  <button type="button" className="rd-btn rd-btn--quiet" onClick={() => { setProStep('email'); setProCode('') }}>Try another email</button>
+                  <a className="rd-btn rd-btn--keep" href={`${CHORD_MOVES_ORIGIN}/upgrade`} target="_blank" rel="noopener noreferrer">Get Chord Moves Pro</a>
+                </div>
+              </>
+            ) : (
+              <>
+                {proSheet?.reason && <p className="rd-pro__reason">{proSheet.reason}</p>}
+                <p>You already have Pro if you bought <strong>Chord Moves Pro</strong> or you're having <strong>lessons with Kynda</strong>. We'll email you a 6-digit code. The email says Chord Moves: it's the same Pro.</p>
+                {proStep === 'email' ? (
+                  <form className="rd-pro__row" onSubmit={submitProEmail}>
+                    <label htmlFor="rd-pro-email" className="rd-visually-hidden">Email</label>
+                    <input id="rd-pro-email" type="email" autoComplete="email" required value={proEmail}
+                      onChange={e => setProEmail(e.target.value)} placeholder="Your email" />
+                    <button type="submit" className="rd-btn rd-btn--primary" disabled={proBusy}>{proBusy ? 'Sending…' : 'Send code'}</button>
+                  </form>
+                ) : (
+                  <form className="rd-pro__row" onSubmit={submitProCode}>
+                    <label htmlFor="rd-pro-code" className="rd-visually-hidden">6-digit code</label>
+                    <input id="rd-pro-code" inputMode="numeric" autoComplete="one-time-code" required value={proCode}
+                      onChange={e => setProCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" />
+                    <button type="submit" className="rd-btn rd-btn--primary" disabled={proBusy}>{proBusy ? 'Checking…' : 'Unlock'}</button>
+                  </form>
+                )}
+                {proStep === 'code' && (
+                  <p className="rd-pro__hint">Sent to {proEmail.trim().toLowerCase()}. It lasts 10 minutes. <button type="button" className="rd-link" onClick={() => setProStep('email')}>Change email</button></p>
+                )}
+                {proError && <p className="rd-pro__error" role="alert">{proError}</p>}
+                <p className="rd-pro__hint">No Pro yet? <a className="rd-link" href={`${CHORD_MOVES_ORIGIN}/upgrade`} target="_blank" rel="noopener noreferrer">Get Chord Moves Pro</a></p>
+              </>
+            )}
+          </div>
+        </BottomSheet>
       </div>
     </ToolShell>
   )

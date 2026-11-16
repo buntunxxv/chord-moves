@@ -362,3 +362,42 @@ test('phrase MIDI: bars laid end to end, metre and tempo written once', () => {
   ])
   assert.equal(phraseFilename(bars, m), 'rhythm-dice-phrase-3-4-2-bars.mid')
 })
+
+// ---------- PR 3: Level 4 (Pro) ----------
+
+import { needsPro, PRO_LEVEL_IDS } from './faces.js'
+import { faceUnit } from './rhythm.js'
+import { countName } from './counting.js'
+
+test('Level 4 is Pro: its faces mark a bar as needing Pro', () => {
+  assert.deepEqual(PRO_LEVEL_IDS, ['L4'])
+  assert.equal(levelById('L4').tier, 'pro')
+  assert.equal(needsPro([face('L1-1'), face('L4-1')]), true)
+  assert.equal(needsPro([face('L1-1'), face('L3-5')]), false)
+})
+
+test('blocks: semiquaver faces keep 4 cells a beat; triplets 3; sextuplets 6', () => {
+  assert.equal(faceUnit(face('L1-1')), 3)
+  assert.equal(faceUnit(face('L4-1')), 4)
+  assert.equal(faceUnit(face('L4-2')), 4)
+  assert.equal(faceUnit(face('L4-5')), 2)
+  assert.deepEqual(faceBlocks(face('L4-2'), 4).map(c => c.state), ['attack', 'sustain', 'attack'])
+  assert.deepEqual(faceBlocks(face('L4-4'), 4).map(c => c.state), ['rest', 'attack', 'attack'])
+})
+
+test('triplets: onsets on ticks 0, 4, 8; windows shrink to fit; MIDI exact', () => {
+  const bar = [face('L4-1'), face('L4-5'), face('L4-2'), face('L1-1')]
+  assert.deepEqual(onsetTicks(bar, M44), [0, 4, 8, 12, 14, 16, 18, 20, 22, 24, 32, 36])
+  const exp = expectedOnsets(bar, M44, 160)
+  // Sextuplets at 160 BPM are 62.5 ms apart: 45% of that is ~28 ms.
+  assert.ok(Math.abs(onsetWindows(exp.map(e => e.time))[4] - 0.028125) < 1e-9)
+  const back = new Midi(buildRhythmMidiBytes({ faces: bar, metre: M44, bpm: 100 }))
+  assert.deepEqual(back.tracks[0].notes.map(n => n.ticks), [0, 160, 320, 480, 560, 640, 720, 800, 880, 960, 1280, 1440])
+})
+
+test('triplet counting names', () => {
+  assert.equal(countName(4, 12), '1-trip')
+  assert.equal(countName(20, 12), '2-let')
+  assert.equal(countName(14, 12), '2·2')
+  assert.equal(countName(6, 12), '1&')
+})
