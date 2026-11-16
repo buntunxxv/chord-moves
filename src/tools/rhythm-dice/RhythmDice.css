@@ -15,11 +15,15 @@
   --rd-rest: #E1E1E1;
   --rd-rest-line: #B9C2C2;
   --rd-gold-ink: #1A1A1A;
-  width: min(1040px, 100%);
-  margin: 0 auto;
-  padding-bottom: 32px;
+  /* One screen, no scrolling: header, tray, controls and stage share the
+     shell's fixed height. The tray and the stage take what is left. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   display: grid;
-  gap: clamp(14px, 2.4vh, 22px);
+  grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1.2fr);
+  gap: clamp(8px, 1.5vh, 16px);
 }
 
 [data-theme="dark"] .rhythm-dice {
@@ -36,14 +40,23 @@
   white-space: nowrap;
 }
 
-/* ---------- segmented controls ---------- */
+/* ---------- header row ---------- */
 
-.rd-toolbar {
+.rd-head {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 10px;
+  align-items: center;
+  gap: 8px 12px;
 }
+
+.rd-head__title {
+  margin-right: auto;
+  font-size: clamp(1.35rem, 3.2vw, 2rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+/* ---------- segmented controls ---------- */
 
 .rd-seg {
   display: inline-flex;
@@ -56,13 +69,14 @@
 
 .rd-seg button {
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 14px;
   color: var(--text-muted);
   background: transparent;
   border: 0;
   border-radius: 9px;
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .rd-seg button.is-on {
@@ -72,52 +86,55 @@
 }
 
 .rd-seg button:disabled { cursor: not-allowed; opacity: 0.55; }
-.rd-seg--small button { padding: 0 12px; font-size: 13px; }
+.rd-seg--small button { padding: 0 10px; font-size: 13px; }
 
 /* ---------- the tray ---------- */
 
 .rd-tray {
-  position: relative;
-  padding: clamp(16px, 3vw, 28px);
+  container: tray / size;
+  min-height: 0;
+  padding: clamp(8px, 1.6vh, 18px) clamp(10px, 2.4vw, 24px);
   display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: start;
-  gap: 8px clamp(10px, 2vw, 22px);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(8px, 2vw, 22px);
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 22px;
+  overflow: hidden;
 }
 
 /* The time signature, set like the opening of a stave. */
 .rd-tray__meter {
   display: grid;
-  margin-top: clamp(26px, 5vw, 58px);
   color: var(--text);
   font-family: var(--font-script);
-  font-size: clamp(28px, 4vw, 40px);
+  font-size: clamp(24px, 14cqh, 40px);
   font-weight: 600;
   line-height: 0.92;
   text-align: center;
 }
 
 .rd-tray__dice {
+  height: 100%;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(8px, 2vw, 20px);
+  align-items: center;
+  gap: clamp(6px, 2vw, 20px);
 }
-
-.rd-btn--roll { grid-column: 2; justify-self: center; margin-top: 8px; }
 
 .rd-slot {
   display: grid;
   justify-items: center;
-  gap: 8px;
+  align-content: center;
+  gap: 6px;
   min-width: 0;
 }
 
 .rd-die-button {
-  width: 100%;
-  max-width: 188px;
+  /* As big as the column allows, but never taller than the tray: the label
+     under it needs about 30px. */
+  width: min(100%, calc(100cqh - 30px), 200px);
   padding: 0;
   background: none;
   border: 0;
@@ -219,9 +236,10 @@
 /* ---------- buttons ---------- */
 
 .rd-btn {
-  min-height: 48px;
-  padding: 0 20px;
+  min-height: 44px;
+  padding: 0 18px;
   border-radius: 12px;
+  white-space: nowrap;
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
@@ -236,7 +254,7 @@
 
 .rd-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 .rd-btn--roll { border-color: var(--rd-ink); }
-.rd-btn--primary, .rd-btn--stop { color: var(--rd-on-ink); background: var(--rd-ink); border-color: var(--rd-ink); min-width: 140px; }
+.rd-btn--primary, .rd-btn--stop { color: var(--rd-on-ink); background: var(--rd-ink); border-color: var(--rd-ink); min-width: 120px; }
 .rd-btn--stop { background: var(--danger); border-color: var(--danger); color: var(--white); }
 .rd-btn--quiet { border-color: var(--teal); }
 .rd-btn--keep { color: var(--rd-gold-ink); background: var(--gold); border-color: var(--gold); }
@@ -257,20 +275,17 @@
 
 [data-theme="dark"] .rd-link { color: var(--teal); }
 
-/* ---------- practice strip ---------- */
+/* ---------- controls ---------- */
 
-.rd-practice {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) auto auto;
-  align-items: end;
-  gap: 14px 20px;
+.rd-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
 }
 
-.rd-tempo { display: grid; gap: 4px; min-width: 0; }
-.rd-tempo__label { color: var(--text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.rd-tempo__label span { text-transform: none; letter-spacing: 0; font-weight: 500; }
-.rd-tempo__row { display: flex; align-items: center; gap: 8px; }
-.rd-tempo__row input { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--teal); }
+.rd-tempo { flex: 1 1 240px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rd-tempo input { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--teal); }
 
 .rd-step {
   width: 44px;
@@ -285,58 +300,97 @@
 }
 
 .rd-tempo__value {
-  min-width: 74px;
+  min-width: 70px;
   display: inline-flex;
   align-items: baseline;
-  gap: 4px;
-  font-size: 26px;
+  gap: 2px;
+  font-size: 22px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .rd-tempo__value small { font-size: 11px; color: var(--text-muted); font-weight: 700; }
 
-.rd-options { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
-
 .rd-switch { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .rd-switch input { width: 22px; height: 22px; accent-color: var(--teal); }
 
-.rd-actions { display: flex; gap: 10px; }
+.rd-actions { display: flex; gap: 8px; margin-left: auto; }
+.rd-actions .rd-btn { min-width: 0; }
 
-/* ---------- the pad ---------- */
+/* ---------- the stage: play / result / keep ---------- */
 
-.rd-pad-area {
+.rd-stage {
+  min-height: 0;
   display: grid;
-  gap: 10px;
-  padding: clamp(14px, 2.4vw, 22px);
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 22px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
 }
 
-.rd-lights { display: flex; justify-content: center; gap: 14px; }
+.rd-stage__tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+
+.rd-stage__tabs button {
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rd-stage__tabs button.is-on { color: var(--text); border-bottom-color: var(--teal); }
+.rd-stage__tabs button:disabled { opacity: 0.4; cursor: not-allowed; }
+.rd-stage__tabs button:focus-visible { outline: 3px solid var(--teal); outline-offset: -3px; }
+
+.rd-stage__panel {
+  container: stage / size;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Play */
+.rd-play {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.rd-play__bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.rd-play__bar .rd-seg { justify-self: start; }
+.rd-play__bar .rd-lights { grid-column: 2; grid-row: 1; }
+.rd-play__bar .rd-switch { grid-column: 3; justify-self: end; }
+
+.rd-lights { display: flex; justify-content: center; align-items: center; gap: 14px; min-height: 18px; }
 
 .rd-light {
   width: 14px;
   height: 14px;
   border-radius: 50%;
   border: 2px solid var(--border);
-  transition: background 0.05s linear;
 }
 
-.rd-light.is-down { width: 18px; height: 18px; margin-top: -2px; }
+.rd-light.is-down { width: 18px; height: 18px; }
 .rd-light.is-on { background: var(--teal); border-color: var(--teal); }
 .rd-light.is-count { background: var(--text-muted); border-color: var(--text-muted); }
 
 .rd-pad {
-  min-height: clamp(120px, 22vh, 200px);
+  min-height: 0;
   width: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
   color: var(--text-muted);
   background:
     radial-gradient(circle at 50% 40%, var(--teal-tint), transparent 70%),
-    var(--bg);
+    var(--white);
   border: 2px dashed var(--border);
   border-radius: 18px;
   touch-action: none;
@@ -345,44 +399,63 @@
   -webkit-touch-callout: none;
 }
 
-.rd-pad-area.is-live .rd-pad { border-style: solid; border-color: var(--teal); color: var(--text); }
-.rd-pad[data-flash="1"] .rd-pad__label, .rd-pad[data-flash="0"] .rd-pad__label { transition: transform 0.06s ease; }
-.rd-pad-area.is-live .rd-pad[data-flash="1"] { background: radial-gradient(circle at 50% 40%, rgba(17, 147, 146, 0.28), transparent 70%), var(--bg); }
+.rd-play.is-live .rd-pad { border-style: solid; border-color: var(--teal); color: var(--text); }
+.rd-play.is-live .rd-pad[data-flash="1"] { background: radial-gradient(circle at 50% 40%, rgba(17, 147, 146, 0.28), transparent 70%), var(--white); }
 
-.rd-pad__label { font-size: clamp(17px, 2.4vw, 22px); font-weight: 700; }
+.rd-pad__label { font-size: clamp(16px, 2.4vw, 22px); font-weight: 700; }
 .rd-pad__hint { color: var(--text-muted); font-size: 13px; text-align: center; }
 
 .rd-notice {
-  padding: 10px 14px;
-  color: var(--text);
-  background: var(--teal-tint);
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 5;
+  width: max-content;
+  max-width: min(560px, calc(100% - 16px));
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  color: var(--white);
+  background: var(--black);
   border-radius: 12px;
+  box-shadow: var(--shadow);
   font-size: 14px;
+  pointer-events: none;
 }
 
-/* ---------- results ---------- */
-
+/* Result: reflection first, then the numbers, timeline and each hit. When
+   the stage is wide there is room for everything side by side; otherwise a
+   switch shows one detail at a time. */
 .rd-results {
+  height: 100%;
   display: grid;
-  gap: 16px;
-  padding: clamp(16px, 3vw, 28px);
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 22px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
 }
+
+.rd-results__lead { display: grid; gap: 8px; align-content: start; }
 
 .rd-results__reflection {
-  max-width: 34ch;
   font-family: var(--font-script);
   font-style: italic;
-  font-size: clamp(22px, 3.2vw, 30px);
-  line-height: 1.25;
+  font-size: clamp(18px, 9cqh, 30px);
+  line-height: 1.22;
   text-wrap: balance;
 }
 
 .rd-results__pass { color: var(--text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 
-.rd-timeline { width: 100%; height: auto; }
+.rd-results__numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.rd-results__numbers div { display: grid; gap: 1px; padding: 8px 10px; background: var(--white); border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.rd-results__numbers dt { color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.rd-results__numbers dd { font-size: clamp(15px, 2vw, 22px); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.rd-results__numbers span { color: var(--text-muted); font-size: 12px; }
+
+.rd-results__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rd-results__pager { margin-left: auto; }
+.rd-results__timeline { min-height: 0; }
+.rd-timeline { width: 100%; height: auto; max-height: 100%; display: block; }
 .rd-timeline__beat { stroke: var(--border); stroke-width: 2; }
 .rd-timeline__label, .rd-timeline__lane { fill: var(--text-muted); font-size: 13px; font-weight: 700; font-family: var(--font); }
 .rd-timeline__expected { fill: var(--teal); }
@@ -391,54 +464,78 @@
 .rd-timeline__tap { fill: var(--text); }
 .rd-timeline__extra { fill: none; stroke: var(--danger); stroke-width: 2; }
 
-.rd-results__numbers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.rd-results__numbers div { display: grid; gap: 2px; padding: 12px 14px; background: var(--bg); border-radius: 14px; }
-.rd-results__numbers dt { color: var(--text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.rd-results__numbers dd { font-size: clamp(20px, 3vw, 28px); font-weight: 700; font-variant-numeric: tabular-nums; }
-.rd-results__numbers span { color: var(--text-muted); font-size: 12.5px; }
-
 .rd-results__hits {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(106px, 1fr));
+  grid-auto-rows: 28px;
+  align-content: start;
+  gap: 6px;
   list-style: none;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .rd-results__hits li {
-  display: inline-flex;
+  display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 4px 8px;
+  white-space: nowrap;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 13px;
+  border-radius: 9px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
 }
 
 .rd-results__hits li.is-missed { color: var(--text-muted); border-style: dashed; }
-.rd-results__count { font-family: var(--font-script); font-style: italic; font-weight: 600; font-size: 15px; }
+.rd-results__count { font-family: var(--font-script); font-style: italic; font-weight: 600; font-size: 14px; }
 
-/* ---------- keep ---------- */
+/* Compact (default): reflection, switch, then one detail at a time. */
+.rd-results { grid-template-rows: auto auto minmax(0, 1fr); }
+.rd-results--summary .rd-results__pager,
+.rd-results--timeline .rd-results__pager { display: none; }
+.rd-results--summary .rd-results__timeline,
+.rd-results--summary .rd-results__hits,
+.rd-results--timeline .rd-results__numbers,
+.rd-results--timeline .rd-results__hits,
+.rd-results--hits .rd-results__numbers,
+.rd-results--hits .rd-results__timeline { display: none; }
 
-.rd-keep {
-  display: grid;
-  gap: 12px;
-  padding: clamp(16px, 3vw, 24px);
-  border: 1px solid var(--border);
-  border-radius: 22px;
+/* Wide stage: reflection and numbers on the left; timeline over each hit
+   on the right. Everything shows, so the switch goes. */
+@container stage (min-width: 640px) and (min-height: 170px) {
+  .rd-results {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-areas: "lead timeline" "numbers timeline" "numbers bar" "numbers hits";
+    column-gap: 22px;
+    row-gap: 10px;
+  }
+  .rd-results__lead { grid-area: lead; }
+  .rd-results__switch { display: none; }
+  .rd-results__bar { grid-area: bar; justify-content: flex-end; }
+  .rd-results__pager { display: flex !important; }
+  .rd-results__numbers { grid-area: numbers; display: grid !important; align-self: start; }
+  .rd-results__timeline { grid-area: timeline; display: block !important; }
+  .rd-results__hits { grid-area: hits; display: grid !important; }
 }
 
-.rd-keep h2 { font-size: 17px; }
-.rd-keep__row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+@container stage (max-height: 260px) {
+  .rd-results__numbers span { display: none; }
+}
+
+/* Keep */
+.rd-keep {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.rd-keep__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
 .rd-keep__row input, .rd-keep__row select {
-  min-height: 48px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 12px;
   color: var(--text);
   background: var(--white);
   border: 1.5px solid var(--border);
@@ -446,44 +543,55 @@
   font-size: 15px;
 }
 
-.rd-keep__row input { flex: 1 1 260px; min-width: 0; cursor: text; }
+.rd-keep__row input { flex: 1 1 200px; min-width: 0; cursor: text; }
 .rd-keep__export label { color: var(--text-muted); font-size: 13px; font-weight: 700; }
 
-.rd-kept { display: grid; gap: 8px; list-style: none; }
+.rd-kept { display: grid; grid-auto-rows: 56px; gap: 8px; align-content: start; list-style: none; min-height: 0; overflow: hidden; }
+.rd-kept__empty { align-self: center; color: var(--text-muted); font-size: 14px; }
 
 .rd-kept__item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 0 10px;
   background: var(--white);
   border: 1px solid var(--border);
   border-left: 4px solid var(--gold);
   border-radius: 12px;
 }
 
-.rd-kept__dice { display: flex; gap: 4px; }
-.rd-kept__reason { font-family: var(--font-script); font-style: italic; font-size: 16px; overflow-wrap: anywhere; }
+.rd-kept__dice { display: flex; gap: 3px; }
+.rd-kept__text { min-width: 0; }
+.rd-kept__reason { font-family: var(--font-script); font-style: italic; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rd-kept__meta { color: var(--text-muted); font-size: 12px; }
 .rd-kept__actions { display: flex; gap: 4px; }
 
+.rd-pager { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* ---------- smaller screens ---------- */
 
-@media (max-width: 860px) {
-  .rd-practice { grid-template-columns: 1fr; align-items: stretch; }
-  .rd-actions .rd-btn { flex: 1; }
-}
-
-@media (max-width: 600px) {
-  .rd-tray { grid-template-columns: 1fr; }
+@media (max-width: 700px) {
+  .rhythm-dice { grid-template-rows: auto auto auto minmax(0, 1fr); }
+  .rd-tray { container-type: inline-size; }
+  .rd-die-button { width: min(100%, 120px); }
+  /* The shell's header and menu already say where you are; the switches
+     need the row. */
+  .rd-head__title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .rd-head { flex-wrap: nowrap; gap: 6px; }
+  .rd-head__levels { flex: 1; min-width: 0; }
+  .rd-head .rd-seg button { flex: 1; padding: 0 6px; font-size: 13px; }
+  .rd-play__bar { grid-template-columns: auto auto; justify-content: space-between; row-gap: 6px; }
+  .rd-play__bar .rd-switch { grid-column: 2; grid-row: 1; }
+  .rd-play__bar .rd-lights { grid-column: 1 / -1; grid-row: 2; }
+  .rd-tray { grid-template-columns: minmax(0, 1fr); }
   .rd-tray__meter { display: none; }
-  .rd-btn--roll { grid-column: 1; width: 100%; }
-  .rd-tray__dice { gap: 8px; }
-  .rd-slot__label { font-size: 0; gap: 0; }
-  .rd-slot__beat { font-size: 11px; }
-  .rd-results__numbers { grid-template-columns: 1fr; }
-  .rd-kept__item { grid-template-columns: 1fr; }
-  .rd-toolbar .rd-seg { width: 100%; }
-  .rd-toolbar .rd-seg button { flex: 1; padding: 0 8px; }
+  .rd-slot__label .rd-slot__text { display: none; }
+  .rd-tempo { flex-basis: 100%; }
+  .rd-actions { margin-left: 0; width: 100%; }
+  .rd-actions .rd-btn { flex: 1; padding: 0 8px; }
+  .rd-keep__export label { display: none; }
+  .rd-kept__dice .rd-die--small { width: 30px; padding: 5px; }
+  .rd-kept__item { gap: 6px; padding: 0 6px; }
+  .rd-kept__meta { display: none; }
 }

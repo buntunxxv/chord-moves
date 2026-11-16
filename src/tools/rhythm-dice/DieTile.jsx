@@ -47,7 +47,7 @@ export default function DieTile({ index, face, locked, rolling, onToggleLock, di
       </button>
       <span className="rd-slot__label" aria-hidden="true">
         <span className="rd-slot__beat">{index + 1}</span>
-        {locked ? 'Locked' : 'Tap to lock'}
+        <span className="rd-slot__text">{locked ? 'Locked' : 'Tap to lock'}</span>
       </span>
     </div>
   )

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { formatOffsetMs } from './scoring'
 
 const SYLLABLES = { 0: null, 3: 'e', 6: '&', 9: 'a' }
@@ -49,41 +50,87 @@ function Timeline({ result, expected, barSec, beats }) {
 
 export default function Results({ outcome, beatTicks, beats }) {
   const { result, reflection, expected, barSec, pass, loop } = outcome
+  const [detail, setDetail] = useState('summary')
+  // Each hit pages instead of scrolling: as many as fit the space left.
+  const hitsRef = useRef(null)
+  const [perPage, setPerPage] = useState(64)
+  const [hitPage, setHitPage] = useState(0)
+  useEffect(() => {
+    const el = hitsRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      if (width === 0 || height === 0) return
+      const cols = Math.max(1, Math.floor((width + 6) / 112))
+      const rows = Math.max(1, Math.floor((height + 6) / 34))
+      setPerPage(cols * rows)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [detail])
+  useEffect(() => setHitPage(0), [outcome])
+  const hitPages = Math.max(1, Math.ceil(result.hits.length / perPage))
+  const hp = Math.min(hitPage, hitPages - 1)
   const pct = Math.round(result.accuracy * 100)
   return (
-    <section className="rd-results" aria-labelledby="rd-results-title" aria-live="polite">
+    <section className={`rd-results rd-results--${detail}`} aria-labelledby="rd-results-title" aria-live="polite">
       <h2 id="rd-results-title" className="rd-visually-hidden">Your bar</h2>
-      <p className="rd-results__reflection">{reflection}</p>
-      {loop && <p className="rd-results__pass">Pass {pass + 1}</p>}
+      <div className="rd-results__lead">
+        <p className="rd-results__reflection">{reflection}</p>
+        {loop && <p className="rd-results__pass">Pass {pass + 1}</p>}
+      </div>
 
-      <Timeline result={result} expected={expected} barSec={barSec} beats={beats} />
+      <div className="rd-results__bar">
+        <div className="rd-seg rd-seg--small rd-results__switch" role="radiogroup" aria-label="Detail">
+          {[['summary', 'Summary'], ['timeline', 'Timeline'], ['hits', 'Each hit']]
+            .filter(([v]) => expected.length > 0 || v !== 'hits')
+            .map(([v, label]) => (
+              <button key={v} type="button" role="radio" aria-checked={detail === v}
+                className={detail === v ? 'is-on' : ''} onClick={() => setDetail(v)}>{label}</button>
+            ))}
+        </div>
+        {hitPages > 1 && (
+          <div className="rd-pager rd-results__pager">
+            <button type="button" className="rd-btn rd-btn--small" onClick={() => setHitPage(Math.max(0, hp - 1))} disabled={hp === 0} aria-label="Earlier hits">←</button>
+            <span>{hp + 1}/{hitPages}</span>
+            <button type="button" className="rd-btn rd-btn--small" onClick={() => setHitPage(Math.min(hitPages - 1, hp + 1))} disabled={hp >= hitPages - 1} aria-label="Later hits">→</button>
+          </div>
+        )}
+      </div>
 
       <dl className="rd-results__numbers">
-        <div>
-          <dt>Accuracy</dt>
-          <dd>{pct}%</dd>
-          <span>{result.matched} of {result.expectedCount} hits{result.extras.length ? `, ${result.extras.length} extra` : ''}</span>
-        </div>
-        <div>
-          <dt>Consistency</dt>
-          <dd>{result.spread === null ? '–' : `±${Math.round(result.spread * 1000)} ms`}</dd>
-          <span>{result.spread === null ? 'Needs two hits' : 'Spread of your hits'}</span>
-        </div>
-        <div>
-          <dt>Average</dt>
-          <dd>{result.meanOffset === null ? '–' : formatOffsetMs(result.meanOffset)}</dd>
-          <span>Where you sat overall</span>
-        </div>
+          <div>
+            <dt>Accuracy</dt>
+            <dd>{pct}%</dd>
+            <span>{result.matched}/{result.expectedCount} hits{result.extras.length ? ` · ${result.extras.length} extra` : ''}</span>
+          </div>
+          <div>
+            <dt>Consistency</dt>
+            <dd>{result.spread === null ? '–' : `±${Math.round(result.spread * 1000)} ms`}</dd>
+            <span>{result.spread === null ? 'Needs two hits' : 'Spread of your hits'}</span>
+          </div>
+          <div>
+            <dt>Average</dt>
+            <dd>{result.meanOffset === null ? '–' : formatOffsetMs(result.meanOffset)}</dd>
+            <span>Where you sat</span>
+          </div>
       </dl>
 
+      <div className="rd-results__timeline">
+        <Timeline result={result} expected={expected} barSec={barSec} beats={beats} />
+      </div>
+
       {expected.length > 0 && (
-        <ol className="rd-results__hits">
-          {result.hits.map((h, i) => (
+        <ol className="rd-results__hits" ref={hitsRef} start={hp * perPage + 1}>
+          {result.hits.slice(hp * perPage, (hp + 1) * perPage).map((h, j) => {
+            const i = hp * perPage + j
+            return (
             <li key={i} className={h.offset === null ? 'is-missed' : ''}>
               <span className="rd-results__count">{countName(expected[i].tick, beatTicks)}</span>
               <span>{h.offset === null ? 'missed' : formatOffsetMs(h.offset)}</span>
             </li>
-          ))}
+            )
+          })}
         </ol>
       )}
     </section>

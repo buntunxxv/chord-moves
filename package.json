@@ -21,7 +21,8 @@
     "test:themes": "node scripts/verify-theme-rendering.mjs",
     "screenshots:demo": "node scripts/capture-demo-screenshots.mjs",
     "test:demo": "node scripts/verify-demo.mjs",
-    "test:clicks": "node scripts/verify-click-precision.mjs"
+    "test:clicks": "node scripts/verify-click-precision.mjs",
+    "test:layout": "node scripts/verify-rhythm-dice-layout.mjs"
   },
   "devDependencies": {
     "pixelmatch": "^7.2.0",

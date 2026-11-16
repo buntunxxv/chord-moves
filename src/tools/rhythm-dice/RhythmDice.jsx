@@ -64,6 +64,12 @@ export default function RhythmDice() {
   const [kept, setKept] = useState(readKept)
   const [reason, setReason] = useState('')
   const [drum, setDrum] = useState(() => readNumber(KEYS.drum, DEFAULT_DRUM))
+  // The lower half of the screen shows one thing at a time, so the page never
+  // scrolls: the tap pad, the last result, or the keep shelf.
+  const [stage, setStage] = useState('play') // play | result | keep
+  const [keptPage, setKeptPage] = useState(0)
+  const [keptPerPage, setKeptPerPage] = useState(3)
+  const keptListRef = useRef(null)
 
   const sessionRef = useRef(null)
   const rafRef = useRef(0)
@@ -74,6 +80,26 @@ export default function RhythmDice() {
     cancelAnimationFrame(rafRef.current)
     audio.close()
   }, [audio])
+
+  // Notices float over the bottom edge and clear themselves, so they never
+  // push the layout.
+  useEffect(() => {
+    if (!notice) return
+    const id = window.setTimeout(() => setNotice(''), 4500)
+    return () => window.clearTimeout(id)
+  }, [notice])
+
+  // The kept list pages instead of growing: as many rows as fit the space.
+  useEffect(() => {
+    const el = keptListRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([entry]) => {
+      const rows = Math.max(1, Math.floor((entry.contentRect.height + 8) / 72))
+      setKeptPerPage(rows)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [stage])
 
   function setBpm(v) {
     const next = clampBpm(v)
@@ -143,6 +169,8 @@ export default function RhythmDice() {
       setNotice('Sound could not start in this browser.')
       return null
     }
+    // Space is the tap key during a session; keep it away from any button.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     const startTime = audio.now() + 0.12
     const s = { ...session, startTime, beatsPerBar: METRE.dice }
     s.firstBar = startTime + (s.countInSec ?? 0)
@@ -156,6 +184,7 @@ export default function RhythmDice() {
   async function hearIt() {
     if (busy) return
     setNotice('')
+    setStage('play')
     setPhase('listening')
     const barSec = barSeconds(METRE, bpm)
     const s = await startSession(
@@ -171,6 +200,7 @@ export default function RhythmDice() {
     if (busy) return
     setNotice('')
     setOutcome(null)
+    setStage('play')
     setPhase('performing')
     const barSec = barSeconds(METRE, bpm)
     const expected = expectedOnsets(faces, METRE, bpm)
@@ -194,6 +224,9 @@ export default function RhythmDice() {
         const rel = s.taps.map(tap => tap - barStart).filter(x => x >= lo && x < end)
         const result = scoreBar(expected, rel)
         setOutcome({ result, reflection: reflect(result), expected, barSec, pass: s.scored, loop: passes > 1 })
+        // In a loop the pad stays up so the next pass can be played; the
+        // latest result is one tap away on the Result tab.
+        if (passes === 1) setStage('result')
         logEvent('rhythm_dice_scored', { bpm, accuracy: Math.round(result.accuracy * 100), allRest: result.allRest })
         s.scored += 1
       }
@@ -205,6 +238,7 @@ export default function RhythmDice() {
     if (busy) return
     setNotice('')
     setCalTaps(0)
+    setStage('play')
     setPhase('calibrating')
     const beatSec = 60 / CALIBRATION_BPM
     const total = METRE.dice + CALIBRATION_TAPS
@@ -286,6 +320,7 @@ export default function RhythmDice() {
     setKept(next)
     writeKept(next)
     setReason('')
+    setKeptPage(0)
     setNotice('Bar kept on this device.')
     logEvent('rhythm_dice_kept', { withReason: !!entry.reason })
   }
@@ -303,6 +338,7 @@ export default function RhythmDice() {
     setLocked([true, true, true, true])
     setBpm(entry.bpm)
     setOutcome(null)
+    setStage('play')
     setNotice('Kept bar loaded and locked. Unlock dice to re-roll them.')
   }
 
@@ -331,11 +367,21 @@ export default function RhythmDice() {
       ? (beatLight.countIn ? `Count-in ${beatLight.beat + 1}` : allRest ? 'Hold the silence' : 'Play the bar')
       : phase === 'listening' ? 'Listening…' : 'Tap here or press Space'
 
+  const keptPages = Math.max(1, Math.ceil(kept.length / keptPerPage))
+  const page = Math.min(keptPage, keptPages - 1)
+  const keptShown = kept.slice(page * keptPerPage, (page + 1) * keptPerPage)
+  const stages = [
+    { key: 'play', label: 'Play' },
+    { key: 'result', label: 'Result', disabled: !outcome },
+    { key: 'keep', label: kept.length ? `Keep · ${kept.length}` : 'Keep' },
+  ]
+
   return (
-    <ToolShell title="Rhythm Dice" eyebrow="Roll · perform · keep">
+    <ToolShell>
       <div className="rhythm-dice">
-        <div className="rd-toolbar">
-          <div className="rd-seg" role="radiogroup" aria-label="Dice level">
+        <header className="rd-head">
+          <h1 className="rd-head__title">Rhythm Dice</h1>
+          <div className="rd-seg rd-head__levels" role="radiogroup" aria-label="Dice level">
             {LEVEL_CHOICES.map(c => (
               <button key={c.key} type="button" role="radio" aria-checked={levelKey === c.key}
                 className={levelKey === c.key ? 'is-on' : ''} onClick={() => chooseLevel(c.key)} disabled={busy}>
@@ -343,7 +389,7 @@ export default function RhythmDice() {
               </button>
             ))}
           </div>
-          <div className="rd-seg" role="radiogroup" aria-label="Show dice as">
+          <div className="rd-seg rd-head__view" role="radiogroup" aria-label="Show dice as">
             {[['notes', 'Notes'], ['blocks', 'Blocks']].map(([v, label]) => (
               <button key={v} type="button" role="radio" aria-checked={view === v}
                 className={view === v ? 'is-on' : ''} onClick={() => chooseView(v)}>
@@ -351,7 +397,7 @@ export default function RhythmDice() {
               </button>
             ))}
           </div>
-        </div>
+        </header>
 
         <section className="rd-tray" aria-label="Dice: one bar of 4/4">
           <div className="rd-tray__meter" aria-hidden="true"><span>4</span><span>4</span></div>
@@ -374,39 +420,22 @@ export default function RhythmDice() {
               />
             ))}
           </div>
-          <button type="button" className="rd-btn rd-btn--roll" onClick={reroll} disabled={busy}>
-            {locked.some(Boolean) ? 'Re-roll unlocked dice' : 'Roll the dice'}
-          </button>
         </section>
 
-        <section className="rd-practice" aria-label="Tempo and practice">
+        <section className="rd-controls" aria-label="Tempo and practice">
           <div className="rd-tempo">
-            <label htmlFor="rd-bpm" className="rd-tempo__label">Tempo <span>crotchet = </span></label>
-            <div className="rd-tempo__row">
-              <button type="button" className="rd-step" onClick={() => setBpm(bpm - 1)} aria-label="Slower" disabled={busy}>−</button>
-              <input id="rd-bpm" type="range" min={MIN_BPM} max={MAX_BPM} value={bpm}
-                onChange={e => setBpm(e.target.value)} disabled={busy} aria-valuetext={`${bpm} beats per minute`} />
-              <button type="button" className="rd-step" onClick={() => setBpm(bpm + 1)} aria-label="Faster" disabled={busy}>+</button>
-              <output className="rd-tempo__value" htmlFor="rd-bpm">{bpm}<small>BPM</small></output>
-            </div>
-          </div>
-          <div className="rd-options">
-            <div className="rd-seg rd-seg--small" role="radiogroup" aria-label="Click">
-              {SUBDIVISIONS.map(s => (
-                <button key={s.ticks} type="button" role="radio" aria-checked={subdivision === s.ticks}
-                  className={subdivision === s.ticks ? 'is-on' : ''} disabled={busy}
-                  onClick={() => { setSubdivision(s.ticks); write(KEYS.subdivision, s.ticks) }}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-            <label className="rd-switch">
-              <input id="rd-loop" type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} disabled={busy} />
-              <span>Repeat the bar</span>
-            </label>
+            <label htmlFor="rd-bpm" className="rd-visually-hidden">Tempo, crotchet beats per minute</label>
+            <button type="button" className="rd-step" onClick={() => setBpm(bpm - 1)} aria-label="Slower" disabled={busy}>−</button>
+            <input id="rd-bpm" type="range" min={MIN_BPM} max={MAX_BPM} value={bpm}
+              onChange={e => setBpm(e.target.value)} disabled={busy} aria-valuetext={`${bpm} beats per minute`} />
+            <button type="button" className="rd-step" onClick={() => setBpm(bpm + 1)} aria-label="Faster" disabled={busy}>+</button>
+            <output className="rd-tempo__value" htmlFor="rd-bpm">{bpm}<small>BPM</small></output>
           </div>
           <div className="rd-actions">
-            <button type="button" className="rd-btn rd-btn--quiet" onClick={hearIt} disabled={busy}>Hear it first</button>
+            <button type="button" className="rd-btn rd-btn--roll" onClick={reroll} disabled={busy}>
+              {locked.some(Boolean) ? 'Re-roll' : 'Roll'}
+            </button>
+            <button type="button" className="rd-btn rd-btn--quiet" onClick={hearIt} disabled={busy}>Hear it</button>
             {busy ? (
               <button type="button" className="rd-btn rd-btn--stop" onClick={stopSession}>Stop</button>
             ) : (
@@ -415,75 +444,114 @@ export default function RhythmDice() {
           </div>
         </section>
 
-        <section className={`rd-pad-area${busy ? ' is-live' : ''}`} aria-label="Tap pad">
-          <div className="rd-lights" aria-hidden="true">
-            {Array.from({ length: METRE.dice }, (_, b) => (
-              <span key={b} className={`rd-light${beatLight.beat === b ? (beatLight.countIn ? ' is-count' : ' is-on') : ''}${b === 0 ? ' is-down' : ''}`} />
+        <section className="rd-stage" aria-label="Play, result and keep">
+          <div className="rd-stage__tabs" role="tablist" aria-label="Show">
+            {stages.map(t => (
+              <button key={t.key} type="button" role="tab" id={`rd-tab-${t.key}`} aria-controls={`rd-panel-${t.key}`}
+                aria-selected={stage === t.key} className={stage === t.key ? 'is-on' : ''}
+                disabled={t.disabled || (busy && t.key !== 'play')} onClick={() => setStage(t.key)}>
+                {t.label}
+              </button>
             ))}
+            {stage === 'keep' && keptPages > 1 && (
+              <div className="rd-pager">
+                <button type="button" className="rd-btn rd-btn--small" onClick={() => setKeptPage(Math.max(0, page - 1))} disabled={page === 0} aria-label="Newer kept bars">←</button>
+                <span>{page + 1} / {keptPages}</span>
+                <button type="button" className="rd-btn rd-btn--small" onClick={() => setKeptPage(Math.min(keptPages - 1, page + 1))} disabled={page >= keptPages - 1} aria-label="Older kept bars">→</button>
+              </div>
+            )}
           </div>
-          <button
-            type="button"
-            className="rd-pad"
-            data-flash={padFlash % 2}
-            onPointerDown={e => { e.preventDefault(); registerTap(e) }}
-            aria-label={padLabel}
-            aria-describedby="rd-pad-hint"
-          >
-            <span className="rd-pad__label">{padLabel}</span>
-          </button>
-          <p id="rd-pad-hint" className="rd-pad__hint">
-            {latencyMs === null
-              ? <>Not calibrated yet. <button type="button" className="rd-link" onClick={calibrate} disabled={busy}>Calibrate this device</button> so your timing is measured fairly.</>
-              : <>Calibrated: {Math.abs(latencyMs)} ms. <button type="button" className="rd-link" onClick={calibrate} disabled={busy}>Calibrate again</button> · <button type="button" className="rd-link" onClick={resetCalibration} disabled={busy}>Clear</button></>}
-          </p>
+
+          {stage === 'play' && (
+            <div className={`rd-stage__panel rd-play${busy ? ' is-live' : ''}`} role="tabpanel" id="rd-panel-play" aria-labelledby="rd-tab-play">
+              <div className="rd-play__bar">
+                <div className="rd-seg rd-seg--small" role="radiogroup" aria-label="Click">
+                  {SUBDIVISIONS.map(s => (
+                    <button key={s.ticks} type="button" role="radio" aria-checked={subdivision === s.ticks}
+                      className={subdivision === s.ticks ? 'is-on' : ''} disabled={busy}
+                      onClick={() => { setSubdivision(s.ticks); write(KEYS.subdivision, s.ticks) }}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <label className="rd-switch">
+                  <input id="rd-loop" type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} disabled={busy} />
+                  <span>Repeat</span>
+                </label>
+                <div className="rd-lights" aria-hidden="true">
+                  {Array.from({ length: METRE.dice }, (_, b) => (
+                    <span key={b} className={`rd-light${beatLight.beat === b ? (beatLight.countIn ? ' is-count' : ' is-on') : ''}${b === 0 ? ' is-down' : ''}`} />
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="rd-pad"
+                data-flash={padFlash % 2}
+                onPointerDown={e => { e.preventDefault(); registerTap(e) }}
+                aria-label={padLabel}
+                aria-describedby="rd-pad-hint"
+              >
+                <span className="rd-pad__label">{padLabel}</span>
+              </button>
+              <p id="rd-pad-hint" className="rd-pad__hint">
+                {latencyMs === null
+                  ? <>Not calibrated. <button type="button" className="rd-link" onClick={calibrate} disabled={busy}>Calibrate this device</button></>
+                  : <>Calibrated {Math.abs(latencyMs)} ms · <button type="button" className="rd-link" onClick={calibrate} disabled={busy}>Again</button> · <button type="button" className="rd-link" onClick={resetCalibration} disabled={busy}>Clear</button></>}
+              </p>
+            </div>
+          )}
+
+          {stage === 'result' && outcome && (
+            <div className="rd-stage__panel" role="tabpanel" id="rd-panel-result" aria-labelledby="rd-tab-result">
+              <Results outcome={outcome} beatTicks={METRE.beatTicks} beats={METRE.dice} />
+            </div>
+          )}
+
+          {stage === 'keep' && (
+            <div className="rd-stage__panel rd-keep" role="tabpanel" id="rd-panel-keep" aria-labelledby="rd-tab-keep">
+              <div className="rd-keep__row">
+                <label htmlFor="rd-reason" className="rd-visually-hidden">Why I kept this</label>
+                <input id="rd-reason" type="text" maxLength={140} value={reason} onChange={e => setReason(e.target.value)}
+                  placeholder="Why I kept this (optional)" />
+                <button type="button" className="rd-btn rd-btn--keep" onClick={keepBar}>Keep bar</button>
+              </div>
+              <div className="rd-keep__row rd-keep__export">
+                <label htmlFor="rd-drum">MIDI sound</label>
+                <select id="rd-drum" value={drum} onChange={e => chooseDrum(e.target.value)}>
+                  {DRUM_SOUNDS.map(d => <option key={d.midi} value={d.midi}>{d.label} ({d.midi})</option>)}
+                </select>
+                <button type="button" className="rd-btn rd-btn--quiet" onClick={() => exportMidi(faces, bpm)}>Export this bar</button>
+              </div>
+
+              <ul className="rd-kept" ref={keptListRef} aria-label="Kept bars">
+                {kept.length === 0 && <li className="rd-kept__empty">Bars you keep appear here, with your reason.</li>}
+                {keptShown.map(k => {
+                  const kf = k.faceIds.map(id => FACE_INDEX.get(id)).filter(Boolean)
+                  return (
+                    <li key={k.id} className="rd-kept__item">
+                      <div className="rd-kept__dice" aria-label={kf.map(f => f.name).join(', ')}>
+                        {kf.map((f, i) => <DieFace key={i} face={f} view="blocks" beatTicks={METRE.beatTicks} unit={unit} size="small" />)}
+                      </div>
+                      <div className="rd-kept__text">
+                        <p className="rd-kept__reason">{k.reason || 'No reason written'}</p>
+                        <p className="rd-kept__meta">{k.bpm} BPM · {new Date(k.keptAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className="rd-kept__actions">
+                        <button type="button" className="rd-btn rd-btn--small" onClick={() => loadKept(k)} disabled={busy || kf.length !== 4}>Load</button>
+                        <button type="button" className="rd-btn rd-btn--small" onClick={() => exportMidi(kf, k.bpm)} disabled={kf.length !== 4}>MIDI</button>
+                        <button type="button" className="rd-btn rd-btn--small rd-btn--ghost" onClick={() => removeKept(k.id)} aria-label={`Remove kept bar: ${k.reason || 'no reason'}`}>✕</button>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
         </section>
 
         {notice && <p className="rd-notice" role="status">{notice}</p>}
-
-        {outcome && <Results outcome={outcome} beatTicks={METRE.beatTicks} beats={METRE.dice} />}
-
-        <section className="rd-keep" aria-labelledby="rd-keep-title">
-          <h2 id="rd-keep-title">Keep this bar</h2>
-          <div className="rd-keep__row">
-            <label htmlFor="rd-reason" className="rd-visually-hidden">Why I kept this</label>
-            <input id="rd-reason" type="text" maxLength={140} value={reason} onChange={e => setReason(e.target.value)}
-              placeholder="Why I kept this (optional)" />
-            <button type="button" className="rd-btn rd-btn--keep" onClick={keepBar}>Keep bar</button>
-          </div>
-          <div className="rd-keep__row rd-keep__export">
-            <label htmlFor="rd-drum">MIDI sound</label>
-            <select id="rd-drum" value={drum} onChange={e => chooseDrum(e.target.value)}>
-              {DRUM_SOUNDS.map(d => <option key={d.midi} value={d.midi}>{d.label} ({d.midi})</option>)}
-            </select>
-            <button type="button" className="rd-btn rd-btn--quiet" onClick={() => exportMidi(faces, bpm)}>Export MIDI</button>
-          </div>
-
-          {kept.length > 0 && (
-            <ul className="rd-kept">
-              {kept.map(k => {
-                const kf = k.faceIds.map(id => FACE_INDEX.get(id)).filter(Boolean)
-                return (
-                  <li key={k.id} className="rd-kept__item">
-                    <div className="rd-kept__dice" aria-label={kf.map(f => f.name).join(', ')}>
-                      {kf.map((f, i) => <DieFace key={i} face={f} view="blocks" beatTicks={METRE.beatTicks} unit={unit} size="small" />)}
-                    </div>
-                    <div className="rd-kept__text">
-                      <p className="rd-kept__reason">{k.reason || 'No reason written'}</p>
-                      <p className="rd-kept__meta">{k.bpm} BPM · {new Date(k.keptAt).toLocaleDateString()}</p>
-                    </div>
-                    <div className="rd-kept__actions">
-                      <button type="button" className="rd-btn rd-btn--small" onClick={() => loadKept(k)} disabled={busy || kf.length !== 4}>Load</button>
-                      <button type="button" className="rd-btn rd-btn--small" onClick={() => exportMidi(kf, k.bpm)} disabled={kf.length !== 4}>MIDI</button>
-                      <button type="button" className="rd-btn rd-btn--small rd-btn--ghost" onClick={() => removeKept(k.id)} aria-label="Remove kept bar">Remove</button>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </section>
       </div>
     </ToolShell>
   )
 }
-
