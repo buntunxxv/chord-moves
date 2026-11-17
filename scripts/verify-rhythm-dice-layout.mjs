@@ -26,6 +26,7 @@ const VIEWPORTS = [
   ['iPad mini portrait', 744, 1059],
   ['iPad mini landscape', 1133, 670],
   ['iPhone portrait (Safari)', 390, 664],
+  ['iPhone 13 mini portrait (Safari)', 375, 616],
 ]
 
 // The widest and busiest bar the free levels can make: five semiquaver dice
@@ -236,6 +237,16 @@ try {
     const notes = await page.locator('.rd-tray .rd-die__notes svg').count()
     const blocks = await page.locator('.rd-tray .rd-block').count()
     check(`${name}: back to notes`, notes === dice && dice > 0 && blocks === 0, `${notes} note drawings for ${dice} dice, ${blocks} blocks`)
+    // Safari can give a face's SVG (a viewBox, no width or height) its default
+    // 300x150 size. Force that here: no die, nor the tray, may change size.
+    const sizes = () => page.evaluate(() => ({
+      tray: Math.round(document.querySelector('.rd-tray').getBoundingClientRect().height),
+      dice: [...document.querySelectorAll('.rd-tray .rd-die')].map(d => { const r = d.getBoundingClientRect(); return `${Math.round(r.left)},${Math.round(r.width)}x${Math.round(r.height)}` }).join(' '),
+    }))
+    const before = await sizes()
+    await page.evaluate(() => document.querySelectorAll('.rd-tray .rd-die__notes svg').forEach(svg => { svg.style.width = '300px'; svg.style.height = '150px' }))
+    const after = await sizes()
+    check(`${name}: a face's drawing never resizes its die`, JSON.stringify(before) === JSON.stringify(after), `before ${JSON.stringify(before)} after ${JSON.stringify(after)}`)
     await ctx.close()
   }
 } finally {
