@@ -272,7 +272,7 @@ export function submitFeedback(chord, selected, mode = 'name') {
   } else if (pairs.length) {
     const p = pairs[0]
     const dir = semitonesUp(p.extra, p.missing.chroma) === 1 ? 'up' : 'down'
-    const inPlace = chord.quality === 'sus' && p.missing.index === 1 ? ' in place of the third' : ''
+    const inPlace = chord.quality.startsWith('sus') && p.missing.index === 1 ? ' in place of the third' : ''
     extra = `You played ${withArticle(INTERVAL_NAMES[semitonesUp(chord.chromas[0], p.extra)])} above ${root}. ${chord.prose} uses ${withArticle(p.missing.name)}${inPlace}. What changes if you move that note ${dir} a semitone?`
   } else if (loose.length) {
     const what = loose.map(e => `${keyLabel(e)} is ${withArticle(INTERVAL_NAMES[semitonesUp(chord.chromas[0], e)])} above ${root}`)

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ToolShell from '../../app/ToolShell'
-import { DIE_NAMES, LEVEL_CHOICES, LEVEL_KEYS, changeOneDie, displayNote, feedbackStyle, resolveChord, rollChord } from './faces'
+import { DIE_NAMES, LEVEL_CHOICES, LEVEL_KEYS, changeOneDie, diceFor, displayNote, feedbackStyle, resolveChord, rollChord } from './faces'
 import { compare, finishReflection, keyLabel, keySpoken, nextPrompt, placementFeedback, spelledNotes, submitFeedback } from './answer'
 import { createChordAudio, selectionVoicing, targetVoicing } from './audio'
 import { KEYS, REASON_MAX, STARTS, makeKept, readKept, readString, write, writeKept } from './storage'
@@ -14,7 +14,7 @@ const START_LABELS = { name: 'From name', sound: 'From sound' }
 const KEPT_ROW = 60 // px per kept row, gap included
 
 const times = n => (n === 1 ? '1 replay' : `${n} replays`)
-const DIE_FACE = { major: 'major', minor: 'minor', dim: 'dim', aug: 'aug', sus: 'sus' }
+const DIE_FACE = { major: 'major', minor: 'minor', dim: 'dim', aug: 'aug', sus2: 'sus2', sus4: 'sus4' }
 
 // A die. Once a chord is built or revealed, each die becomes a button:
 // tap it to change that one die and keep the other two.
@@ -88,6 +88,9 @@ export default function ChordDice() {
   // the changed one is hidden.
   const hiddenDie = die => concealed && (!round.changedFrom || round.changedFrom.die === die)
   const submitMode = round?.feedback === 'submit'
+  // Levels 1–3 roll two dice; the Colour die joins at Level 4.
+  const dice = diceFor(round?.levelKey ?? levelKey)
+  const dieList = names => names.map(d => DIE_NAMES[d]).join(names.length === 2 ? ' or ' : ', ').replace(/, (?=[^,]*$)/, ' or ')
 
   useEffect(() => {
     if (!notice) return
@@ -254,15 +257,15 @@ export default function ChordDice() {
           </div>
         </header>
 
-        <section className="cd-tray" aria-label="Dice">
+        <section className="cd-tray" aria-label="Dice" style={{ '--cd-dice': dice.length }}>
           <Die label="Root" face={chord ? displayNote(chord.root) : null} hidden={hiddenDie('root')} rolling={rolling.includes('root')}
             onChange={finished ? () => changeDie('root') : null} />
           <Die label="Quality" face={chord ? DIE_FACE[chord.quality] : null} hidden={hiddenDie('quality')} rolling={rolling.includes('quality')}
             onChange={finished ? () => changeDie('quality') : null} />
-          {/* Levels 1–2 have no colour: the die is on the table and reads
-              "none", so the tray looks the same at every level. */}
-          <Die label="Colour" face={chord ? chord.colour : null} hidden={hiddenDie('colour')} rolling={rolling.includes('colour')}
-            onChange={finished ? () => changeDie('colour') : null} />
+          {dice.includes('colour') && (
+            <Die label="Colour" face={chord ? chord.colour : null} hidden={hiddenDie('colour')} rolling={rolling.includes('colour')}
+              onChange={finished ? () => changeDie('colour') : null} />
+          )}
         </section>
 
         <section className="cd-controls" aria-label="Start and roll">
@@ -350,7 +353,7 @@ export default function ChordDice() {
                 {round.changedFrom && <span>Changed {DIE_NAMES[round.changedFrom.die]} from {round.changedFrom.chord.name}</span>}
               </p>
               <p className="cd-result__reflection">{finishReflection(chord, { start: round.start, replays, revealed: status === 'revealed', changedFrom: round.changedFrom })}</p>
-              <p className="cd-result__hint">Change one die: tap Root, Quality or Colour above. The other two stay.</p>
+              <p className="cd-result__hint">Change one die: tap {dieList(dice)} above. {dice.length === 2 ? 'The other stays.' : 'The others stay.'}</p>
               <div className="cd-result__actions">
                 <button type="button" className="cd-btn cd-btn--quiet" onClick={() => audio.playChord(targetVoicing(chord), 'target')}>Hear it</button>
                 <button type="button" className="cd-btn cd-btn--keep" onClick={() => setStage('keep')} disabled={keptThis}>

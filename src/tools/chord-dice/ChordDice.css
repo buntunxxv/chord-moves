@@ -98,7 +98,7 @@
   min-height: 0;
   padding: clamp(8px, 1.6vh, 18px) clamp(10px, 2.4vw, 24px);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cd-dice, 3), minmax(0, 1fr));
   align-items: center;
   gap: clamp(8px, 2vw, 22px);
   background: var(--white);

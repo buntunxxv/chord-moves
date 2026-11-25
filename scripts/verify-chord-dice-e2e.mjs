@@ -104,7 +104,7 @@ try {
   await page.getByRole('radio', { name: 'From name' }).click()
   const named = expected('L2', [0, 7 / 24 + 0.001]) // E♭m
   await forceRoll(page, [0, 7 / 24 + 0.001])
-  check('from the name: the dice show the chord', (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'E♭ minor none')
+  check('from the name: the dice show the chord', (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'E♭ minor')
   check('from the name: Roll makes no sound', (await sounds(page)).length === 0)
   check('from the name: the prompt names the chord', (await page.locator('.cd-feedback').innerText()).includes(`Build ${named.name}.`))
   // A wrong note first: the feedback names the interval and asks.
@@ -175,7 +175,7 @@ try {
   check('from the sound: Result names the chord after it is built', result2.includes(heard.name) && result2.includes(spelledNotes(heard)), result2)
   check('from the sound: reflection includes the replay count',
     result2.includes('You replayed it twice. What did you listen for on the last play?') && result2.includes('2 replays'), result2)
-  check('dice faces show once built', (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'G♯ major none')
+  check('dice faces show once built', (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'G♯ major')
   await keepWith(page, 'Heard the bright third first')
   check('kept from the sound with its replays', (await page.locator('.cd-kept__item').first().innerText()).includes('From sound · 2 replays'))
 
@@ -241,12 +241,13 @@ try {
 
   // ---------- 6. Change one die ----------
   const cp = views[0].t.page
-  // From sound, the changed die is the only one hidden.
+  // From sound, the changed die is the only one hidden. Cdim's Quality can
+  // become aug, sus2 or sus4; force aug.
+  await cp.evaluate(() => { const v = [0]; Math.random = () => (v.length ? v.shift() : 0.5) })
   await cp.getByRole('button', { name: /^Change the Quality die/ }).click()
   const faces = await cp.locator('.cd-die__face').allTextContents()
-  check('Change one die from sound: only the changed die is hidden', faces.join(' ') === 'C ? none', faces.join(' '))
+  check('Change one die from sound: only the changed die is hidden', faces.join(' ') === 'C ?', faces.join(' '))
   check('Change one die from sound: the new chord plays', (await sounds(cp)).filter(k => k === 'target').length >= 2)
-  // Cdim -> Caug is the only other Quality with no colour at Level 3.
   for (const c of [0, 4, 8]) await cp.locator(`.cd-key[data-chroma="${c}"]`).click()
   await cp.getByRole('button', { name: 'Submit' }).click()
   const changedResult = await cp.locator('.cd-result').innerText()
@@ -257,15 +258,15 @@ try {
   check('a changed chord is kept with what it changed from',
     keptChanged.symbol === 'Caug' && keptChanged.changedFrom?.die === 'quality' && keptChanged.changedFrom?.symbol === 'Cdim', JSON.stringify(keptChanged))
   check('kept list says it was changed', (await cp.locator('.cd-kept__item').first().innerText()).includes('Changed Quality'))
-  // A die with nothing else says which to change first.
+  // Levels 1–3: two dice (Root, Quality); the Colour die waits for Level 4.
   await cp.getByRole('radio', { name: 'Level 1' }).click()
   await cp.getByRole('radio', { name: 'From name' }).click()
   await forceRoll(cp, [0, 0])
   await cp.getByRole('button', { name: 'Reveal' }).click()
-  await cp.getByRole('button', { name: /^Change the Colour die/ }).click()
-  check('a die with no other face explains instead of changing',
-    (await cp.locator('.cd-notice').innerText()).includes('The Colour die has only “none” at this level')
-    && (await cp.locator('.cd-die__face').allTextContents()).join(' ') === 'C major none')
+  check('Levels 1–3 show two dice and no Colour die',
+    (await cp.locator('.cd-die__face').allTextContents()).join(' ') === 'C major'
+    && (await cp.getByRole('button', { name: /^Change the Colour die/ }).count()) === 0
+    && (await cp.locator('.cd-result__hint').innerText()) === 'Change one die: tap Root or Quality above. The other stays.')
   check('no page errors at Level 3', cp.errors.length === 0, cp.errors.join(' | '))
   await views[0].t.ctx.close()
 } finally {

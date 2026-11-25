@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Chord, Note } from 'tonal'
-import { L1_ROOTS, L2_ROOTS, LEVEL_CHOICES, alternatives, changeOneDie, displayNote, feedbackStyle, outcomes, poolFor, resolveChord, rollChord } from './faces.js'
+import { L1_ROOTS, L2_ROOTS, LEVEL_CHOICES, alternatives, changeOneDie, diceFor, displayNote, feedbackStyle, outcomes, poolFor, resolveChord, rollChord } from './faces.js'
 import {
   INTERVAL_NAMES, KEY_NAMES, chromaOf, compare, describeChange, finishReflection, keyLabel, matches, nextPrompt,
   pitchClassSet, placementFeedback, semitonesUp, submitFeedback,
@@ -247,7 +247,7 @@ test('kept chords round-trip through storage and survive bad entries', () => {
 const L3 = outcomes('L3')
 const L3_FORMULAS = { dim: ['1P', '3m', '5d'], aug: ['1P', '3M', '5A'], sus2: ['1P', '2M', '5P'], sus4: ['1P', '4P', '5P'] }
 const L3_SEMIS = { dim: [0, 3, 6], aug: [0, 4, 8], sus2: [0, 2, 7], sus4: [0, 5, 7] }
-const kind = o => (o.quality === 'sus' ? o.colour : o.quality)
+const kind = o => o.quality
 
 test('face table: 48 outcomes at Level 3, all 12 roots × dim, aug, sus2, sus4', () => {
   assert.equal(L3.length, 48)
@@ -275,13 +275,14 @@ for (const o of L3) {
 test('Level 3 spellings, double accidentals included', () => {
   assert.deepEqual(resolveChord({ root: 'Eb', quality: 'dim' }).notes, ['Eb', 'Gb', 'Bbb'])
   assert.deepEqual(resolveChord({ root: 'G#', quality: 'aug' }).notes, ['G#', 'B#', 'D##'])
-  assert.deepEqual(resolveChord({ root: 'F', quality: 'sus', colour: 'sus4' }).notes, ['F', 'Bb', 'C'])
+  assert.deepEqual(resolveChord({ root: 'F', quality: 'sus4' }).notes, ['F', 'Bb', 'C'])
   assert.equal(resolveChord({ root: 'Eb', quality: 'dim' }).name, 'E♭dim')
-  assert.equal(resolveChord({ root: 'Bb', quality: 'sus', colour: 'sus2' }).name, 'B♭sus2')
+  assert.equal(resolveChord({ root: 'Bb', quality: 'sus2' }).name, 'B♭sus2')
   assert.equal(resolveChord({ root: 'C#', quality: 'aug' }).prose, 'C♯ augmented')
-  assert.equal(resolveChord({ root: 'C', quality: 'sus', colour: 'sus4' }).prose, 'C sus4')
-  assert.throws(() => resolveChord({ root: 'C', quality: 'sus', colour: 'none' }))
-  assert.throws(() => resolveChord({ root: 'C', quality: 'major', colour: 'sus4' }))
+  assert.equal(resolveChord({ root: 'C', quality: 'sus4' }).prose, 'C sus4')
+  assert.throws(() => resolveChord({ root: 'C', quality: 'sus', colour: 'none' }), 'sus is no longer a quality on its own')
+  assert.throws(() => resolveChord({ root: 'C', quality: 'major', colour: 'sus4' }), 'sus4 is not a colour')
+  for (const o of L3) assert.equal(o.colour, 'none', 'Level 3 has no colours: sus is on the Quality die')
   // Enharmonic answers: B𝄫 is the A key, D𝄪 the E key.
   assert.ok(matches(resolveChord({ root: 'Eb', quality: 'dim' }), ['D#', 'F#', 'A']))
   assert.ok(matches(resolveChord({ root: 'G#', quality: 'aug' }), ['Ab', 'C', 'E']))
@@ -321,7 +322,7 @@ test('Submit: extra and missing described separately, every Level 3 case', () =>
 })
 
 test('Submit: Phase 0 Level 3 example, pairing only when clear', () => {
-  const csus4 = resolveChord({ root: 'C', quality: 'sus', colour: 'sus4' })
+  const csus4 = resolveChord({ root: 'C', quality: 'sus4' })
   assert.deepEqual(submitFeedback(csus4, [0, 4, 7]), {
     complete: false,
     extra: 'You played a major third above C. C sus4 uses a perfect fourth in place of the third. What changes if you move that note up a semitone?',
@@ -330,7 +331,7 @@ test('Submit: Phase 0 Level 3 example, pairing only when clear', () => {
   const cdim = resolveChord({ root: 'C', quality: 'dim' })
   assert.match(submitFeedback(cdim, [0, 3, 7]).extra, /perfect fifth above C\. C diminished uses a diminished fifth\. .*down a semitone\?$/)
   // E♭ is a semitone from D, and E is not in sus2: a clear pair.
-  const csus2 = resolveChord({ root: 'C', quality: 'sus', colour: 'sus2' })
+  const csus2 = resolveChord({ root: 'C', quality: 'sus2' })
   assert.match(submitFeedback(csus2, [0, 3, 7]).extra, /^You played a minor third above C\. C sus2 uses a major second in place of the third\. .*down a semitone\?$/)
   // F♯ sits a semitone from both F and G, both missing: no pairing, both lines speak.
   const amb = submitFeedback(csus4, [0, 6])
@@ -380,20 +381,25 @@ test('alternatives keep the other dice and stay inside the level', () => {
   }
   assert.equal(alternatives({ root: 'C', quality: 'major', colour: 'none' }, 'root', 'L1').length, 6)
   assert.deepEqual(alternatives({ root: 'C', quality: 'major', colour: 'none' }, 'quality', 'L1').map(o => o.quality), ['minor'])
-  assert.deepEqual(alternatives({ root: 'C', quality: 'dim', colour: 'none' }, 'quality', 'L3').map(o => o.quality), ['aug'])
-  assert.deepEqual(alternatives({ root: 'C', quality: 'sus', colour: 'sus2' }, 'colour', 'L3').map(o => o.colour), ['sus4'])
-  assert.deepEqual(alternatives({ root: 'C', quality: 'major', colour: 'none' }, 'quality', 'mix').map(o => o.quality), ['minor', 'dim', 'aug'])
+  assert.deepEqual(alternatives({ root: 'C', quality: 'dim', colour: 'none' }, 'quality', 'L3').map(o => o.quality), ['aug', 'sus2', 'sus4'])
+  assert.deepEqual(alternatives({ root: 'C', quality: 'sus2', colour: 'none' }, 'quality', 'L3').map(o => o.quality), ['dim', 'aug', 'sus4'])
+  assert.deepEqual(alternatives({ root: 'C', quality: 'sus4', colour: 'none' }, 'colour', 'L3'), [])
+  assert.deepEqual(alternatives({ root: 'C', quality: 'major', colour: 'none' }, 'quality', 'mix').map(o => o.quality), ['minor', 'dim', 'aug', 'sus2', 'sus4'])
 })
 
-test('when a die has nothing else, it says which die to change first', () => {
-  const rng = () => 0
-  assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'colour', 'L1', { rng }).blocked,
+test('Levels 1–3 roll two dice; every die on the tray can always change', () => {
+  for (const levelKey of ['L1', 'L2', 'L3', 'mix']) {
+    assert.deepEqual(diceFor(levelKey), ['root', 'quality'], `${levelKey}: no Colour die until Level 4`)
+    for (const o of poolFor(levelKey)) {
+      for (const die of diceFor(levelKey)) {
+        assert.ok(changeOneDie(o, die, levelKey, { rng: () => 0 }).outcome, `${levelKey} ${o.root}${o.quality}: ${die} can change`)
+      }
+    }
+  }
+  // The blocked message stays for Level 4, when a die can run out of faces.
+  assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'colour', 'L1', { rng: () => 0 }).blocked,
     'The Colour die has only “none” at this level. Change the Root or the Quality instead, or move up a level.')
-  assert.equal(changeOneDie({ root: 'C', quality: 'dim', colour: 'none' }, 'colour', 'L3', { rng }).blocked,
-    'Nothing else on the Colour die fits with a diminished chord here. Change the Quality first.')
-  assert.equal(changeOneDie({ root: 'C', quality: 'sus', colour: 'sus4' }, 'quality', 'L3', { rng }).blocked,
-    'Nothing else on the Quality die fits with the sus4 colour here. Change the Colour first.')
-  const ok = changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'quality', 'L2', { rng })
+  const ok = changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'quality', 'L2', { rng: () => 0 })
   assert.deepEqual(ok.outcome, { root: 'C', quality: 'minor', colour: 'none', levelId: 'L2', levelKey: 'L2' })
 })
 
@@ -401,8 +407,8 @@ test('the change reflection says what moved, then asks', () => {
   const r = (root, quality, colour = 'none') => resolveChord({ root, quality, colour })
   assert.equal(describeChange(r('C', 'major'), r('C', 'minor'), 'quality'),
     'You changed the Quality: C became Cm. E moved down a semitone to E♭. What does that change do to the sound?')
-  assert.equal(describeChange(r('C', 'sus', 'sus2'), r('C', 'sus', 'sus4'), 'colour'),
-    'You changed the Colour: Csus2 became Csus4. D moved up 3 semitones to F. What does that change do to the sound?')
+  assert.equal(describeChange(r('C', 'sus2'), r('C', 'sus4'), 'quality'),
+    'You changed the Quality: Csus2 became Csus4. D moved up 3 semitones to F. What does that change do to the sound?')
   assert.equal(describeChange(r('C', 'dim'), r('C', 'aug'), 'quality'),
     'You changed the Quality: Cdim became Caug. E♭ moved up a semitone to E, and G♭ moved up 2 semitones to G♯. What does that change do to the sound?'.replace('up 2 semitones', 'up a tone'))
   assert.equal(describeChange(r('C', 'major'), r('A', 'major'), 'root'),
@@ -415,7 +421,7 @@ test('the change reflection says what moved, then asks', () => {
 test('finish reflections for Level 3 qualities', () => {
   assert.match(finishReflection(resolveChord({ root: 'B', quality: 'dim' }), { start: 'name' }), /^Two notes make it diminished/)
   assert.match(finishReflection(resolveChord({ root: 'B', quality: 'aug' }), { start: 'name' }), /makes it augmented\?/)
-  assert.match(finishReflection(resolveChord({ root: 'B', quality: 'sus', colour: 'sus4' }), { start: 'name' }), /perfect fourth do in place of the third\?/)
+  assert.match(finishReflection(resolveChord({ root: 'B', quality: 'sus4' }), { start: 'name' }), /perfect fourth do in place of the third\?/)
 })
 
 test('kept Level 3 and changed chords round-trip', () => {
@@ -424,11 +430,17 @@ test('kept Level 3 and changed chords round-trip', () => {
   const c = resolveChord({ root: 'Eb', quality: 'dim' })
   const k = makeKept(c, { start: 'name', reason: 'tense', levelKey: 'L3', changedFrom: { die: 'quality', symbol: 'Eb' }, now })
   assert.deepEqual(k.changedFrom, { die: 'quality', symbol: 'Eb' })
-  const plain = makeKept(resolveChord({ root: 'C', quality: 'sus', colour: 'sus2' }), { start: 'sound', reason: 'open', now: new Date(now.getTime() + 1) })
+  const plain = makeKept(resolveChord({ root: 'C', quality: 'sus2' }), { start: 'sound', reason: 'open', now: new Date(now.getTime() + 1) })
   assert.equal(plain.changedFrom, null)
   writeKept([k, plain], store)
   assert.deepEqual(readKept(store), [k, plain])
   const bad = parseKept(JSON.stringify([{ ...k, changedFrom: { die: 'bass', symbol: 'C' } }, { ...k, quality: 'sus', colour: 'none' }]))
   assert.equal(bad.length, 1, 'a chord that cannot exist is dropped')
   assert.equal(bad[0].changedFrom, null, 'an unknown change is ignored, the chord kept')
+  // Sus chords kept before the Quality die took sus2/sus4 still load.
+  const old = parseKept(JSON.stringify([{ ...plain, quality: 'sus', colour: 'sus4', symbol: 'Csus4' }]))
+  assert.equal(old.length, 1)
+  assert.equal(old[0].quality, 'sus4')
+  assert.equal(old[0].colour, 'none')
+  assert.equal(resolveChord(old[0]).name, 'Csus4')
 })

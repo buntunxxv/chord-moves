@@ -46,7 +46,13 @@ export function makeKept(chord, { start, replays, revealed, reason, levelKey, ch
   }
 }
 
-// A face combination that makes a real chord (not, say, sus with no colour).
+// Before 25 Nov (PR 2 review) sus chords were kept as quality "sus" with
+// the suspension on the Colour die; read them as the sus2/sus4 quality.
+function migrate(k) {
+  return k && k.quality === 'sus' && (k.colour === 'sus2' || k.colour === 'sus4') ? { ...k, quality: k.colour, colour: 'none' } : k
+}
+
+// A face combination that makes a real chord.
 function exists(k) {
   try { resolveChord({ root: k.root, quality: k.quality, colour: k.colour ?? 'none' }); return true } catch { return false }
 }
@@ -57,7 +63,7 @@ export function parseKept(raw) {
   try {
     const parsed = JSON.parse(raw || '[]')
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(k => k
+    return parsed.map(migrate).filter(k => k
       && typeof k.id === 'string'
       && L2_ROOTS.includes(k.root)
       && exists(k)

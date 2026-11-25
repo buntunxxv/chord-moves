@@ -202,17 +202,18 @@ try {
     check(`${name}: Level 3 Submit feedback shows`, /doesn’t use them/.test(said) && /perfect fourth above C♯/.test(said), said)
     await verify(page, `${name}: Build at Level 3 after Submit, longest feedback`, `${slug}-build-submit`, { piano: true })
 
-    // Change one die: the Quality of a sus4 is blocked (a notice says why),
-    // the Colour changes it to sus2; build that and Submit.
+    // Change one die: Levels 1–3 show two dice. The Quality of C♯sus4
+    // becomes C♯aug (the longest change: two notes move, one to G𝄪);
+    // build that and Submit.
     await page.getByRole('button', { name: 'Reveal' }).click()
+    check(`${name}: two dice until Level 4`, (await page.locator('.cd-die').count()) === 2)
+    await verify(page, `${name}: Result (revealed, two dice)`, `${slug}-result-two`)
+    await page.evaluate(() => { const v = [0.5]; Math.random = () => (v.length ? v.shift() : 0.5) })
     await page.getByRole('button', { name: /^Change the Quality die/ }).click()
-    check(`${name}: a blocked die says which to change first`, (await page.locator('.cd-notice').innerText()).includes('Change the Colour first'))
-    await verify(page, `${name}: Result with a blocked-change notice`, `${slug}-result-notice`)
-    await page.getByRole('button', { name: /^Change the Colour die/ }).click()
-    for (const c of [1, 3, 8]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
+    for (const c of [1, 5, 9]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
     await page.getByRole('button', { name: 'Submit' }).click()
     const changed = await page.locator('.cd-result').innerText()
-    check(`${name}: the change reflection shows`, changed.includes('You changed the Colour: C♯sus4 became C♯sus2'), changed)
+    check(`${name}: the change reflection shows`, changed.includes('You changed the Quality: C♯sus4 became C♯aug'), changed)
     await verify(page, `${name}: Result after Change one die`, `${slug}-result-change`)
 
     check(`${name}: no page errors`, errors.length === 0, errors.join(' | '))

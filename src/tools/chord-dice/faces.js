@@ -10,23 +10,23 @@ import { Chord, Note } from 'tonal'
 export const L1_ROOTS = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 export const L2_ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
 
-// Each quality gives the chord's middle note and fifth. A suspended chord
-// takes its middle note from the Colour die: the suspension replaces the
-// third.
+// Two dice, two jobs (founder decision, 25 Nov, PR 2):
+//   Quality = how the triad is built: its middle note and its fifth. A sus
+//             chord replaces the third, so sus2 and sus4 are qualities.
+//   Colour  = a note added on top (7, maj7, add9 …). It has no faces until
+//             Level 4, so the tray leaves it out until then.
 export const QUALITIES = {
   major: { id: 'major', label: 'major', word: 'major', suffix: '', middle: { interval: '3M', name: 'major third' }, fifth: { interval: '5P', name: 'perfect fifth' } },
   minor: { id: 'minor', label: 'minor', word: 'minor', suffix: 'm', middle: { interval: '3m', name: 'minor third' }, fifth: { interval: '5P', name: 'perfect fifth' } },
   dim: { id: 'dim', label: 'dim', word: 'diminished', suffix: 'dim', middle: { interval: '3m', name: 'minor third' }, fifth: { interval: '5d', name: 'diminished fifth' } },
   aug: { id: 'aug', label: 'aug', word: 'augmented', suffix: 'aug', middle: { interval: '3M', name: 'major third' }, fifth: { interval: '5A', name: 'augmented fifth' } },
-  sus: { id: 'sus', label: 'sus', word: 'suspended', suffix: '', middle: null, fifth: { interval: '5P', name: 'perfect fifth' } },
+  sus2: { id: 'sus2', label: 'sus2', word: 'sus2', suffix: 'sus2', middle: { interval: '2M', name: 'major second' }, fifth: { interval: '5P', name: 'perfect fifth' } },
+  sus4: { id: 'sus4', label: 'sus4', word: 'sus4', suffix: 'sus4', middle: { interval: '4P', name: 'perfect fourth' }, fifth: { interval: '5P', name: 'perfect fifth' } },
 }
 
-// "none" stays on the die at every level, so the tray always shows three
-// dice and reads the same way.
+// Colours arrive with Level 4. Until then every chord's colour is "none".
 export const COLOURS = {
   none: { id: 'none', label: 'none', suffix: '' },
-  sus2: { id: 'sus2', label: 'sus2', suffix: 'sus2', middle: { interval: '2M', name: 'major second' } },
-  sus4: { id: 'sus4', label: 'sus4', suffix: 'sus4', middle: { interval: '4P', name: 'perfect fourth' } },
 }
 
 const TRIADS = [['major', 'none'], ['minor', 'none']]
@@ -34,7 +34,7 @@ export const LEVELS = {
   L1: { id: 'L1', name: 'Level 1', roots: L1_ROOTS, tuples: TRIADS },
   L2: { id: 'L2', name: 'Level 2', roots: L2_ROOTS, tuples: TRIADS },
   // Level 3: diminished, augmented, sus2 and sus4, on all 12 roots (48).
-  L3: { id: 'L3', name: 'Level 3', roots: L2_ROOTS, tuples: [['dim', 'none'], ['aug', 'none'], ['sus', 'sus2'], ['sus', 'sus4']] },
+  L3: { id: 'L3', name: 'Level 3', roots: L2_ROOTS, tuples: [['dim', 'none'], ['aug', 'none'], ['sus2', 'none'], ['sus4', 'none']] },
 }
 
 // The level switch. Mix rolls one of Levels 1–3 with equal chance, then a
@@ -92,8 +92,7 @@ export function resolveChord({ root, quality, colour = 'none' }) {
   const q = QUALITIES[quality]
   const c = COLOURS[colour]
   if (!q || !c) throw new Error(`Unknown face ${quality}/${colour}`)
-  const middle = q.middle ?? c.middle
-  if (!middle || (q.middle && c.middle)) throw new Error(`No chord for ${quality}/${colour}`)
+  const middle = q.middle
   const symbol = root + q.suffix + c.suffix
   const chord = Chord.get(symbol)
   if (chord.empty) throw new Error(`Tonal has no chord ${symbol}`)
@@ -105,7 +104,7 @@ export function resolveChord({ root, quality, colour = 'none' }) {
     colour,
     symbol,
     name: displayNote(symbol),
-    prose: `${displayNote(root)} ${quality === 'sus' ? c.label : q.word}`,
+    prose: `${displayNote(root)} ${q.word}`,
     notes,
     chromas: notes.map(n => Note.chroma(n)),
     roles,
@@ -129,6 +128,11 @@ export function rollChord(levelKey, { rng = Math.random, avoid = null } = {}) {
 
 export const DICE = ['root', 'quality', 'colour']
 export const DIE_NAMES = { root: 'Root', quality: 'Quality', colour: 'Colour' }
+
+// The dice on the tray: the Colour die joins once a level gives it a face
+// other than "none" (Level 4).
+export const diceFor = levelKey =>
+  poolFor(levelKey).some(o => o.colour !== 'none') ? DICE : DICE.filter(d => d !== 'colour')
 
 // The faces this die could change to while the other two dice stay put,
 // using only chords the level allows.
