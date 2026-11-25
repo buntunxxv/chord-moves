@@ -1,0 +1,426 @@
+/* Chord Dice -- the same practice table as Rhythm Dice.
+   Dice are white with black ink in both themes.
+   Teal is sound and your own choices: selected keys, Play again.
+   Gold is ownership: a kept chord. It never means "good".
+   Ink carries the one main action, Roll.
+   Reflections are set in the italic serif, like a teacher's note.
+   Selected keys all look the same: the words give the feedback, so a key's
+   colour never reads as a mark. */
+
+.chord-dice {
+  --die-surface: #FFFFFF;
+  --die-ink: #1A1A1A;
+  --die-edge: #E1E1E1;
+  --cd-ink: var(--black);
+  --cd-on-ink: var(--white);
+  --cd-gold-ink: #1A1A1A;
+  --cd-key-white: #FFFFFF;
+  --cd-key-black: #1A1A1A;
+  --cd-key-edge: #CFCFCF;
+  font-family: 'Inter', var(--font);
+  /* One screen, no scrolling: header, tray, controls and stage share the
+     shell's fixed height; the tray and the stage take what is left. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 0.7fr) auto minmax(0, 1.5fr);
+  gap: clamp(8px, 1.5vh, 16px);
+}
+
+[data-theme="dark"] .chord-dice {
+  --cd-key-white: #E9ECEE;
+  --cd-key-black: #0B0D0F;
+  --cd-key-edge: #3A4046;
+}
+
+.chord-dice button, .chord-dice input { font-family: inherit; }
+
+.cd-short { display: none; }
+
+.cd-visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- header ---------- */
+
+.cd-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 20px; }
+.cd-head__copy { min-width: 0; }
+.cd-head__eyebrow {
+  margin-bottom: 6px;
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.cd-head__title {
+  font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  padding-bottom: 0.1em;
+}
+
+/* ---------- segmented controls ---------- */
+
+.cd-seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.cd-seg button {
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cd-seg button.is-on { color: var(--text); background: var(--teal-tint); box-shadow: inset 0 0 0 1.5px var(--teal); }
+.cd-seg button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+
+/* ---------- the tray ---------- */
+
+.cd-tray {
+  container: tray / size;
+  min-height: 0;
+  padding: clamp(8px, 1.6vh, 18px) clamp(10px, 2.4vw, 24px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: clamp(8px, 2vw, 22px);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+.cd-slot { display: grid; justify-items: center; align-content: center; gap: 6px; min-width: 0; }
+
+.cd-die {
+  /* As big as the column allows, never taller than the tray (the label
+     under it needs about 24px). */
+  width: min(100%, calc(100cqh - 26px), 170px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: var(--die-ink);
+  background: var(--die-surface);
+  border-radius: 22%;
+  box-shadow:
+    inset 0 0 0 1px var(--die-edge),
+    inset 0 -7px 12px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.14);
+  container-type: inline-size;
+}
+
+.cd-die__face {
+  font-size: clamp(14px, 30cqw, 56px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* Words are longer than a root: "major", "minor", "none". */
+.cd-slot:not(:first-child) .cd-die__face { font-size: clamp(12px, 21cqw, 34px); font-weight: 600; }
+.cd-die--none .cd-die__face { color: #8A8A8A; font-style: italic; font-weight: 500; }
+.cd-die--hidden .cd-die__face { color: var(--teal); font-size: clamp(18px, 40cqw, 64px) !important; }
+
+.cd-slot__label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cd-die--rolling { animation: cd-tumble 0.46s cubic-bezier(0.3, 0.7, 0.4, 1); }
+@keyframes cd-tumble {
+  0% { transform: rotate(0) scale(1); }
+  30% { transform: rotate(-14deg) scale(0.9) translateY(-6px); }
+  60% { transform: rotate(9deg) scale(1.03); }
+  100% { transform: rotate(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .cd-die--rolling { animation: none; } }
+
+/* ---------- buttons ---------- */
+
+.cd-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+}
+.cd-btn:focus-visible, .cd-stage__tabs button:focus-visible, .cd-key:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.cd-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.cd-btn--primary { color: var(--cd-on-ink); background: var(--cd-ink); border-color: var(--cd-ink); min-width: 120px; }
+.cd-btn--quiet { border-color: var(--teal); }
+.cd-btn--keep { color: var(--cd-gold-ink); background: var(--gold); border-color: var(--gold); }
+.cd-btn--small { padding: 0 12px; font-size: 13px; }
+.cd-btn--ghost { color: var(--text-muted); border-color: transparent; background: transparent; }
+
+.cd-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  margin-left: 6px;
+  padding: 0 6px;
+  color: var(--text);
+  background: var(--teal-tint);
+  border-radius: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- controls ---------- */
+
+.cd-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.cd-actions { display: flex; gap: 8px; margin-left: auto; }
+
+/* ---------- the stage ---------- */
+
+.cd-stage { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
+.cd-stage__tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.cd-stage__tabs button {
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.cd-stage__tabs button.is-on { color: var(--text); border-bottom-color: var(--teal); }
+.cd-stage__tabs button:disabled { opacity: 0.4; cursor: not-allowed; }
+.cd-stage__panel { container: stage / size; min-height: 0; overflow: hidden; }
+.cd-build, .cd-result, .cd-keep { grid-template-columns: minmax(0, 1fr); }
+
+/* Build: the reflection, the keyboard, then its actions. */
+.cd-build { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
+
+.cd-feedback { display: grid; gap: 4px; min-height: 2.6em; }
+.cd-feedback__line {
+  font-family: var(--font-script);
+  font-style: italic;
+  font-size: clamp(16px, 2vw, 21px);
+  line-height: 1.28;
+  text-wrap: pretty;
+}
+.cd-feedback__prompt { color: var(--text-muted); font-size: clamp(14px, 1.6vw, 16px); font-weight: 600; line-height: 1.35; }
+
+.cd-piano {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  max-height: 300px;
+  width: 100%;
+  max-width: 640px;
+  justify-self: center;
+  align-self: center;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cd-key {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 10px;
+  border: 0;
+  font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+}
+.cd-key--white {
+  min-height: 0;
+  color: #1A1A1A;
+  background: var(--cd-key-white);
+  border: 1px solid var(--cd-key-edge);
+  border-radius: 0 0 10px 10px;
+  font-size: clamp(13px, 2vw, 17px);
+}
+.cd-key--white + .cd-key--white { border-left-width: 0; }
+.cd-key--black {
+  position: absolute;
+  top: 0;
+  left: calc(var(--cd-after) * 100% / 7 - 100% / 7 * 0.31);
+  width: calc(100% / 7 * 0.62);
+  height: 60%;
+  z-index: 2;
+  padding-bottom: 6px;
+  color: #FFFFFF;
+  background: var(--cd-key-black);
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.25);
+  font-size: clamp(9px, 1.3vw, 12px);
+}
+.cd-key--black .cd-key__label { display: grid; line-height: 1.1; text-align: center; }
+.cd-key.is-on { color: #FFFFFF; background: var(--teal); border-color: var(--teal-dark); }
+.cd-key--black.is-on { background: var(--teal-dark); box-shadow: 0 0 0 2px var(--teal), 0 3px 4px rgba(0, 0, 0, 0.25); }
+.cd-key:disabled { cursor: default; }
+.cd-key:active:not(:disabled) { filter: brightness(0.94); }
+
+.cd-build__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cd-reveal { margin-left: auto; }
+
+/* Result: the name, the notes, how you got there, then the reflection. */
+.cd-result { display: grid; grid-template-rows: auto auto auto auto; align-content: start; gap: 10px; }
+.cd-result__answer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.cd-result__name { font-size: clamp(34px, 18cqh, 60px); font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.cd-result__notes { font-size: clamp(18px, 8cqh, 26px); font-weight: 600; color: var(--text-muted); }
+.cd-result__meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.cd-result__meta span {
+  padding: 4px 10px;
+  color: var(--text-muted);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cd-result__meta .cd-flag, .cd-flag {
+  color: var(--text);
+  border: 1px dashed var(--text-muted);
+  background: transparent;
+}
+.cd-result__reflection {
+  font-family: var(--font-script);
+  font-style: italic;
+  font-size: clamp(18px, 9cqh, 28px);
+  line-height: 1.24;
+  text-wrap: balance;
+}
+.cd-result__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Keep: the reason (required), then the kept chords, paged. */
+.cd-keep { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+.cd-keep__row { display: flex; align-items: center; gap: 8px; }
+.cd-keep__chord { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; min-width: 2.2ch; }
+.cd-keep__row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 16px; /* 16px keeps iOS from zooming on focus */
+}
+.cd-keep__row input:focus { outline: 3px solid var(--teal); outline-offset: 1px; border-color: var(--teal); }
+.cd-keep__hint { color: var(--text-muted); font-size: 14px; min-height: 44px; display: flex; align-items: center; }
+
+.cd-kept { display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-rows: 52px; gap: 8px; align-content: start; list-style: none; min-height: 0; overflow: hidden; }
+.cd-kept__empty { align-self: center; color: var(--text-muted); font-size: 14px; }
+.cd-kept__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 0 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--gold);
+  border-radius: 12px;
+}
+.cd-kept__name { min-width: 3ch; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+.cd-kept__text { min-width: 0; display: grid; gap: 1px; }
+.cd-kept__reason { font-family: var(--font-script); font-style: italic; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-kept__meta { color: var(--text-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-kept__meta .cd-flag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.cd-kept__actions { display: flex; gap: 2px; }
+.cd-pager { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.cd-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 5;
+  width: max-content;
+  max-width: min(560px, calc(100% - 16px));
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  color: var(--white);
+  background: var(--black);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+/* ---------- short stages ---------- */
+
+@container stage (max-height: 300px) {
+  .cd-result { gap: 6px; }
+  .cd-result__reflection { font-size: 17px; }
+}
+
+/* ---------- phones ---------- */
+
+@media (max-width: 700px) {
+  .chord-dice { grid-template-rows: auto auto auto minmax(0, 1fr); gap: 6px; }
+  .cd-long { display: none; }
+  .cd-short { display: inline; }
+  .cd-head { gap: 8px; }
+  .cd-head__eyebrow { margin-bottom: 4px; font-size: 11px; }
+  .cd-head__title { font-size: 1.2rem; }
+  .cd-head__levels button { padding: 0 12px; }
+  .cd-tray { container-type: inline-size; height: auto; padding: 6px 8px; gap: 6px; }
+  .cd-die { width: min(100%, 76px); }
+  .cd-slot { gap: 2px; }
+  .cd-slot__label { font-size: 10px; }
+  .cd-controls { flex-wrap: nowrap; gap: 6px; }
+  .cd-controls .cd-seg button { padding: 0 10px; }
+  .cd-actions { flex: 1; min-width: 0; margin-left: 0; gap: 6px; }
+  .cd-actions .cd-btn { flex: 1; min-width: 0; padding: 0 8px; font-size: 14px; }
+  .cd-stage { gap: 6px; }
+  .cd-stage__tabs { gap: 0; }
+  .cd-stage__tabs button { padding: 0 10px; }
+  .cd-pager { gap: 2px; }
+  .cd-pager span { display: none; }
+  .cd-feedback__line { font-size: 15px; }
+  .cd-feedback__prompt { font-size: 13px; }
+  .cd-build { gap: 6px; }
+  .cd-build__actions { flex-wrap: nowrap; gap: 6px; }
+  .cd-build__actions .cd-btn { padding: 0 10px; font-size: 14px; }
+  .cd-kept__item { gap: 6px; padding-left: 8px; }
+  .cd-keep__chord { font-size: 18px; }
+}
+
+/* About 616px of page is left under Safari's bars on an iPhone 13 mini:
+   trim spacing, never controls. */
+@media (max-width: 700px) and (max-height: 680px) {
+  .tool-shell__main:has(.chord-dice) { padding-block: 8px; }
+  .chord-dice { gap: 4px; }
+  .cd-die { width: min(100%, 64px); }
+}
+
+@media (max-width: 400px) {
+  .tool-shell__main:has(.chord-dice) { padding-inline: 12px; }
+  .cd-controls .cd-seg button { padding: 0 8px; font-size: 13px; }
+  .cd-build__actions .cd-btn { padding: 0 8px; }
+}

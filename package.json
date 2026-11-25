@@ -17,12 +17,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/tools/metronome/tapTempo.test.js src/tools/chord-scales/compatibility.test.js src/utils/walkthroughs.test.js src/utils/learnProgress.test.js src/utils/migrateStorageKeys.test.js src/utils/domainHandover.test.js src/app/sites.test.js src/utils/reverseVoicingLookup.test.js src/demo/director.test.js src/tools/rhythm-dice/rhythmDice.test.js src/app/toolsPro.test.js",
+    "test": "node --test src/tools/metronome/tapTempo.test.js src/tools/chord-scales/compatibility.test.js src/utils/walkthroughs.test.js src/utils/learnProgress.test.js src/utils/migrateStorageKeys.test.js src/utils/domainHandover.test.js src/app/sites.test.js src/utils/reverseVoicingLookup.test.js src/demo/director.test.js src/tools/rhythm-dice/rhythmDice.test.js src/tools/chord-dice/chordDice.test.js src/app/toolsPro.test.js",
     "test:themes": "node scripts/verify-theme-rendering.mjs",
     "screenshots:demo": "node scripts/capture-demo-screenshots.mjs",
     "test:demo": "node scripts/verify-demo.mjs",
     "test:clicks": "node scripts/verify-click-precision.mjs",
-    "test:layout": "node scripts/verify-rhythm-dice-layout.mjs"
+    "test:layout": "node scripts/verify-rhythm-dice-layout.mjs && node scripts/verify-chord-dice-layout.mjs",
+    "test:chord-dice": "node scripts/verify-chord-dice-e2e.mjs"
   },
   "devDependencies": {
     "pixelmatch": "^7.2.0",

@@ -14,6 +14,7 @@ test('on the library, its own tools are internal and the directory is the root',
   assert.deepEqual(resolveLink('/tools', 'tools'), { internal: '/' })
   assert.deepEqual(resolveLink('/metronome', 'tools'), { internal: '/metronome' })
   assert.deepEqual(resolveLink('/rhythm-dice', 'tools'), { internal: '/rhythm-dice' })
+  assert.deepEqual(resolveLink('/chord-dice', 'tools'), { internal: '/chord-dice' })
   assert.deepEqual(resolveLink('/', 'tools'), { external: `${CHORD_MOVES_ORIGIN}/`, site: 'chordmoves' })
 })
 
@@ -23,6 +24,7 @@ test('on Chord Moves, library links leave for the tools domain', () => {
   assert.deepEqual(resolveLink('/tools', 'chordmoves'), { external: `${TOOLS_ORIGIN}/`, site: 'tools' })
   assert.deepEqual(resolveLink('/ear-trainer', 'chordmoves'), { external: `${TOOLS_ORIGIN}/ear-trainer`, site: 'tools' })
   assert.deepEqual(resolveLink('/rhythm-dice', 'chordmoves'), { external: `${TOOLS_ORIGIN}/rhythm-dice`, site: 'tools' })
+  assert.deepEqual(resolveLink('/chord-dice', 'chordmoves'), { external: `${TOOLS_ORIGIN}/chord-dice`, site: 'tools' })
 })
 
 test('previews and localhost keep every link internal', () => {
