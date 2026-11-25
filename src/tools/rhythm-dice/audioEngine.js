@@ -36,6 +36,12 @@ export function createRhythmAudio() {
     return ctx.currentTime - (performance.now() - stamp) / 1000
   }
 
+  // The student's own tap, heard the moment it lands: the same clap the dice
+  // play with "Hear it", so they hear their rhythm against the click.
+  function tap() {
+    if (ctx?.state === 'running') scheduleClap(ctx, ctx.currentTime)
+  }
+
   // Plays every event from `source` (see timeline.js) until it runs out or
   // stop() is called.
   function play(source, { onDone } = {}) {
@@ -63,5 +69,5 @@ export function createRhythmAudio() {
     ctx = null
   }
 
-  return { ensure, now, eventTime, play, stop, close }
+  return { ensure, now, eventTime, tap, play, stop, close }
 }

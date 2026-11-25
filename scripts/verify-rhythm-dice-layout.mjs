@@ -147,6 +147,18 @@ try {
       localStorage.setItem('kyndaTools.rhythmDice.bpm', '160')
       localStorage.setItem('kyndaTools.rhythmDice.mode', 'once')
     }, { kept: KEPT, phrase: PHRASE })
+    // Counts sounds started from a noise buffer (the clap voice), so a tap's
+    // own sound can be checked.
+    await ctx.addInitScript(() => {
+      window.__claps = 0
+      const make = AudioContext.prototype.createBufferSource
+      AudioContext.prototype.createBufferSource = function () {
+        const src = make.call(this)
+        const start = src.start.bind(src)
+        src.start = (...args) => { window.__claps++; return start(...args) }
+        return src
+      }
+    })
     const page = await ctx.newPage()
     await page.goto(`${BASE}/rhythm-dice`, { waitUntil: 'networkidle' })
     await page.waitForSelector('.rd-die__notes svg')
@@ -179,6 +191,12 @@ try {
     await page.getByRole('button', { name: 'Perform' }).click()
     await page.waitForSelector('.rd-next', { timeout: 5000 })
     await verify(page, `${name}: read ahead, playing`, `${slug}-readahead`)
+    // Students hear what they tap: each tap sounds a clap there and then.
+    const clapsBefore = await page.evaluate(() => window.__claps)
+    await page.keyboard.press('Space')
+    await page.locator('.rd-pad').tap()
+    const clapsAfter = await page.evaluate(() => window.__claps)
+    check(`${name}: each tap sounds`, clapsAfter - clapsBefore === 2, `${clapsAfter - clapsBefore} sounds for 2 taps`)
     await page.getByRole('button', { name: 'Stop' }).click()
     await page.getByRole('radio', { name: 'Once' }).click()
 

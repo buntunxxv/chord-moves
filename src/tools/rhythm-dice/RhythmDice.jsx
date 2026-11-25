@@ -602,6 +602,8 @@ export default function RhythmDice() {
   const registerTap = useCallback(event => {
     const s = sessionRef.current
     if (!s || (s.kind !== 'perform' && s.kind !== 'phrase' && s.kind !== 'calibrate')) return
+    // Timed from the event's own timestamp, so sounding it first costs nothing.
+    audio.tap()
     const t = audio.eventTime(event)
     if (s.kind === 'calibrate') {
       s.rawTaps.push(t)
