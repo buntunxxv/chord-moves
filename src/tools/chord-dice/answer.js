@@ -74,6 +74,7 @@ export function compare(chord, selected) {
 const roleOf = (chord, chroma) => chord.chromas.indexOf(chroma)
 const rootName = chord => displayNote(chord.root)
 const thirdName = chord => chord.roles[1].name
+const fifthName = chord => chord.roles[2].name
 
 // Why a key is spelled the way it is in this chord, when the key's own
 // label would not tell you (black keys, and E♯ / B♯ on white keys).
@@ -109,12 +110,12 @@ function namePlacement(chord, chroma, selected) {
   const near = missing.find(t => semitonesUp(chroma, t.chroma) === 1 || semitonesUp(t.chroma, chroma) === 1)
   if (near) {
     const dir = semitonesUp(chroma, near.chroma) === 1 ? 'up' : 'down'
-    return `${lead} ${chord.prose} uses its root, ${withArticle(thirdName(chord))} and a perfect fifth. What changes if you move that note ${dir} a semitone?`
+    return `${lead} ${chord.prose} uses its root, ${withArticle(thirdName(chord))} and ${withArticle(fifthName(chord))}. What changes if you move that note ${dir} a semitone?`
   }
   if (missing.length === 0) {
-    return `${lead} ${chord.prose} already has its root, ${thirdName(chord)} and perfect fifth. What does this extra note do to the sound?`
+    return `${lead} ${chord.prose} already has its root, ${thirdName(chord)} and ${fifthName(chord)}. What does this extra note do to the sound?`
   }
-  return `${lead} ${chord.prose} uses its root, ${withArticle(thirdName(chord))} and a perfect fifth. Which of those is this note closest to?`
+  return `${lead} ${chord.prose} uses its root, ${withArticle(thirdName(chord))} and ${withArticle(fifthName(chord))}. Which of those is this note closest to?`
 }
 
 // From sound: measure from a chord tone the student already has, and never
@@ -172,16 +173,36 @@ export function nextPrompt(chord, selected, mode = 'name') {
       : `Which note is ${withArticle(thirdName(chord))} above ${root}?`
   }
   return has(0) && has(1)
-    ? `You’ve found the root and ${thirdName(chord)}. What completes the perfect fifth above ${root}?`
-    : `What sits a perfect fifth above ${root}?`
+    ? `You’ve found the root and ${thirdName(chord)}. What completes the ${fifthName(chord)} above ${root}?`
+    : `What sits ${withArticle(fifthName(chord))} above ${root}?`
 }
 
 export const spelledNotes = chord => chord.notes.map(displayNote).join(' – ')
 
 const times = n => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`)
 
-// The reflection line on the Result stage.
-export function finishReflection(chord, { start, replays = 0, revealed = false }) {
+// What makes this chord sound the way it does, for the finish reflection.
+function whatMakesIt(chord) {
+  switch (chord.quality) {
+    case 'major':
+    case 'minor':
+      return `Which note makes it ${chord.quality}? Play it and listen for that note.`
+    case 'dim':
+      return 'Two notes make it diminished. Which two? Play it and listen for them.'
+    case 'aug':
+      return 'Which note makes it augmented? Play it and listen for that note.'
+    default:
+      return `What does the ${thirdName(chord)} do in place of the third? Play it and listen.`
+  }
+}
+
+// The reflection line on the Result stage. A chord made by changing one die
+// asks about the change instead.
+export function finishReflection(chord, { start, replays = 0, revealed = false, changedFrom = null }) {
+  if (changedFrom && !revealed) {
+    const heard = start === 'sound' && replays > 0 ? `You replayed it ${times(replays)}. ` : ''
+    return heard + describeChange(changedFrom.chord, chord, changedFrom.die)
+  }
   if (revealed) {
     const heard = start === 'sound' && replays > 0 ? `You played it ${times(replays + 1)} before revealing. ` : ''
     return `${heard}Play it again and listen for the ${thirdName(chord)}. Where would you have found it?`
@@ -191,5 +212,86 @@ export function finishReflection(chord, { start, replays = 0, revealed = false }
       ? 'You found it from the first play. What did you hear first?'
       : `You replayed it ${times(replays)}. What did you listen for on the last play?`
   }
-  return `Which note makes it ${chord.quality}? Play it and listen for that note.`
+  return whatMakesIt(chord)
+}
+
+const DIE_LABEL = { root: 'Root', quality: 'Quality', colour: 'Colour' }
+const semitoneWords = n => (n === 1 ? 'a semitone' : n === 2 ? 'a tone' : `${n} semitones`)
+
+// Change one die: what moved, note by note, then a question about the sound.
+// Never a verdict: the student says why it sounds different.
+export function describeChange(from, to, die) {
+  const lead = `You changed the ${DIE_LABEL[die]}: ${from.name} became ${to.name}.`
+  if (die === 'root') {
+    const up = semitonesUp(from.chromas[0], to.chromas[0])
+    const dir = up <= 6 ? 'up' : 'down'
+    const n = up <= 6 ? up : 12 - up
+    return `${lead} Every note moved ${dir} ${withArticle(INTERVAL_NAMES[n].replace(/ \(.*\)$/, ''))}, so the shape stayed the same. What changed in the sound, and what didn’t?`
+  }
+  const moves = []
+  for (let i = 0; i < 3; i++) {
+    if (from.chromas[i] === to.chromas[i]) continue
+    const up = semitonesUp(from.chromas[i], to.chromas[i])
+    const dir = up <= 6 ? 'up' : 'down'
+    moves.push(`${displayNote(from.notes[i])} moved ${dir} ${semitoneWords(up <= 6 ? up : 12 - up)} to ${displayNote(to.notes[i])}`)
+  }
+  const said = moves.length ? `${moves.join(', and ')}.` : 'The notes stayed the same; only the spelling changed.'
+  return `${lead} ${said} What does that change do to the sound?`
+}
+
+// ---------- Submit (Level 3 and Mix) ----------
+
+// The keyboard stays neutral while the student works; this is the only
+// feedback, and only when they choose to Submit. Extra notes and missing
+// notes are described separately. A wrong note is paired with a missing
+// one only when it sits a semitone from exactly one of them.
+//   { complete: true } or { complete: false, extra: string|null, missing: string|null }
+export function submitFeedback(chord, selected, mode = 'name') {
+  const { found, missing, extras, complete } = compare(chord, selected)
+  if (complete) return { complete: true, extra: null, missing: null }
+  const near = (a, b) => semitonesUp(a, b) === 1 || semitonesUp(b, a) === 1
+  const pairs = []
+  for (const e of extras) {
+    const candidates = missing.filter(m => near(e, m.chroma) && !pairs.some(p => p.missing === m))
+    if (candidates.length === 1) pairs.push({ extra: e, missing: candidates[0] })
+  }
+  const paired = new Set(pairs.map(p => p.extra))
+  const loose = extras.filter(e => !paired.has(e))
+  const stillMissing = missing.filter(m => !pairs.some(p => p.missing === m))
+  const root = rootName(chord)
+  const list = cs => cs.map(keyLabel).join(cs.length === 2 ? ' and ' : ', ')
+
+  let extra = null
+  if (mode === 'sound') {
+    if (pairs.length) {
+      const p = pairs[0]
+      extra = `${keyLabel(p.extra)} isn’t in the chord, but it’s a semitone from a note that is. Replay it: does that note sit higher or lower?`
+    } else if (loose.length) {
+      extra = `${list(loose)} ${loose.length === 1 ? 'isn’t' : 'aren’t'} in the chord. Which would you take away? Replay it to compare.`
+    }
+  } else if (pairs.length) {
+    const p = pairs[0]
+    const dir = semitonesUp(p.extra, p.missing.chroma) === 1 ? 'up' : 'down'
+    const inPlace = chord.quality.startsWith('sus') && p.missing.index === 1 ? ' in place of the third' : ''
+    extra = `You played ${withArticle(INTERVAL_NAMES[semitonesUp(chord.chromas[0], p.extra)])} above ${root}. ${chord.prose} uses ${withArticle(p.missing.name)}${inPlace}. What changes if you move that note ${dir} a semitone?`
+  } else if (loose.length) {
+    const what = loose.map(e => `${keyLabel(e)} is ${withArticle(INTERVAL_NAMES[semitonesUp(chord.chromas[0], e)])} above ${root}`)
+    extra = `${what.join('; ')}. ${chord.prose} doesn’t use ${loose.length === 1 ? 'it' : 'them'}. Which would you take away?`
+  }
+
+  let missingLine = null
+  if (stillMissing.length) {
+    if (mode === 'sound') {
+      const n = stillMissing.length
+      missingLine = found.length === 0
+        ? 'None of these notes are in the chord yet. Replay it and listen for one you can hear.'
+        : `${n === 1 ? 'One note is' : `${n} notes are`} still to find. Replay it and listen.`
+    } else {
+      const next = stillMissing[0]
+      missingLine = next.index === 0
+        ? `Where is the root, ${root}?`
+        : `Which note is ${withArticle(next.name)} above ${root}?`
+    }
+  }
+  return { complete: false, extra, missing: missingLine }
 }

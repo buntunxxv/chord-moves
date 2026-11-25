@@ -190,6 +190,32 @@ try {
     await page.locator('.cd-key[data-chroma="6"]').click()
     await verify(page, `${name}: Build from the sound, 12 replays`, `${slug}-build-sound`, { piano: true })
 
+    // Level 3, from the name: C♯sus4 with four stray notes and the fourth
+    // missing gives the longest Submit feedback there is.
+    await page.getByRole('radio', { name: 'Level 3' }).click()
+    await page.getByRole('radio', { name: 'From name' }).click()
+    await page.evaluate(() => { const v = [0, 7 / 48 + 0.001]; Math.random = () => (v.length ? v.shift() : 0.5) })
+    await page.getByRole('button', { name: /^Roll/ }).click()
+    for (const c of [1, 2, 4, 10, 11]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
+    await page.getByRole('button', { name: 'Submit' }).click()
+    const said = await page.locator('.cd-feedback').innerText()
+    check(`${name}: Level 3 Submit feedback shows`, /doesn’t use them/.test(said) && /perfect fourth above C♯/.test(said), said)
+    await verify(page, `${name}: Build at Level 3 after Submit, longest feedback`, `${slug}-build-submit`, { piano: true })
+
+    // Change one die: Levels 1–3 show two dice. The Quality of C♯sus4
+    // becomes C♯aug (the longest change: two notes move, one to G𝄪);
+    // build that and Submit.
+    await page.getByRole('button', { name: 'Reveal' }).click()
+    check(`${name}: two dice until Level 4`, (await page.locator('.cd-die').count()) === 2)
+    await verify(page, `${name}: Result (revealed, two dice)`, `${slug}-result-two`)
+    await page.evaluate(() => { const v = [0.5]; Math.random = () => (v.length ? v.shift() : 0.5) })
+    await page.getByRole('button', { name: /^Change the Quality die/ }).click()
+    for (const c of [1, 5, 9]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
+    await page.getByRole('button', { name: 'Submit' }).click()
+    const changed = await page.locator('.cd-result').innerText()
+    check(`${name}: the change reflection shows`, changed.includes('You changed the Quality: C♯sus4 became C♯aug'), changed)
+    await verify(page, `${name}: Result after Change one die`, `${slug}-result-change`)
+
     check(`${name}: no page errors`, errors.length === 0, errors.join(' | '))
     await ctx.close()
   }

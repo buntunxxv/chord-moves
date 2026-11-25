@@ -104,7 +104,7 @@ try {
   await page.getByRole('radio', { name: 'From name' }).click()
   const named = expected('L2', [0, 7 / 24 + 0.001]) // E♭m
   await forceRoll(page, [0, 7 / 24 + 0.001])
-  check('from the name: the dice show the chord', (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'E♭ minor none')
+  check('from the name: the dice show the chord', (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'E♭ minor')
   check('from the name: Roll makes no sound', (await sounds(page)).length === 0)
   check('from the name: the prompt names the chord', (await page.locator('.cd-feedback').innerText()).includes(`Build ${named.name}.`))
   // A wrong note first: the feedback names the interval and asks.
@@ -175,7 +175,7 @@ try {
   check('from the sound: Result names the chord after it is built', result2.includes(heard.name) && result2.includes(spelledNotes(heard)), result2)
   check('from the sound: reflection includes the replay count',
     result2.includes('You replayed it twice. What did you listen for on the last play?') && result2.includes('2 replays'), result2)
-  check('dice faces show once built', (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'G♯ major none')
+  check('dice faces show once built', (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'G♯ major')
   await keepWith(page, 'Heard the bright third first')
   check('kept from the sound with its replays', (await page.locator('.cd-kept__item').first().innerText()).includes('From sound · 2 replays'))
 
@@ -209,6 +209,66 @@ try {
 
   check('no page errors', page.errors.length === 0, page.errors.join(' | '))
   await ctx.close()
+
+  // ---------- 5. Level 3: nothing before Submit ----------
+  // The same three keys, pressed for two different chords: for C diminished
+  // they are its notes; for D augmented they are not. Until Submit the
+  // pages must be identical, and the right notes must not finish the round.
+  const tapped = [0, 3, 6]
+  const views = []
+  for (const values of [[0, 0 / 48 + 0.001], [0, 9 / 48 + 0.001]]) {
+    const t = await freshPage()
+    await t.page.getByRole('radio', { name: 'Level 3' }).click()
+    await t.page.getByRole('radio', { name: 'From sound' }).click()
+    await forceRoll(t.page, values)
+    for (const c of tapped) await t.page.locator(`.cd-key[data-chroma="${c}"]`).click()
+    views.push({ t, seen: await exposed(t.page) })
+  }
+  check('Level 3: Cdim and Daug look identical before Submit, same keys pressed', views[0].seen.html === views[1].seen.html && views[0].seen.aria === views[1].seen.aria)
+  check('Level 3: the right notes do not finish the round by themselves',
+    await views[0].t.page.getByRole('tab', { name: 'Result' }).isDisabled())
+  check('Level 3: no feedback words before Submit', (await views[0].t.page.locator('.cd-feedback__line').count()) === 0)
+  // Submit: the wrong set gets feedback (extra and missing apart); the right set finishes.
+  await views[1].t.page.getByRole('button', { name: 'Submit' }).click()
+  const wrongFb = await views[1].t.page.locator('.cd-feedback').innerText()
+  check('Level 3: Submit on the wrong notes reflects, naming only what was placed',
+    // Daug is D, F♯, A♯; F♯ was tapped. D and A♯/B♭ must not be named.
+    /Your last Submit/i.test(wrongFb) && !/augmented|A♯|B♭|(^|[^A-Za-z])D(?![♯♭])/.test(wrongFb), wrongFb)
+  await views[0].t.page.getByRole('button', { name: 'Submit' }).click()
+  check('Level 3: Submit on the right notes opens Result',
+    (await views[0].t.page.locator('.cd-result').innerText()).includes('Cdim'))
+  await views[1].t.ctx.close()
+
+  // ---------- 6. Change one die ----------
+  const cp = views[0].t.page
+  // From sound, the changed die is the only one hidden. Cdim's Quality can
+  // become aug, sus2 or sus4; force aug.
+  await cp.evaluate(() => { const v = [0]; Math.random = () => (v.length ? v.shift() : 0.5) })
+  await cp.getByRole('button', { name: /^Change the Quality die/ }).click()
+  const faces = await cp.locator('.cd-die__face').allTextContents()
+  check('Change one die from sound: only the changed die is hidden', faces.join(' ') === 'C ?', faces.join(' '))
+  check('Change one die from sound: the new chord plays', (await sounds(cp)).filter(k => k === 'target').length >= 2)
+  for (const c of [0, 4, 8]) await cp.locator(`.cd-key[data-chroma="${c}"]`).click()
+  await cp.getByRole('button', { name: 'Submit' }).click()
+  const changedResult = await cp.locator('.cd-result').innerText()
+  check('the change reflection names what moved',
+    changedResult.includes('You changed the Quality: Cdim became Caug. E♭ moved up a semitone to E, and G♭ moved up a tone to G♯.'), changedResult)
+  await keepWith(cp, 'The fifth going up makes it float')
+  const keptChanged = JSON.parse(await cp.evaluate(() => localStorage.getItem('kyndaTools.chordDice.keptChords')))[0]
+  check('a changed chord is kept with what it changed from',
+    keptChanged.symbol === 'Caug' && keptChanged.changedFrom?.die === 'quality' && keptChanged.changedFrom?.symbol === 'Cdim', JSON.stringify(keptChanged))
+  check('kept list says it was changed', (await cp.locator('.cd-kept__item').first().innerText()).includes('Changed Quality'))
+  // Levels 1–3: two dice (Root, Quality); the Colour die waits for Level 4.
+  await cp.getByRole('radio', { name: 'Level 1' }).click()
+  await cp.getByRole('radio', { name: 'From name' }).click()
+  await forceRoll(cp, [0, 0])
+  await cp.getByRole('button', { name: 'Reveal' }).click()
+  check('Levels 1–3 show two dice and no Colour die',
+    (await cp.locator('.cd-die__face').allTextContents()).join(' ') === 'C major'
+    && (await cp.getByRole('button', { name: /^Change the Colour die/ }).count()) === 0
+    && (await cp.locator('.cd-result__hint').innerText()) === 'Change one die: tap Root or Quality above. The other stays.')
+  check('no page errors at Level 3', cp.errors.length === 0, cp.errors.join(' | '))
+  await views[0].t.ctx.close()
 } finally {
   await browser.close()
   server.kill()
