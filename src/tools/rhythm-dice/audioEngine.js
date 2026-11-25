@@ -4,9 +4,26 @@
 import { createLookaheadScheduler } from '../../shared/audio/lookaheadScheduler.js'
 import { scheduleClap, scheduleClick } from '../../shared/audio/clickVoices.js'
 
+// Volumes run 0-100 on the Settings sheet; DEFAULT_VOLUME is the level the
+// voices were tuned at, so the top of the scale leaves a third more headroom.
+export const DEFAULT_VOLUME = 75
+export const volumeGain = v => Math.max(0, Math.min(100, Number(v) || 0)) / DEFAULT_VOLUME
+
 export function createRhythmAudio() {
   let ctx = null
   let scheduler = null
+  // The metronome click and the student's taps each run through their own
+  // gain, so their volumes change live, even mid-bar.
+  let clickBus = null
+  let tapBus = null
+  const volumes = { click: DEFAULT_VOLUME, tap: DEFAULT_VOLUME }
+
+  function bus(kind) {
+    const node = ctx.createGain()
+    node.gain.value = volumeGain(volumes[kind])
+    node.connect(ctx.destination)
+    return node
+  }
 
   async function ensure() {
     if (navigator.audioSession) navigator.audioSession.type = 'playback'
@@ -14,6 +31,8 @@ export function createRhythmAudio() {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       if (!AudioContextClass) throw new Error('This browser has no Web Audio support')
       ctx = new AudioContextClass({ latencyHint: 'interactive' })
+      clickBus = bus('click')
+      tapBus = bus('tap')
     }
     if (ctx.state !== 'running') await ctx.resume()
     return ctx
@@ -39,7 +58,22 @@ export function createRhythmAudio() {
   // The student's own tap, heard the moment it lands: the same clap the dice
   // play with "Hear it", so they hear their rhythm against the click.
   function tap() {
-    if (ctx?.state === 'running') scheduleClap(ctx, ctx.currentTime)
+    if (ctx?.state === 'running') scheduleClap(ctx, ctx.currentTime, tapBus)
+  }
+
+  // kind: 'click' | 'tap'; volume 0-100. Applied with a short glide so a
+  // change mid-bar never clicks.
+  function setVolume(kind, volume) {
+    volumes[kind] = volume
+    const node = kind === 'click' ? clickBus : tapBus
+    if (node) node.gain.setTargetAtTime(volumeGain(volume), ctx.currentTime, 0.015)
+  }
+
+  // One sound at the current volume, so a change can be heard straight away.
+  async function preview(kind) {
+    await ensure()
+    if (kind === 'click') scheduleClick(ctx, ctx.currentTime + 0.01, 'beat', clickBus)
+    else scheduleClap(ctx, ctx.currentTime, tapBus)
   }
 
   // Plays every event from `source` (see timeline.js) until it runs out or
@@ -50,7 +84,7 @@ export function createRhythmAudio() {
       clock: () => ctx.currentTime,
       source,
       schedule: event => {
-        if (event.kind === 'click') scheduleClick(ctx, event.time, event.level)
+        if (event.kind === 'click') scheduleClick(ctx, event.time, event.level, clickBus)
         else if (event.kind === 'clap') scheduleClap(ctx, event.time)
       },
       onDone,
@@ -67,7 +101,9 @@ export function createRhythmAudio() {
     stop()
     ctx?.close()
     ctx = null
+    clickBus = null
+    tapBus = null
   }
 
-  return { ensure, now, eventTime, tap, play, stop, close }
+  return { ensure, now, eventTime, tap, setVolume, preview, play, stop, close }
 }

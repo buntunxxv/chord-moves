@@ -15,6 +15,9 @@ export const KEYS = {
   metre: PREFIX + 'metre',
   mode: PREFIX + 'mode',
   phrase: PREFIX + 'phrase',
+  tapSound: PREFIX + 'tapSound',
+  tapVolume: PREFIX + 'tapVolume',
+  clickVolume: PREFIX + 'clickVolume',
 }
 
 export function readNumber(key, fallback, { min = -Infinity, max = Infinity } = {}) {
