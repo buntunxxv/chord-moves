@@ -183,6 +183,9 @@ const times = n => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`)
 
 // What makes this chord sound the way it does, for the finish reflection.
 function whatMakesIt(chord) {
+  if (chord.roles.length > 3) {
+    return `What does the ${chord.roles[3].name} add on top? Play it with and without that note.`
+  }
   switch (chord.quality) {
     case 'major':
     case 'minor':
@@ -205,7 +208,8 @@ export function finishReflection(chord, { start, replays = 0, revealed = false, 
   }
   if (revealed) {
     const heard = start === 'sound' && replays > 0 ? `You played it ${times(replays + 1)} before revealing. ` : ''
-    return `${heard}Play it again and listen for the ${thirdName(chord)}. Where would you have found it?`
+    const listenFor = chord.roles.length > 3 ? chord.roles[3].name : thirdName(chord)
+    return `${heard}Play it again and listen for the ${listenFor}. Where would you have found it?`
   }
   if (start === 'sound') {
     return replays === 0
@@ -229,13 +233,20 @@ export function describeChange(from, to, die) {
     return `${lead} Every note moved ${dir} ${withArticle(INTERVAL_NAMES[n].replace(/ \(.*\)$/, ''))}, so the shape stayed the same. What changed in the sound, and what didn’t?`
   }
   const moves = []
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < Math.min(from.chromas.length, to.chromas.length); i++) {
     if (from.chromas[i] === to.chromas[i]) continue
     const up = semitonesUp(from.chromas[i], to.chromas[i])
     const dir = up <= 6 ? 'up' : 'down'
     moves.push(`${displayNote(from.notes[i])} moved ${dir} ${semitoneWords(up <= 6 ? up : 12 - up)} to ${displayNote(to.notes[i])}`)
   }
-  const said = moves.length ? `${moves.join(', and ')}.` : 'The notes stayed the same; only the spelling changed.'
+  if (to.chromas.length > from.chromas.length) {
+    const i = from.chromas.length
+    moves.push(`${withArticle(to.roles[i].name)}, ${displayNote(to.notes[i])}, was added on top`)
+  } else if (from.chromas.length > to.chromas.length) {
+    const i = to.chromas.length
+    moves.push(`the ${from.roles[i].name}, ${displayNote(from.notes[i])}, came off the top`)
+  }
+  const said = moves.length ? `${moves.join(', and ')}.`.replace(/^./, ch => ch.toUpperCase()) : 'The notes stayed the same; only the spelling changed.'
   return `${lead} ${said} What does that change do to the sound?`
 }
 

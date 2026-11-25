@@ -52,6 +52,7 @@
 
 .cd-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 20px; }
 .cd-head__copy { min-width: 0; }
+.cd-head__controls { display: flex; align-items: center; gap: 8px; }
 .cd-head__eyebrow {
   margin-bottom: 6px;
   color: var(--teal);
@@ -380,6 +381,80 @@
   pointer-events: none;
 }
 
+/* ---------- Pro (Levels 4–5) ---------- */
+
+/* A locked Pro level carries a small gold marker; gold is ownership. */
+.cd-seg button.is-pro-locked { position: relative; }
+.cd-seg button.is-pro-locked::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.cd-pro-chip {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  color: #1A1A1A;
+  background: var(--gold);
+  border: 0;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cd-pro-chip:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+
+/* The sheet is portalled to <body>, outside .chord-dice, so it carries its
+   own colours and type (the shared sheet: src/app/ToolsProSheet.jsx). */
+.cd-pro {
+  --cd-ink: var(--black);
+  --cd-on-ink: var(--white);
+  --cd-gold-ink: #1A1A1A;
+  display: grid;
+  gap: 14px;
+  font-family: 'Inter', var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.cd-pro .cd-btn { font-family: inherit; }
+.cd-pro__reason { font-family: var(--font-script); font-style: italic; font-size: 18px; }
+.cd-pro__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cd-pro__row input {
+  flex: 1 1 220px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 16px;
+}
+.cd-pro__row input:focus { outline: 3px solid var(--teal); outline-offset: 1px; border-color: var(--teal); }
+.cd-pro__row a.cd-btn { display: inline-flex; align-items: center; text-decoration: none; }
+.cd-pro__hint { color: var(--text-muted); font-size: 13px; }
+.cd-pro__error { color: var(--danger); font-size: 14px; font-weight: 600; }
+.cd-pro__remove { justify-self: start; color: var(--danger); }
+.cd-link {
+  min-height: 44px;
+  padding: 0 2px;
+  color: var(--teal-dark);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+[data-theme="dark"] .cd-link { color: var(--teal); }
+
 /* ---------- short stages ---------- */
 
 @container stage (max-height: 300px) {
@@ -394,6 +469,12 @@
   .cd-long { display: none; }
   .cd-short { display: inline; }
   .cd-head { gap: 8px; }
+  /* With the Pro chip as well, the title would wrap to four lines: give it
+     its own line and put the level buttons and the chip on the row below. */
+  .cd-head--pro { flex-direction: column; align-items: stretch; gap: 6px; }
+  .cd-head--pro .cd-head__controls { gap: 6px; }
+  .cd-head--pro .cd-head__levels { flex: 1; min-width: 0; }
+  .cd-head--pro .cd-head__levels button { flex: 1; }
   .cd-head__eyebrow { margin-bottom: 4px; font-size: 11px; }
   .cd-head__title { font-size: 1.2rem; }
   .cd-head__levels button { padding: 0 12px; }

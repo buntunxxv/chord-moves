@@ -128,6 +128,29 @@ async function verify(page, label, slug, { piano = false } = {}) {
   if (problems.length) await page.screenshot({ path: `${OUT}/${slug}.png` })
 }
 
+// The Pro sheet sits over the page: it must fit the screen, its buttons
+// reachable, and the page under it must not scroll.
+async function verifySheet(page, label, slug) {
+  await page.locator('[role="dialog"]').waitFor()
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))))
+  const m = await page.evaluate(() => {
+    const d = document.querySelector('[role="dialog"]').getBoundingClientRect()
+    const off = [...document.querySelectorAll('[role="dialog"] button, [role="dialog"] input')]
+      .filter(el => { const r = el.getBoundingClientRect(); return r.width && (r.bottom > window.innerHeight + 1 || r.right > window.innerWidth + 1) })
+      .map(el => el.textContent.trim() || el.id)
+    const small = [...document.querySelectorAll('[role="dialog"] .cd-btn, [role="dialog"] input')]
+      .filter(el => el.getBoundingClientRect().height < 43.5).map(el => el.textContent.trim() || el.id)
+    return { off, small, fits: d.top >= -1 && d.bottom <= window.innerHeight + 1, pageScroll: document.documentElement.scrollHeight - window.innerHeight }
+  })
+  const problems = []
+  if (!m.fits) problems.push('sheet taller than the screen')
+  if (m.off.length) problems.push(`off screen: ${m.off.join(', ')}`)
+  if (m.small.length) problems.push(`under 44px: ${m.small.join(', ')}`)
+  if (m.pageScroll > 0) problems.push(`page scrolls ${m.pageScroll}px`)
+  check(label, problems.length === 0, problems.join(' | '))
+  if (problems.length) await page.screenshot({ path: `${OUT}/${slug}.png` })
+}
+
 async function isUp() {
   try { return (await fetch(BASE)).ok } catch { return false }
 }
@@ -215,6 +238,25 @@ try {
     const changed = await page.locator('.cd-result').innerText()
     check(`${name}: the change reflection shows`, changed.includes('You changed the Quality: C♯sus4 became C♯aug'), changed)
     await verify(page, `${name}: Result after Change one die`, `${slug}-result-change`)
+
+    // Level 4 without Pro: the sheet must fit.
+    await page.getByRole('radio', { name: 'Level 4 (sevenths), Pro' }).click()
+    await verifySheet(page, `${name}: Pro unlock sheet`, `${slug}-pro-sheet`)
+    await page.keyboard.press('Escape')
+
+    // With Pro: five level buttons and the Pro chip share the header; three
+    // dice; G♯maj7 (with F𝄪) after a Submit with stray notes.
+    await page.evaluate(() => { localStorage.setItem('kyndaTools.pro', 'pro'); localStorage.setItem('kyndaTools.proEmail', 'a@b.co') })
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByRole('radio', { name: 'Level 4 (sevenths)', exact: true }).click()
+    await page.evaluate(() => { const v = [0, 25 / 36 + 0.001]; Math.random = () => (v.length ? v.shift() : 0.5) })
+    await page.getByRole('button', { name: /^Roll/ }).click()
+    check(`${name}: Level 4 rolls G♯maj7 on three dice`, (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'G♯ major maj7')
+    for (const c of [8, 0, 3, 6, 10, 1]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
+    await page.getByRole('button', { name: 'Submit' }).click()
+    await verify(page, `${name}: Level 4 with Pro, after Submit`, `${slug}-build-l4`, { piano: true })
+    await page.getByRole('button', { name: 'Reveal' }).click()
+    await verify(page, `${name}: Level 4 Result`, `${slug}-result-l4`)
 
     check(`${name}: no page errors`, errors.length === 0, errors.join(' | '))
     await ctx.close()

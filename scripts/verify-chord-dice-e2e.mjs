@@ -78,8 +78,15 @@ const viteBin = fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import
 const server = spawn(process.execPath, [viteBin, 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' })
 const browser = await chromium.launch({ executablePath, args: ['--autoplay-policy=no-user-gesture-required'] })
 
-async function freshPage(viewport = { width: 820, height: 1106 }) {
+// The Pro endpoints are stubbed: `server.entitled` says what the server
+// would answer for the stored email.
+async function freshPage(viewport = { width: 820, height: 1106 }, server = null) {
   const ctx = await browser.newContext({ viewport, hasTouch: true, reducedMotion: 'reduce' })
+  if (server) {
+    await ctx.route('**/api/request-unlock-code', r => r.fulfill({ json: { ok: true } }))
+    await ctx.route('**/api/verify-unlock-code', r => r.fulfill({ json: { isPro: server.entitled } }))
+    await ctx.route('**/api/check-entitlement', r => r.fulfill({ json: { isPro: server.entitled } }))
+  }
   await ctx.addInitScript(() => {
     window.__cdSounds = []
     window.addEventListener('chorddice:sound', e => window.__cdSounds.push(e.detail.kind))
@@ -269,6 +276,90 @@ try {
     && (await cp.locator('.cd-result__hint').innerText()) === 'Change one die: tap Root or Quality above. The other stays.')
   check('no page errors at Level 3', cp.errors.length === 0, cp.errors.join(' | '))
   await views[0].t.ctx.close()
+
+  // ---------- 7. Level 4 and Tools Pro ----------
+  const server = { entitled: true }
+  const pp = await freshPage(undefined, server)
+  const p4 = pp.page
+  check('Level 4 is marked Pro and locked', await p4.getByRole('radio', { name: 'Level 4 (sevenths), Pro' }).count() === 1)
+  await p4.getByRole('radio', { name: 'Level 4 (sevenths), Pro' }).click()
+  const gate = await p4.locator('[role="dialog"]').innerText()
+  check('Level 4 opens the Pro sheet with its reason', gate.includes('Level 4 (sevenths) is part of Pro.') && /chord dice pro/i.test(gate), gate)
+  check('the level stays where it was', await p4.getByRole('radio', { name: 'Level 1' }).getAttribute('aria-checked') === 'true')
+  await p4.fill('#cd-pro-email', 'Student@Example.com')
+  await p4.getByRole('button', { name: 'Send code', exact: true }).click()
+  await p4.fill('#cd-pro-code', '123 456')
+  check('the code field keeps six digits', await p4.inputValue('#cd-pro-code') === '123456')
+  await p4.getByRole('button', { name: 'Unlock', exact: true }).click()
+  await p4.getByText('Level 4 (sevenths) is open').waitFor()
+  check('unlocked: the sheet says what is open', (await p4.locator('[role="dialog"]').innerText()).includes('Level 4 (sevenths) is open'))
+  await p4.getByRole('button', { name: 'Try Level 4' }).click()
+  check('Try Level 4 selects it, with a Pro chip',
+    await p4.getByRole('radio', { name: 'Level 4 (sevenths)', exact: true }).getAttribute('aria-checked') === 'true'
+    && await p4.getByRole('button', { name: /Pro is on for this device/ }).count() === 1)
+  check('Pro is stored under the shared Tools keys',
+    await p4.evaluate(() => localStorage.getItem('kyndaTools.pro') === 'pro' && localStorage.getItem('kyndaTools.proEmail') === 'student@example.com'))
+  // C major seventh (index 1 of Level 4): three dice, the Colour die is back.
+  await forceRoll(p4, [0, 1 / 36 + 0.001])
+  check('Level 4 rolls three dice', (await p4.locator('.cd-die__face').allTextContents()).join(' ') === 'C major maj7')
+  for (const c of [0, 4, 7, 10]) await p4.locator(`.cd-key[data-chroma="${c}"]`).click()
+  await p4.getByRole('button', { name: 'Submit' }).click()
+  const fb7 = await p4.locator('.cd-feedback').innerText()
+  check('Level 4 Submit: the Phase 0 seventh example', fb7.includes('You played a minor seventh above C. C major seventh uses a major seventh.'), fb7)
+  await p4.locator('.cd-key[data-chroma="10"]').click()
+  await p4.locator('.cd-key[data-chroma="11"]').click()
+  await p4.getByRole('button', { name: 'Submit' }).click()
+  check('Level 4 built: Result', (await p4.locator('.cd-result').innerText()).includes('Cmaj7'))
+  await p4.getByRole('button', { name: /^Change the Quality die/ }).click()
+  check('a blocked die says which to change first',
+    (await p4.locator('.cd-notice').innerText()).includes('Nothing else on the Quality die fits with the maj7 colour here. Change the Colour first.'))
+  await p4.getByRole('button', { name: /^Change the Colour die/ }).click()
+  check('the Colour die changes maj7 to 7', (await p4.locator('.cd-die__face').allTextContents()).join(' ') === 'C major 7')
+  await p4.getByRole('button', { name: 'Reveal' }).click()
+  await keepWith(p4, 'The flat seventh wants to move')
+
+  // The same Pro in Rhythm Dice, on the same device.
+  await p4.goto(`${BASE}/rhythm-dice`, { waitUntil: 'networkidle' })
+  check('the unlock carries to Rhythm Dice', await p4.getByRole('button', { name: /Pro is on for this device/ }).count() === 1)
+  await p4.goto(`${BASE}/chord-dice`, { waitUntil: 'networkidle' })
+
+  // Remove Pro: back to Level 1; a kept seventh needs Pro to play.
+  await forceRoll(p4, [0, 0])
+  await p4.getByRole('button', { name: /Pro is on for this device/ }).click()
+  await p4.getByRole('button', { name: 'Remove Pro from this device' }).click()
+  check('removing Pro returns to Level 1 and clears the seventh on the table',
+    await p4.getByRole('radio', { name: 'Level 1' }).getAttribute('aria-checked') === 'true'
+    && (await p4.locator('.cd-die__face').allTextContents()).join(' ') === '– –')
+  await p4.getByRole('tab', { name: 'Keep' }).click()
+  await p4.getByRole('button', { name: 'Hear C7' }).click()
+  check('a kept seventh asks for Pro before it plays', (await p4.locator('[role="dialog"]').innerText()).includes('This chord is from Level 4, which is part of Pro.'))
+  await p4.keyboard.press('Escape')
+  check('no page errors with Pro', p4.errors.length === 0, p4.errors.join(' | '))
+  await pp.ctx.close()
+
+  // Unlocked in Rhythm Dice -> open in Chord Dice. Then the lessons end:
+  // the next visit's re-check removes Pro and leaves Level 4.
+  const rd = await freshPage(undefined, server)
+  await rd.page.goto(`${BASE}/rhythm-dice`, { waitUntil: 'networkidle' })
+  await rd.page.getByRole('radio', { name: /Level 4/ }).click()
+  await rd.page.fill('#rd-pro-email', 'parent@example.com')
+  await rd.page.getByRole('button', { name: 'Send code', exact: true }).click()
+  await rd.page.fill('#rd-pro-code', '654321')
+  await rd.page.getByRole('button', { name: 'Unlock', exact: true }).click()
+  await rd.page.getByRole('button', { name: 'Try Level 4' }).waitFor()
+  await rd.page.goto(`${BASE}/chord-dice`, { waitUntil: 'networkidle' })
+  check('a Rhythm Dice unlock opens Level 4 in Chord Dice',
+    await rd.page.getByRole('radio', { name: 'Level 4 (sevenths)', exact: true }).count() === 1
+    && await rd.page.getByRole('button', { name: /Pro is on for this device/ }).count() === 1)
+  await rd.page.getByRole('radio', { name: 'Level 4 (sevenths)', exact: true }).click()
+  server.entitled = false
+  await rd.page.reload({ waitUntil: 'networkidle' })
+  await rd.page.locator('.cd-notice').waitFor()
+  check('a "not Pro" re-check removes Pro and leaves Level 4',
+    (await rd.page.locator('.cd-notice').innerText()).includes('Pro is no longer on this device')
+    && await rd.page.getByRole('radio', { name: 'Level 1' }).getAttribute('aria-checked') === 'true'
+    && await rd.page.evaluate(() => localStorage.getItem('kyndaTools.pro')) === null)
+  await rd.ctx.close()
 } finally {
   await browser.close()
   server.kill()

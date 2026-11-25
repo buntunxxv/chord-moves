@@ -24,10 +24,17 @@ export const QUALITIES = {
   sus4: { id: 'sus4', label: 'sus4', word: 'sus4', suffix: 'sus4', middle: { interval: '4P', name: 'perfect fourth' }, fifth: { interval: '5P', name: 'perfect fifth' } },
 }
 
-// Colours arrive with Level 4. Until then every chord's colour is "none".
+// Colours arrive with Level 4: a seventh on top of the triad. Until then
+// every chord's colour is "none" and the Colour die stays off the tray.
 export const COLOURS = {
-  none: { id: 'none', label: 'none', suffix: '' },
+  none: { id: 'none', label: 'none', suffix: '', added: null },
+  7: { id: '7', label: '7', suffix: '7', added: { interval: '7m', name: 'minor seventh' } },
+  maj7: { id: 'maj7', label: 'maj7', suffix: 'maj7', added: { interval: '7M', name: 'major seventh' } },
 }
+
+// How sentences say a seventh chord (the symbol alone does not tell you
+// that C7 is a dominant seventh).
+const SEVENTH_NAMES = { 'major/7': 'dominant seventh', 'major/maj7': 'major seventh', 'minor/7': 'minor seventh' }
 
 const TRIADS = [['major', 'none'], ['minor', 'none']]
 export const LEVELS = {
@@ -35,10 +42,14 @@ export const LEVELS = {
   L2: { id: 'L2', name: 'Level 2', roots: L2_ROOTS, tuples: TRIADS },
   // Level 3: diminished, augmented, sus2 and sus4, on all 12 roots (48).
   L3: { id: 'L3', name: 'Level 3', roots: L2_ROOTS, tuples: [['dim', 'none'], ['aug', 'none'], ['sus2', 'none'], ['sus4', 'none']] },
+  // Level 4 (Pro): C7, Cmaj7, Cm7 on all 12 roots (36). Minor/maj7 and the
+  // dim/aug sevenths stay out, as approved in Phase 0.
+  L4: { id: 'L4', name: 'Level 4', roots: L2_ROOTS, tuples: [['major', '7'], ['major', 'maj7'], ['minor', '7']], pro: true },
 }
 
-// The level switch. Mix rolls one of Levels 1–3 with equal chance, then a
-// chord from that level, as Mix pools levels in Rhythm Dice.
+// The level switch. Mix rolls one of its levels with equal chance, then a
+// chord from that level, as Mix pools levels in Rhythm Dice: Levels 1–3, and
+// Level 4 too with Pro. Levels 4–5 are Pro (shared Tools Pro, decided 25 Nov).
 // Feedback: Levels 1–2 reflect on each note as it is placed; from Level 3
 // (and in Mix, which includes it) the keyboard stays neutral until Submit,
 // so the feedback style itself never hints at which level a chord is from.
@@ -46,11 +57,20 @@ export const LEVEL_CHOICES = [
   { key: 'L1', label: '1', name: 'Level 1', levelIds: ['L1'], feedback: 'note' },
   { key: 'L2', label: '2', name: 'Level 2', levelIds: ['L2'], feedback: 'note' },
   { key: 'L3', label: '3', name: 'Level 3', levelIds: ['L3'], feedback: 'submit' },
-  { key: 'mix', label: 'Mix', name: 'Mix levels 1 to 3', levelIds: ['L1', 'L2', 'L3'], feedback: 'submit' },
+  { key: 'L4', label: '4', name: 'Level 4 (sevenths)', levelIds: ['L4'], feedback: 'submit', pro: true },
+  { key: 'mix', label: 'Mix', name: 'Mix levels', levelIds: ['L1', 'L2', 'L3'], proLevelIds: ['L4'], feedback: 'submit' },
 ]
 export const LEVEL_KEYS = LEVEL_CHOICES.map(c => c.key)
 export const levelChoice = key => LEVEL_CHOICES.find(c => c.key === key) ?? LEVEL_CHOICES[0]
 export const feedbackStyle = key => levelChoice(key).feedback
+export const needsPro = key => Boolean(levelChoice(key).pro)
+// The levels a choice rolls from: Mix adds the Pro levels when Pro is on.
+export const levelIdsFor = (key, isPro = false) => {
+  const c = levelChoice(key)
+  return isPro && c.proLevelIds ? [...c.levelIds, ...c.proLevelIds] : c.levelIds
+}
+// A chord from a Pro level (kept chords use this to gate "Hear").
+export const isProChord = o => (o.colour ?? 'none') !== 'none'
 
 // ASCII spelling -> display spelling (♯ ♭ 𝄪 𝄫).
 // Only the letter's own accidentals change, so a suffix is left alone.
@@ -70,16 +90,16 @@ export function outcomes(levelId) {
 
 const sameChord = (a, b) => a && b && a.root === b.root && a.quality === b.quality && (a.colour ?? 'none') === (b.colour ?? 'none')
 
-// Every distinct chord a level choice can give (Mix: Levels 1–3 together).
-export function poolFor(levelKey) {
+// Every distinct chord a level choice can give (Mix: its levels together).
+export function poolFor(levelKey, isPro = false) {
   const seen = []
-  for (const levelId of levelChoice(levelKey).levelIds) {
+  for (const levelId of levelIdsFor(levelKey, isPro)) {
     for (const o of outcomes(levelId)) if (!seen.some(s => sameChord(s, o))) seen.push(o)
   }
   return seen
 }
 
-export const isAllowed = (outcome, levelKey) => poolFor(levelKey).some(o => sameChord(o, outcome))
+export const isAllowed = (outcome, levelKey, isPro = false) => poolFor(levelKey, isPro).some(o => sameChord(o, outcome))
 
 // A rolled outcome -> the chord the student builds.
 //   symbol   'F#m'        (ASCII, as Tonal reads it)
@@ -92,11 +112,12 @@ export function resolveChord({ root, quality, colour = 'none' }) {
   const q = QUALITIES[quality]
   const c = COLOURS[colour]
   if (!q || !c) throw new Error(`Unknown face ${quality}/${colour}`)
-  const middle = q.middle
   const symbol = root + q.suffix + c.suffix
   const chord = Chord.get(symbol)
   if (chord.empty) throw new Error(`Tonal has no chord ${symbol}`)
-  const roles = [{ interval: '1P', name: 'root' }, middle, q.fifth]
+  const roles = [{ interval: '1P', name: 'root' }, q.middle, q.fifth, ...(c.added ? [c.added] : [])]
+  const seventh = SEVENTH_NAMES[`${quality}/${colour}`]
+  if (c.added && !seventh) throw new Error(`No chord for ${quality}/${colour}`)
   const notes = roles.map(r => Note.transpose(root, r.interval))
   return {
     root,
@@ -104,7 +125,7 @@ export function resolveChord({ root, quality, colour = 'none' }) {
     colour,
     symbol,
     name: displayNote(symbol),
-    prose: `${displayNote(root)} ${q.word}`,
+    prose: `${displayNote(root)} ${seventh ?? q.word}`,
     notes,
     chromas: notes.map(n => Note.chroma(n)),
     roles,
@@ -113,10 +134,11 @@ export function resolveChord({ root, quality, colour = 'none' }) {
 }
 
 // Roll one chord. Avoids repeating the chord already on the table.
-export function rollChord(levelKey, { rng = Math.random, avoid = null } = {}) {
+export function rollChord(levelKey, { rng = Math.random, avoid = null, isPro = false } = {}) {
   const choice = levelChoice(levelKey)
+  const levelIds = levelIdsFor(levelKey, isPro)
   for (let tries = 0; ; tries++) {
-    const levelId = choice.levelIds[Math.floor(rng() * choice.levelIds.length)]
+    const levelId = levelIds[Math.floor(rng() * levelIds.length)]
     const pool = outcomes(levelId)
     const pick = pool[Math.floor(rng() * pool.length)]
     if (tries < 8 && sameChord(pick, avoid)) continue
@@ -131,26 +153,26 @@ export const DIE_NAMES = { root: 'Root', quality: 'Quality', colour: 'Colour' }
 
 // The dice on the tray: the Colour die joins once a level gives it a face
 // other than "none" (Level 4).
-export const diceFor = levelKey =>
-  poolFor(levelKey).some(o => o.colour !== 'none') ? DICE : DICE.filter(d => d !== 'colour')
+export const diceFor = (levelKey, isPro = false) =>
+  poolFor(levelKey, isPro).some(o => o.colour !== 'none') ? DICE : DICE.filter(d => d !== 'colour')
 
 // The faces this die could change to while the other two dice stay put,
 // using only chords the level allows.
-export function alternatives(outcome, die, levelKey) {
-  return poolFor(levelKey).filter(o =>
+export function alternatives(outcome, die, levelKey, isPro = false) {
+  return poolFor(levelKey, isPro).filter(o =>
     o[die] !== outcome[die] && DICE.every(d => d === die || o[d] === outcome[d]))
 }
 
 // Re-roll one die, keeping the others. When nothing else fits, say which
 // other die to change first, rather than silently changing two.
-export function changeOneDie(outcome, die, levelKey, { rng = Math.random } = {}) {
-  const options = alternatives(outcome, die, levelKey)
+export function changeOneDie(outcome, die, levelKey, { rng = Math.random, isPro = false } = {}) {
+  const options = alternatives(outcome, die, levelKey, isPro)
   if (options.length) {
     const pick = options[Math.floor(rng() * options.length)]
     return { outcome: { ...pick, levelKey } }
   }
   const others = DICE.filter(d => d !== die && d !== 'root')
-  const freedBy = others.find(other => poolFor(levelKey).some(o =>
+  const freedBy = others.find(other => poolFor(levelKey, isPro).some(o =>
     o.root === outcome.root && o[die] !== outcome[die] && o[other] !== outcome[other]))
   const face = die === 'colour' ? COLOURS[outcome.colour].label : QUALITIES[outcome.quality].label
   if (freedBy) {
