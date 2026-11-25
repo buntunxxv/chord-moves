@@ -175,6 +175,15 @@ try {
     await page.locator('.rd-kept__item').first().getByRole('button', { name: 'Load' }).click()
     await verify(page, `${name}: Play view`, `${slug}-play`)
 
+    // Before Perform the pad still sounds (try a rhythm out); nothing is scored.
+    const idleBefore = await page.evaluate(() => window.__claps)
+    await page.locator('.rd-pad').tap()
+    await page.locator('.rd-pad').press('Space')
+    await page.waitForFunction(n => window.__claps >= n + 2, idleBefore, { timeout: 3000 }).catch(() => {})
+    const idleAfter = await page.evaluate(() => window.__claps)
+    const scored = await page.locator('.rd-results').count()
+    check(`${name}: taps sound before Perform`, idleAfter - idleBefore === 2 && scored === 0, `${idleAfter - idleBefore} sounds for 2 taps, ${scored} results`)
+
     // Perform with no taps: 16 missed hits is the longest result.
     await page.getByRole('button', { name: 'Perform' }).click()
     await page.waitForSelector('.rd-results', { timeout: 15000 })

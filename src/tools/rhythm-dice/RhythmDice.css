@@ -450,7 +450,7 @@
 }
 
 .rd-play.is-live .rd-pad { border-style: solid; border-color: var(--teal); color: var(--text); }
-.rd-play.is-live .rd-pad[data-flash="1"] { background: radial-gradient(circle at 50% 40%, rgba(17, 147, 146, 0.28), transparent 70%), var(--white); }
+.rd-pad[data-flash="1"] { background: radial-gradient(circle at 50% 40%, rgba(17, 147, 146, 0.28), transparent 70%), var(--white); }
 
 .rd-pad__label { font-size: clamp(16px, 2.4vw, 22px); font-weight: 700; }
 .rd-pad__hint { color: var(--text-muted); font-size: 13px; text-align: center; }

@@ -601,7 +601,13 @@ export default function RhythmDice() {
 
   const registerTap = useCallback(event => {
     const s = sessionRef.current
-    if (!s || (s.kind !== 'perform' && s.kind !== 'phrase' && s.kind !== 'calibrate')) return
+    if (!s || (s.kind !== 'perform' && s.kind !== 'phrase' && s.kind !== 'calibrate')) {
+      // Before Perform the pad is an instrument: try a rhythm out, hear it,
+      // nothing is scored. The first tap also starts the audio.
+      audio.ensure().then(() => audio.tap()).catch(() => {})
+      setPadFlash(n => n + 1)
+      return
+    }
     // Timed from the event's own timestamp, so sounding it first costs nothing.
     audio.tap()
     const t = audio.eventTime(event)
@@ -615,15 +621,19 @@ export default function RhythmDice() {
   }, [audio])
 
   useEffect(() => {
-    if (phase !== 'performing' && phase !== 'calibrating') return
+    const live = phase === 'performing' || phase === 'calibrating'
+    if (!live && stage !== 'play') return
     function onKey(e) {
       if (e.code !== 'Space' && e.key !== ' ') return
+      // Off the clock, Space still works its usual way on any other control.
+      if (!live && e.target instanceof Element && !e.target.closest('.rd-pad') &&
+        e.target.closest('input, textarea, select, button, a, [contenteditable]')) return
       e.preventDefault()
       if (!e.repeat) registerTap(e)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase, registerTap])
+  }, [phase, stage, registerTap])
 
   // ----- keep & export -----
 
