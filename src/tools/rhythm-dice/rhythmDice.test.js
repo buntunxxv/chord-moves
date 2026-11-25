@@ -533,3 +533,14 @@ test('MusicXML: 6/8 with dotted notes, 7/8 with its grouping, and a bar that doe
   assert.match(x78, /<sound tempo="120"\/>/)
   assert.throws(() => buildMusicXml({ bars: [[face('L1-1'), face('L1-1')]], metre: M68, bpm: 120 }), /does not fit/)
 })
+
+test('volume scale: 75 is the tuned level, 0 mutes, the top leaves headroom', async () => {
+  const { DEFAULT_VOLUME, volumeGain } = await import('./audioEngine.js')
+  assert.equal(DEFAULT_VOLUME, 75)
+  assert.equal(volumeGain(75), 1)
+  assert.equal(volumeGain(0), 0)
+  assert.ok(Math.abs(volumeGain(100) - 4 / 3) < 1e-9)
+  assert.equal(volumeGain(150), volumeGain(100))
+  assert.equal(volumeGain(-5), 0)
+  assert.equal(volumeGain('abc'), 0)
+})

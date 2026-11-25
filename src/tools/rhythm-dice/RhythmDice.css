@@ -946,3 +946,40 @@
   .rd-tray { gap: 4px; }
   .rd-tray__dice { gap: 4px; }
 }
+
+/* ---------- settings: tap sound and volumes ---------- */
+
+.rd-settings-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+}
+.rd-settings-btn:hover { border-color: var(--teal); }
+.rd-settings-btn:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+
+.rd-settings {
+  /* Portalled to <body>, outside .rhythm-dice: carry the colours the
+     controls use. */
+  --rd-ink: var(--black);
+  --rd-on-ink: var(--white);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 4px;
+  font-size: 15px;
+}
+.rd-settings__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rd-settings__label { margin: 0; font-weight: 800; }
+.rd-settings__hint { margin: 2px 0 0; color: var(--text-muted); font-size: 13px; }
+.rd-settings__volume { display: grid; gap: 4px; }
+.rd-settings__volume.is-off { opacity: 0.5; }
+.rd-settings__volume .rd-tempo { flex: none; }
+.rd-settings__value { min-width: 3.2ch; font-size: 22px; }
+.rd-settings__reset { justify-self: start; min-height: 44px; }
+.rd-settings__reset:disabled { opacity: 0.5; cursor: default; }

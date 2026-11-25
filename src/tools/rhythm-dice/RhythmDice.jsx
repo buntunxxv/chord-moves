@@ -4,7 +4,7 @@ import { logEvent } from '../../analytics/events'
 import { downloadMidiFile } from '../../utils/midiExport'
 import DieTile, { BarStrip, DieFace } from './DieTile'
 import Results from './Results'
-import { createRhythmAudio } from './audioEngine'
+import { DEFAULT_VOLUME, createRhythmAudio } from './audioEngine'
 import BottomSheet from '../../components/BottomSheet'
 import { CHORD_MOVES_ORIGIN } from '../../app/sites'
 import { readToolsPro, recheck, requestCode, signOut, verifyCode } from '../../app/toolsPro'
@@ -126,6 +126,14 @@ export default function RhythmDice() {
   const keptListRef = useRef(null)
   // The Pro sheet: unlock (email, then code) or manage.
   const [proSheet, setProSheet] = useState(null) // null | { reason }
+  // Settings: whether taps make a sound, and how loud taps and the
+  // metronome click are (0-100).
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [tapSound, setTapSound] = useState(() => readString(KEYS.tapSound, 'on', ['on', 'off']) === 'on')
+  const [tapVolume, setTapVolume] = useState(() => readNumber(KEYS.tapVolume, DEFAULT_VOLUME, { min: 0, max: 100 }))
+  const [clickVolume, setClickVolume] = useState(() => readNumber(KEYS.clickVolume, DEFAULT_VOLUME, { min: 0, max: 100 }))
+  const tapSoundRef = useRef(tapSound)
+  tapSoundRef.current = tapSound
   const [proStep, setProStep] = useState('email') // email | code | done | notPro
   const [proEmail, setProEmail] = useState('')
   const [proCode, setProCode] = useState('')
@@ -597,6 +605,26 @@ export default function RhythmDice() {
     setNotice('Calibration cleared.')
   }
 
+  // ----- settings -----
+
+  useEffect(() => { audio.setVolume('tap', tapVolume) }, [audio, tapVolume])
+  useEffect(() => { audio.setVolume('click', clickVolume) }, [audio, clickVolume])
+
+  function chooseTapSound(on) {
+    setTapSound(on)
+    write(KEYS.tapSound, on ? 'on' : 'off')
+    if (on) audio.preview('tap').catch(() => {})
+  }
+
+  function chooseVolume(kind, value, { preview = false } = {}) {
+    const v = Math.max(0, Math.min(100, Math.round(Number(value))))
+    if (kind === 'tap') { setTapVolume(v); write(KEYS.tapVolume, v) } else { setClickVolume(v); write(KEYS.clickVolume, v) }
+    audio.setVolume(kind, v)
+    if (preview) audio.preview(kind).catch(() => {})
+  }
+
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
+
   // ----- taps -----
 
   const registerTap = useCallback(event => {
@@ -604,12 +632,12 @@ export default function RhythmDice() {
     if (!s || (s.kind !== 'perform' && s.kind !== 'phrase' && s.kind !== 'calibrate')) {
       // Before Perform the pad is an instrument: try a rhythm out, hear it,
       // nothing is scored. The first tap also starts the audio.
-      audio.ensure().then(() => audio.tap()).catch(() => {})
+      if (tapSoundRef.current) audio.ensure().then(() => audio.tap()).catch(() => {})
       setPadFlash(n => n + 1)
       return
     }
     // Timed from the event's own timestamp, so sounding it first costs nothing.
-    audio.tap()
+    if (tapSoundRef.current) audio.tap()
     const t = audio.eventTime(event)
     if (s.kind === 'calibrate') {
       s.rawTaps.push(t)
@@ -795,6 +823,11 @@ export default function RhythmDice() {
                 </button>
               ))}
             </div>
+            <button type="button" className="rd-settings-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings: tap sound and volume">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" transform="translate(-1 0)" />
+              </svg>
+            </button>
           </div>
         </header>
 
@@ -1027,6 +1060,48 @@ export default function RhythmDice() {
             onClose={closeClassroom}
           />
         )}
+
+        <BottomSheet isOpen={settingsOpen} onClose={closeSettings} eyebrow="Rhythm Dice" title="Settings">
+          <div className="rd-settings">
+            <div className="rd-settings__row">
+              <div>
+                <p className="rd-settings__label" id="rd-set-tap">Tap sound</p>
+                <p className="rd-settings__hint">A clap each time you tap the pad or press Space.</p>
+              </div>
+              <div className="rd-seg rd-seg--small" role="radiogroup" aria-labelledby="rd-set-tap">
+                {[[true, 'On'], [false, 'Off']].map(([on, label]) => (
+                  <button key={label} type="button" role="radio" aria-checked={tapSound === on}
+                    className={tapSound === on ? 'is-on' : ''} onClick={() => chooseTapSound(on)}>{label}</button>
+                ))}
+              </div>
+            </div>
+            {[
+              ['tap', 'Tap volume', tapVolume, !tapSound],
+              ['click', 'Metronome volume', clickVolume, false],
+            ].map(([kind, label, value, off]) => (
+              <div key={kind} className={`rd-settings__volume${off ? ' is-off' : ''}`}>
+                <label className="rd-settings__label" htmlFor={`rd-vol-${kind}`}>{label}</label>
+                <div className="rd-tempo">
+                  <button type="button" className="rd-step" disabled={off || value <= 0}
+                    onClick={() => chooseVolume(kind, value - 10, { preview: true })} aria-label={`${label} down`}>−</button>
+                  <input id={`rd-vol-${kind}`} type="range" min="0" max="100" step="1" value={value} disabled={off}
+                    onChange={e => chooseVolume(kind, e.target.value)}
+                    onPointerUp={() => audio.preview(kind).catch(() => {})}
+                    onKeyUp={e => { if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End') audio.preview(kind).catch(() => {}) }}
+                    aria-valuetext={value === 0 ? 'Muted' : `${value} percent`} />
+                  <button type="button" className="rd-step" disabled={off || value >= 100}
+                    onClick={() => chooseVolume(kind, value + 10, { preview: true })} aria-label={`${label} up`}>+</button>
+                  <output className="rd-tempo__value rd-settings__value" htmlFor={`rd-vol-${kind}`}>{value === 0 ? 'Mute' : value}</output>
+                </div>
+              </div>
+            ))}
+            <button type="button" className="rd-link rd-settings__reset"
+              disabled={tapSound && tapVolume === DEFAULT_VOLUME && clickVolume === DEFAULT_VOLUME}
+              onClick={() => { chooseTapSound(true); chooseVolume('tap', DEFAULT_VOLUME); chooseVolume('click', DEFAULT_VOLUME) }}>
+              Reset to defaults
+            </button>
+          </div>
+        </BottomSheet>
 
         <BottomSheet isOpen={!!proSheet} onClose={closePro} eyebrow="Rhythm Dice Pro"
           title={isPro && proStep !== 'done' ? 'Pro is on for this device' : proStep === 'done' ? 'Pro is on' : 'Unlock Level 4'}>

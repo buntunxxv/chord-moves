@@ -184,6 +184,23 @@ try {
     const scored = await page.locator('.rd-results').count()
     check(`${name}: taps sound before Perform`, idleAfter - idleBefore === 2 && scored === 0, `${idleAfter - idleBefore} sounds for 2 taps, ${scored} results`)
 
+    // Settings: the sheet fits; tap sound off silences taps; volumes persist.
+    await page.locator('.rd-settings-btn').click()
+    await page.waitForSelector('.rd-settings')
+    await verify(page, `${name}: Settings sheet`, `${slug}-settings`)
+    await page.getByRole('radio', { name: 'Off' }).click()
+    await page.getByRole('button', { name: 'Metronome volume down' }).click()
+    await page.keyboard.press('Escape')
+    const offBefore = await page.evaluate(() => window.__claps)
+    await page.locator('.rd-pad').tap()
+    await page.waitForTimeout(150)
+    const offAfter = await page.evaluate(() => window.__claps)
+    const saved = await page.evaluate(() => [localStorage.getItem('kyndaTools.rhythmDice.tapSound'), localStorage.getItem('kyndaTools.rhythmDice.clickVolume')])
+    check(`${name}: tap sound off is silent, and saved`, offAfter === offBefore && saved[0] === 'off' && saved[1] === '65', `${offAfter - offBefore} sounds; saved ${JSON.stringify(saved)}`)
+    await page.locator('.rd-settings-btn').click()
+    await page.getByRole('button', { name: 'Reset to defaults' }).click()
+    await page.keyboard.press('Escape')
+
     // Perform with no taps: 16 missed hits is the longest result.
     await page.getByRole('button', { name: 'Perform' }).click()
     await page.waitForSelector('.rd-results', { timeout: 15000 })
