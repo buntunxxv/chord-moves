@@ -35,6 +35,7 @@ const Metronome = lazy(() => import('./tools/metronome/Metronome'))
 const EarTrainer = lazy(() => import('./tools/ear-trainer/EarTrainer'))
 const ChordScaleExplorer = lazy(() => import('./tools/chord-scales/ChordScaleExplorer'))
 const RhythmDice = lazy(() => import('./tools/rhythm-dice/RhythmDice'))
+const ChordDice = lazy(() => import('./tools/chord-dice/ChordDice'))
 const DemoPage = lazy(() => import('./demo/DemoPage'))
 const DemoFrame = lazy(() => import('./demo/DemoFrame'))
 
@@ -59,6 +60,7 @@ else if (!leaving) ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/ear-trainer" element={<EarTrainer />} />
           <Route path="/chord-scales" element={<ChordScaleExplorer />} />
           <Route path="/rhythm-dice" element={<RhythmDice />} />
+          <Route path="/chord-dice" element={<ChordDice />} />
           <Route path="/upgrade" element={<UpgradePage />} />
           <Route path="/demo" element={<DemoPage />} />
         </Routes>

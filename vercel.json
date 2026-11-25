@@ -5,7 +5,7 @@
   "redirects": [
     { "source": "/admin/feedback", "destination": "https://www.kyndalearning.co.uk/admin/feedback/chord-compass", "permanent": false },
     { "source": "/tools", "has": [{ "type": "host", "value": "www.chordmoves.co.uk" }], "destination": "https://tools.kyndalearning.co.uk/", "permanent": false },
-    { "source": "/:tool(metronome|ear-trainer|chord-scales|rhythm-dice)", "has": [{ "type": "host", "value": "www.chordmoves.co.uk" }], "destination": "https://tools.kyndalearning.co.uk/:tool", "permanent": false }
+    { "source": "/:tool(metronome|ear-trainer|chord-scales|rhythm-dice|chord-dice)", "has": [{ "type": "host", "value": "www.chordmoves.co.uk" }], "destination": "https://tools.kyndalearning.co.uk/:tool", "permanent": false }
   ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

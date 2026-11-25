@@ -16,6 +16,12 @@ export const TOOLS = [
     icon: '⚄',
   },
   {
+    name: 'Chord Dice',
+    description: 'Roll a chord, build it from its name or its sound, and keep the ones you choose.',
+    path: '/chord-dice',
+    icon: '⚃',
+  },
+  {
     name: 'Metronome',
     description: 'Set a pulse, choose a time signature, or find a tempo by tapping.',
     path: '/metronome',

@@ -30,9 +30,12 @@ jobs:
       # Rhythm Dice: renders 64 bars at 160 BPM through the lookahead
       # scheduler offline and checks every click is within +/-2 ms of the grid.
       - run: npm run test:clicks
-      # Rhythm Dice is one screen: no scrolling or cut-off content on any
-      # iPad size (both orientations) or an iPhone, in every view.
+      # Rhythm Dice and Chord Dice are one screen: no scrolling or cut-off
+      # content on any iPad size (both orientations) or an iPhone, in every view.
       - run: npm run test:layout
+      # Chord Dice end to end: from the name, from the sound (nothing gives
+      # the chord away while listening), keep, reload and reveal.
+      - run: npm run test:chord-dice
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -40,4 +43,5 @@ jobs:
           path: |
             theme-check-output/
             rhythm-dice-layout-output/
+            chord-dice-layout-output/
           if-no-files-found: ignore

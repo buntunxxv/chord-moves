@@ -3,7 +3,7 @@
 //   www.chordmoves.co.uk        Chord Moves, the flagship: "/", "/upgrade", "/demo"
 //   tools.kyndalearning.co.uk   the Kynda tools library: "/" is the directory,
 //                               plus the metronome, ear trainer, chord-scales
-//                               and rhythm dice
+//                               and the rhythm and chord dice
 //
 // Any other host (localhost, Vercel previews) serves everything, so dev and
 // preview links keep working without either domain.
