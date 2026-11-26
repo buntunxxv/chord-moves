@@ -544,3 +544,22 @@ test('volume scale: 75 is the tuned level, 0 mutes, the top leaves headroom', as
   assert.equal(volumeGain(-5), 0)
   assert.equal(volumeGain('abc'), 0)
 })
+
+test('detectLag: a steady device delay is found, a person\'s timing is not', async () => {
+  const { detectLag } = await import('./scoring.js')
+  const expected = [0, 0.375, 0.75, 1.125, 1.5, 1.875, 2.25, 2.625].map(time => ({ time, offbeat: false }))
+  const jitter = [0.004, -0.008, 0.01, -0.003, 0.006, -0.01, 0.002, 0.007]
+  // Bluetooth-like: every tap ~180 ms late.
+  const late = expected.map((e, i) => e.time + 0.18 + jitter[i])
+  assert.ok(Math.abs(detectLag(expected, late) - 0.18) < 0.015)
+  // A sharp lag the other way (taps early) is found too.
+  assert.ok(Math.abs(detectLag(expected, expected.map((e, i) => e.time - 0.12 + jitter[i])) + 0.12) < 0.015)
+  // Played well, or leaning a little late: nothing to allow for.
+  assert.equal(detectLag(expected, expected.map((e, i) => e.time + jitter[i])), null)
+  assert.equal(detectLag(expected, expected.map((e, i) => e.time + 0.04 + jitter[i])), null)
+  // Scattered taps are a playing problem, not a device delay.
+  const scattered = expected.map((e, i) => e.time + [0.15, -0.12, 0.2, 0.08, -0.16, 0.22, 0.1, -0.09][i])
+  assert.equal(detectLag(expected, scattered), null)
+  // Too little to go on.
+  assert.equal(detectLag(expected, late.slice(0, 2)), null)
+})

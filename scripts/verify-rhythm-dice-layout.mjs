@@ -80,6 +80,29 @@ async function measure(page) {
   })
 }
 
+// Safari 15 (iPad Air 2, iPadOS 15.8) has no container queries or container
+// units. This strips them from the stylesheet, as that Safari would ignore
+// them, so the fallbacks get checked.
+function withoutContainerQueries(css) {
+  let out = ''
+  for (let i = 0; i < css.length;) {
+    // Whole blocks Safari 15 skips: @container, and @supports tests for
+    // container units (false there).
+    if (css.startsWith('@container', i) || (css.startsWith('@supports', i) && /cq[hwib]/.test(css.slice(i, css.indexOf('{', i))))) {
+      let depth = 0
+      let j = css.indexOf('{', i)
+      for (; j < css.length; j++) {
+        if (css[j] === '{') depth++
+        else if (css[j] === '}' && --depth === 0) break
+      }
+      i = j + 1
+    } else out += css[i++]
+  }
+  return out
+    .replace(/[a-z-]+:[^;{}]*\d(?:cqh|cqw|cqi|cqb|cqmin|cqmax)\b[^;{}]*;?/g, '')
+    .replace(/(^|[;{])\s*container(?:-type|-name)?:[^;{}]*;?/g, '$1')
+}
+
 async function verify(page, label, slug) {
   const m = await measure(page)
   const problems = []
@@ -291,6 +314,66 @@ try {
     await page.evaluate(() => document.querySelectorAll('.rd-tray .rd-die__notes svg').forEach(svg => { svg.style.width = '300px'; svg.style.height = '150px' }))
     const after = await sizes()
     check(`${name}: a face's drawing never resizes its die`, JSON.stringify(before) === JSON.stringify(after), `before ${JSON.stringify(before)} after ${JSON.stringify(after)}`)
+    await ctx.close()
+  }
+  // A device delay (old touchscreen, Bluetooth): four crotchets each tapped
+  // 180 ms late score nothing until the delay is spotted and allowed for.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 820, height: 1106 }, hasTouch: true, reducedMotion: 'reduce' })
+    await ctx.addInitScript(() => {
+      localStorage.setItem('kyndaTools.rhythmDice.keptBars', JSON.stringify([{ id: '1', keptAt: '2026-11-26T00:00:00Z', faceIds: ['L1-1', 'L1-1', 'L1-1', 'L1-1'], metre: '4/4', bpm: 60, levelIds: ['L1'], reason: '' }]))
+      localStorage.setItem('kyndaTools.rhythmDice.bpm', '60')
+      localStorage.setItem('kyndaTools.rhythmDice.subdivision', '0')
+      localStorage.setItem('kyndaTools.rhythmDice.mode', 'once')
+      window.__clicks = []
+      const Orig = window.AudioContext
+      window.AudioContext = class extends Orig { constructor(...a) { super(...a); window.__ctx = this } }
+      const start = OscillatorNode.prototype.start
+      OscillatorNode.prototype.start = function (t) { window.__clicks.push(t); return start.call(this, t) }
+    })
+    const page = await ctx.newPage()
+    await page.goto(`${BASE}/rhythm-dice`, { waitUntil: 'networkidle' })
+    await page.getByRole('tab', { name: /Keep/ }).click()
+    await page.locator('.rd-kept__item').first().getByRole('button', { name: 'Load' }).click()
+    await page.getByRole('button', { name: 'Perform' }).click()
+    await page.evaluate(() => new Promise(resolve => {
+      let i = 0
+      const tick = () => {
+        if (window.__clicks.length && window.__ctx.currentTime >= Math.min(...window.__clicks) + 4 + i + 0.18) {
+          window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ' }))
+          if (++i === 4) return resolve()
+        }
+        setTimeout(tick, 2)
+      }
+      tick()
+    }))
+    await page.waitForSelector('.rd-results', { timeout: 15000 })
+    const offer = page.getByRole('button', { name: 'Allow for it and re-score' })
+    const offered = await offer.count()
+    check('Device delay: spotted and offered', offered === 1, (await page.locator('.rd-results__lead').innerText()).replace(/\s+/g, ' '))
+    if (offered) {
+      await offer.click()
+      const acc = await page.locator('.rd-results__numbers dd').first().innerText()
+      const saved = Number(await page.evaluate(() => localStorage.getItem('kyndaTools.rhythmDice.latencyMs')))
+      check('Device delay: allowing for it re-scores the take and saves it', acc === '100%' && saved > 100 && saved < 200, `accuracy ${acc}, saved ${saved} ms`)
+    }
+    await ctx.close()
+  }
+
+  // Safari 15: iPad Air 2 in portrait and landscape (Safari's visible area).
+  for (const [name, width, height] of [['iPad Air 2, Safari 15 portrait', 768, 954], ['iPad Air 2, Safari 15 landscape', 1024, 698]]) {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, reducedMotion: 'reduce' })
+    await ctx.route('**/*.css', async route => {
+      const res = await route.fetch()
+      await route.fulfill({ response: res, body: withoutContainerQueries(await res.text()) })
+    })
+    const page = await ctx.newPage()
+    await page.goto(`${BASE}/rhythm-dice`, { waitUntil: 'networkidle' })
+    await page.waitForSelector('.rd-die__notes svg', { state: 'attached' })
+    const stripped = await page.evaluate(() => [...document.styleSheets].every(sh => { try { return ![...sh.cssRules].some(r => r.cssText.includes('cqh')) } catch { return true } }))
+    check(`${name}: container queries removed for the check`, stripped)
+    await verify(page, `${name}: Play view`, `${slug}-play`)
     await ctx.close()
   }
 } finally {
