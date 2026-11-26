@@ -3,6 +3,7 @@ import { Chord } from 'tonal'
 import { CHORD_DATA } from '../chordData'
 import { BASS_NOTE_PITCH_CLASSES, isSlashEligible } from '../utils/slashChord'
 import { toUnicodeAccidentals } from '../utils/formatNotes'
+import { extensionLabel } from '../utils/extensionLabels'
 import Dropdown from './Dropdown'
 import OverlayPage from './OverlayPage'
 import './ChordSelector.css'
@@ -162,7 +163,7 @@ export default function ChordSelector({ root, quality, extension, bassNote, isPr
             onChange={v => handleChange('extension', v)}
             options={EXTENSIONS.map(e => ({
               value: e.value,
-              label: e.label,
+              label: extensionLabel(e.value, e.label, quality),
               disabled: !hasData(root, quality, e.value, isPro),
               badge: e.proOnly && !isPro ? 'PRO' : undefined,
             }))}
