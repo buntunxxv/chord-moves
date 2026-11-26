@@ -245,3 +245,22 @@ export function changeOneDie(outcome, die, levelKey, { rng = Math.random, isPro 
   const list = rest.length > 1 ? `${rest.slice(0, -1).join(', ')} or ${rest.at(-1)}` : rest[0]
   return { blocked: `The ${DIE_NAMES[die]} die has only “${faceLabel(die, outcome)}” at this level. Change ${list} instead, or move up a level.` }
 }
+
+// ---------- Hear it and Name it: the faces a student can choose ----------
+
+// The faces a die shows at a level, in pool order (no repeats). Hear it and
+// Name it offer exactly these, so every choice is one the level can roll.
+export function facesFor(levelKey, die, isPro = false) {
+  const seen = []
+  for (const o of poolFor(levelKey, isPro)) {
+    const f = face(o, die)
+    if (!seen.includes(f)) seen.push(f)
+  }
+  return seen
+}
+
+// A chosen set of faces -> the chord it makes, or null if the faces don't
+// make a chord (dominant with no colour, a slash bass on a ninth …).
+export function chordFromPicks({ root, quality, colour = 'none', bass = 'root' }) {
+  try { return resolveChord({ root, quality, colour, bass }) } catch { return null }
+}

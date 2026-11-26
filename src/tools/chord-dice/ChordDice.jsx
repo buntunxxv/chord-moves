@@ -4,8 +4,8 @@ import ToolsProSheet from '../../app/ToolsProSheet'
 import { readToolsPro, recheck, signOut } from '../../app/toolsPro'
 import { logEvent } from '../../analytics/events'
 import { safeStorage } from '../../utils/safeStorage'
-import { BASSES, DIE_NAMES, LEVEL_CHOICES, LEVEL_KEYS, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, needsPro, resolveChord, rollChord } from './faces'
-import { compare, finishReflection, keyLabel, keySpoken, nextPrompt, placementFeedback, spelledNotes, submitFeedback } from './answer'
+import { BASSES, COLOURS, DIE_NAMES, LEVEL_CHOICES, facesFor, LEVEL_KEYS, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, needsPro, resolveChord, rollChord } from './faces'
+import { compare, finishReflection, hearFeedback, keyLabel, keySpoken, nameFeedback, nextPrompt, placementFeedback, spelledNotes, submitFeedback } from './answer'
 import { createChordAudio, selectionVoicing, targetVoicing } from './audio'
 import { KEYS, REASON_MAX, STARTS, makeKept, readKept, readString, write, writeKept } from './storage'
 import './ChordDice.css'
@@ -14,10 +14,17 @@ import './ChordDice.css'
 // every answer there is.
 const WHITE = [0, 2, 4, 5, 7, 9, 11]
 const BLACK = [{ chroma: 1, after: 0 }, { chroma: 3, after: 1 }, { chroma: 6, after: 3 }, { chroma: 8, after: 4 }, { chroma: 10, after: 5 }]
-const START_LABELS = { name: 'From name', sound: 'From sound' }
+// Four ways into a chord: build it from its name or its sound (PR 1), or
+// hear it and choose its dice, or read its notes and name it (PR 5).
+const START_LABELS = { name: 'From name', sound: 'From sound', hear: 'Hear it', read: 'Name it' }
+const STARTED_FROM = { name: 'From the name', sound: 'From the sound', hear: 'Heard', read: 'Named from its notes' }
+const LISTENING = new Set(['sound', 'hear'])
 const KEPT_ROW = 60 // px per kept row, gap included
 
 const times = n => (n === 1 ? '1 replay' : `${n} replays`)
+// How a face reads in a picker.
+const faceText = (die, f) => (die === 'root' ? displayNote(f)
+  : die === 'quality' ? DIE_FACE[f] : die === 'colour' ? COLOURS[f].label : BASSES[f].label)
 const DIE_FACE = { major: 'major', minor: 'minor', dim: 'dim', aug: 'aug', sus2: 'sus2', sus4: 'sus4', dom: 'dom' }
 
 // A die. Once a chord is built or revealed, each die becomes a button:
@@ -82,6 +89,9 @@ export default function ChordDice() {
   // Levels 3 and Mix: what the last Submit said ({ extra, missing }).
   const [submitted, setSubmitted] = useState(null)
   const [selected, setSelected] = useState([])
+  // Hear it / Name it: the faces chosen so far, and the last Submit's words.
+  const [picks, setPicks] = useState({})
+  const [answered, setAnswered] = useState(null) // { lines } | { equivalent, chosen }
   // Level 5: the note marked as the bass (null = the root) and whether the
   // next key tap marks it.
   const [bassMark, setBassMark] = useState(null)
@@ -103,10 +113,16 @@ export default function ChordDice() {
   const finished = status !== 'building'
   // From sound, nothing on the page may give the chord away until it is
   // built or revealed: not the dice, not the name, not the notes.
-  const concealed = Boolean(chord) && round.start === 'sound' && !finished
+  // Hear it and Name it hide the dice too: Hear it shows only the Root die,
+  // Name it shows the notes but no dice.
+  const concealed = Boolean(chord) && round.start !== 'name' && !finished
+  const choosing = round?.start === 'hear' || round?.start === 'read'
   // After Change one die, the two dice that stayed are already known; only
   // the changed one is hidden.
-  const hiddenDie = die => concealed && (!round.changedFrom || round.changedFrom.die === die)
+  const hiddenDie = die => concealed && (
+    round.start === 'read' ? true
+      : round.start === 'hear' ? die !== 'root'
+        : !round.changedFrom || round.changedFrom.die === die)
   const submitMode = round?.feedback === 'submit'
   // Levels 1–3 roll two dice; the Colour die joins at Level 4, the Bass die
   // at Level 5. Wherever a Level 5 chord can come up, every round offers the
@@ -135,6 +151,8 @@ export default function ChordDice() {
     const next = resolveChord(outcome)
     setRound({ chord: next, outcome, start, levelKey: outcome.levelKey, feedback: feedbackStyle(outcome.levelKey), changedFrom })
     setSubmitted(null)
+    setPicks({})
+    setAnswered(null)
     setNotice('')
     setSelected([])
     setBassMark(null)
@@ -149,7 +167,7 @@ export default function ChordDice() {
     window.setTimeout(() => setRolling([]), 460)
     // From sound, the chord plays from the tap itself (which also unlocks
     // audio on iOS).
-    if (start === 'sound') audio.playChord(targetVoicing(next), 'target')
+    if (LISTENING.has(start)) audio.playChord(targetVoicing(next), 'target')
   }, [audio, start])
 
   const roll = () => startRound(rollChord(levelKey, { avoid: chord, isPro }))
@@ -165,7 +183,7 @@ export default function ChordDice() {
 
   const replay = () => {
     if (!chord) return
-    if (round.start === 'sound' && !finished) setReplays(n => n + 1)
+    if (LISTENING.has(round.start) && !finished) setReplays(n => n + 1)
     audio.playChord(targetVoicing(chord), 'target')
   }
 
@@ -203,6 +221,20 @@ export default function ChordDice() {
     const res = submitFeedback(chord, selected, round.start, bassOn ? bassMark : null)
     if (res.complete) finish('done')
     else setSubmitted(res)
+  }
+
+  // Hear it and Name it: check the chosen dice.
+  const pickDice = round?.start === 'hear' ? dice.filter(d => d !== 'root') : dice
+  const picksReady = Boolean(chord) && pickDice.every(d => picks[d])
+  const submitPicks = () => {
+    if (!chord || finished || !picksReady) return
+    if (round.start === 'hear') {
+      const res = hearFeedback(chord, picks, pickDice)
+      if (res.complete) { setAnswered({}); finish('done') } else setAnswered({ lines: res.lines })
+      return
+    }
+    const res = nameFeedback(chord, picks)
+    if (res.complete) { setAnswered({ equivalent: res.equivalent, chosen: res.chosen }); finish('done') } else setAnswered({ lines: res.lines })
   }
 
   const reveal = () => {
@@ -321,12 +353,12 @@ export default function ChordDice() {
   }, [chord, finished, round, selected, submitted, bassOn])
 
   const stages = [
-    { key: 'build', label: 'Build' },
+    { key: 'build', label: choosing ? 'Answer' : 'Build' },
     { key: 'result', label: 'Result', disabled: !finished },
     // Kept chords stay out of sight while a chord is being found by ear.
     { key: 'keep', label: 'Keep', disabled: concealed },
   ]
-  const startedFrom = round?.start === 'sound' ? 'From the sound' : 'From the name'
+  const startedFrom = STARTED_FROM[round?.start] ?? STARTED_FROM.name
 
   return (
     <ToolShell>
@@ -379,23 +411,29 @@ export default function ChordDice() {
         </section>
 
         <section className="cd-controls" aria-label="Start and roll">
-          <div className="cd-seg" role="radiogroup" aria-label="Start from">
+          <div className="cd-seg cd-starts" role="radiogroup" aria-label="Start from">
             {STARTS.map(s => (
               <button key={s} type="button" role="radio" aria-checked={start === s} aria-label={START_LABELS[s]}
                 className={start === s ? 'is-on' : ''} onClick={() => chooseStart(s)}>
-                <span className="cd-long" aria-hidden="true">{START_LABELS[s]}</span>
-                <span className="cd-short" aria-hidden="true">{s === 'name' ? 'Name' : 'Sound'}</span>
+                <span aria-hidden="true">{START_LABELS[s]}</span>
               </button>
             ))}
           </div>
+          {/* Phones: one compact picker for the four starts. */}
+          <label className="cd-start-pick">
+            <span className="cd-visually-hidden">Start from</span>
+            <select value={start} onChange={e => chooseStart(e.target.value)}>
+              {STARTS.map(s => <option key={s} value={s}>{START_LABELS[s]}</option>)}
+            </select>
+          </label>
           <div className="cd-actions">
             <button type="button" className="cd-btn cd-btn--primary cd-roll" onClick={roll}>
               Roll{chord && <span className="cd-long"> again</span>}
             </button>
             <button type="button" className="cd-btn cd-btn--quiet cd-replay" onClick={replay}
               disabled={!chord || (round.start === 'name' && !finished)}
-              aria-label={round?.start === 'sound' ? `Play the chord again. ${times(replays)} so far` : 'Play chord'}>
-              {round?.start === 'sound'
+              aria-label={LISTENING.has(round?.start) ? `Play the chord again. ${times(replays)} so far` : 'Play chord'}>
+              {LISTENING.has(round?.start)
                 ? <><span className="cd-long" aria-hidden="true">Play again</span><span className="cd-short" aria-hidden="true">Replay</span><span className="cd-count" aria-hidden="true">{replays}</span></>
                 : <><span className="cd-long" aria-hidden="true">Play chord</span><span className="cd-short" aria-hidden="true">Play</span></>}
             </button>
@@ -420,7 +458,58 @@ export default function ChordDice() {
             )}
           </div>
 
-          {stage === 'build' && (
+          {stage === 'build' && choosing && (
+            <div className="cd-stage__panel cd-answer" role="tabpanel" id="cd-panel-build" aria-labelledby="cd-tab-build">
+              <div className="cd-feedback" role="status">
+                {answered?.lines && !finished && (
+                  <>
+                    <p className="cd-feedback__label">Your last Submit</p>
+                    {answered.lines.map(line => <p key={line} className="cd-feedback__line">{line}</p>)}
+                  </>
+                )}
+                {!finished && !answered?.lines && (
+                  <p className="cd-feedback__prompt">
+                    {round.start === 'hear'
+                      ? 'Listen, then choose the dice you hear. The root is on its die. Replay it as often as you like.'
+                      : 'Read the notes, then choose the dice that name this chord.'}
+                  </p>
+                )}
+                {finished && <p className="cd-feedback__prompt">{status === 'revealed' ? 'Revealed.' : 'Named.'} See Result.</p>}
+              </div>
+              {round.start === 'read' && (
+                <div className="cd-read">
+                  <p className="cd-read__notes">
+                    <span className="cd-read__label">Notes</span> {spelledNotes(chord)}
+                    {chord.bass.degree !== 'root' && <> · <span className="cd-read__label">bass</span> {displayNote(chord.bass.note)}</>}
+                  </p>
+                  <Piano selected={chord.chromas} onToggle={() => {}} disabled bassMark={chord.bass.degree !== 'root' ? chord.bass.chroma : null} />
+                </div>
+              )}
+              <div className="cd-answer__bottom">
+              <div className="cd-picks" role="group" aria-label={round.start === 'hear' ? 'Choose the dice you hear' : 'Name the chord'}
+                style={{ '--cd-picks': pickDice.length }}>
+                {pickDice.map(die => (
+                  <label key={die} className="cd-pick">
+                    <span className="cd-pick__die" aria-hidden="true">{DIE_NAMES[die]}</span>
+                    <select value={picks[die] ?? ''} disabled={finished} aria-label={DIE_NAMES[die]}
+                      onChange={e => setPicks(p => ({ ...p, [die]: e.target.value }))}>
+                      <option value="" disabled>Choose…</option>
+                      {facesFor(round.levelKey, die, isPro).map(f => (
+                        <option key={f} value={f}>{faceText(die, f)}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+              <div className="cd-build__actions">
+                <button type="button" className="cd-btn cd-btn--submit" disabled={!picksReady || finished} onClick={submitPicks}>Submit</button>
+                <button type="button" className="cd-btn cd-btn--ghost cd-reveal" disabled={!chord || finished} onClick={reveal}>Reveal</button>
+              </div>
+              </div>
+            </div>
+          )}
+
+          {stage === 'build' && !choosing && (
             <div className="cd-stage__panel cd-build" role="tabpanel" id="cd-panel-build" aria-labelledby="cd-tab-build">
               <div className="cd-feedback" role="status">
                 {!submitMode && feedback && <p className="cd-feedback__line">{feedback}</p>}
@@ -467,12 +556,13 @@ export default function ChordDice() {
               </div>
               <p className="cd-result__meta">
                 <span>{startedFrom}</span>
-                {round.start === 'sound' && <span>{times(replays)}</span>}
+                {LISTENING.has(round.start) && <span>{times(replays)}</span>}
+                {answered?.equivalent && <span>You named it {answered.chosen.name}: the same notes</span>}
                 {status === 'revealed' && <span className="cd-flag">Revealed</span>}
                 {chord.bass.degree !== 'root' && <span>{displayNote(chord.bass.note)} in the bass</span>}
                 {round.changedFrom && <span>Changed {DIE_NAMES[round.changedFrom.die]} from {round.changedFrom.chord.name}</span>}
               </p>
-              <p className="cd-result__reflection">{finishReflection(chord, { start: round.start, replays, revealed: status === 'revealed', changedFrom: round.changedFrom })}</p>
+              <p className="cd-result__reflection">{finishReflection(chord, { start: round.start, replays, revealed: status === 'revealed', changedFrom: round.changedFrom, namedAs: answered?.equivalent ? answered.chosen : null })}</p>
               <p className="cd-result__hint">Change one die: tap {dieList(dice)} above. {dice.length === 2 ? 'The other stays.' : 'The others stay.'}</p>
               <div className="cd-result__actions">
                 <button type="button" className="cd-btn cd-btn--quiet" onClick={() => audio.playChord(targetVoicing(chord), 'target')}>Hear it</button>
@@ -503,7 +593,7 @@ export default function ChordDice() {
                 {keptShown.map(k => {
                   const kc = resolveChord(k)
                   const meta = [
-                    k.start === 'sound' ? `From sound · ${times(k.replays)}` : 'From name',
+                    { name: 'From name', sound: `From sound · ${times(k.replays)}`, hear: `Heard · ${times(k.replays)}`, read: 'Named' }[k.start],
                     ...(k.changedFrom ? [`Changed ${DIE_NAMES[k.changedFrom.die]}`] : []),
                     new Date(k.keptAt).toLocaleDateString(),
                   ]

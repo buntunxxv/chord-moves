@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Chord, Note } from 'tonal'
-import { BASSES, L1_ROOTS, L2_ROOTS, LEVEL_CHOICES, alternatives, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, levelIdsFor, needsPro, outcomes, poolFor, resolveChord, rollChord } from './faces.js'
+import { BASSES, chordFromPicks, facesFor, L1_ROOTS, L2_ROOTS, LEVEL_CHOICES, alternatives, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, levelIdsFor, needsPro, outcomes, poolFor, resolveChord, rollChord } from './faces.js'
 import {
   INTERVAL_NAMES, KEY_NAMES, chromaOf, compare, describeChange, finishReflection, keyLabel, matches, nextPrompt,
-  pitchClassSet, placementFeedback, semitonesUp, submitFeedback,
+  hearFeedback, nameFeedback, pitchClassSet, placementFeedback, semitonesUp, submitFeedback,
 } from './answer.js'
 import { selectionVoicing, targetVoicing } from './voicing.js'
 import { KEYS, REASON_MAX, makeKept, parseKept, readKept, serialiseKept, writeKept } from './storage.js'
@@ -739,4 +739,89 @@ test('every chord is spelled from its root, letter by letter', () => {
       assert.equal(c.notes[i][0], letters[(r + step[kind]) % 7], `${c.symbol}: the ${role.name} is ${c.notes[i]}`)
     })
   }
+})
+
+// ================= PR 5: Hear it and Name it =================
+
+test('the faces each level offers to choose from', () => {
+  assert.deepEqual(facesFor('L1', 'quality'), ['major', 'minor'])
+  assert.deepEqual(facesFor('L1', 'root'), ['C', 'D', 'E', 'F', 'G', 'A', 'B'])
+  assert.deepEqual(facesFor('L3', 'quality'), ['dim', 'aug', 'sus2', 'sus4'])
+  assert.deepEqual(facesFor('L4', 'quality'), ['dom', 'major', 'minor'])
+  assert.deepEqual(facesFor('L4', 'colour'), ['7'])
+  assert.deepEqual(facesFor('L5', 'colour'), ['none', 'add9', '9'])
+  assert.deepEqual(facesFor('L5', 'bass'), ['3', '5', '2', 'root'])
+  assert.deepEqual(facesFor('mix', 'quality'), ['major', 'minor', 'dim', 'aug', 'sus2', 'sus4'])
+  assert.deepEqual(facesFor('mix', 'quality', true), ['major', 'minor', 'dim', 'aug', 'sus2', 'sus4', 'dom'])
+  assert.equal(chordFromPicks({ root: 'C', quality: 'dom', colour: 'none' }), null)
+  assert.equal(chordFromPicks({ root: 'C', quality: 'dom', colour: '7' }).name, 'C7')
+})
+
+test('Hear it: right faces finish it; a wrong die gets somewhere to listen, never the answer', () => {
+  const c7 = resolveChord({ root: 'C', quality: 'dom', colour: '7' })
+  assert.deepEqual(hearFeedback(c7, { quality: 'dom', colour: '7' }, ['quality', 'colour']), { complete: true, lines: [] })
+  const wrong = hearFeedback(c7, { quality: 'major', colour: '7' }, ['quality', 'colour'])
+  assert.equal(wrong.complete, false)
+  assert.deepEqual(wrong.lines, ['You heard a major chord. Listen to the middle note: how far is it from the root?'])
+  assert.match(hearFeedback(c7, { quality: 'dom', colour: 'none' }, ['quality', 'colour']).lines[0], /always has a note on top/)
+  const two = hearFeedback(c7, { quality: 'minor', colour: '9' }, ['quality', 'colour'])
+  assert.deepEqual(two.lines, ['You heard a minor chord. Listen to the middle note: how far is it from the root?', 'Also listen again for the Colour.'])
+  const ce = resolveChord({ root: 'C', quality: 'major', bass: '3' })
+  assert.match(hearFeedback(ce, { quality: 'major', colour: 'none', bass: '5' }, ['quality', 'colour', 'bass']).lines[0], /^You heard the 5th in the bass\. Listen to the lowest note/)
+  // Every wrong choice at every level: no line names the target's faces.
+  for (const levelKey of ['L1', 'L3', 'L4', 'L5']) {
+    const dice = diceFor(levelKey).filter(d => d !== 'root')
+    for (const o of poolFor(levelKey)) {
+      const t = resolveChord(o)
+      for (const die of dice) {
+        for (const f of facesFor(levelKey, die)) {
+          const picks = { quality: o.quality, colour: o.colour, bass: o.bass, [die]: f }
+          const fb = hearFeedback(t, picks, dice)
+          if (fb.complete) { assert.equal(f, die === 'bass' ? o.bass : o[die]); continue }
+          for (const line of fb.lines) {
+            assert.ok(!GRADE_WORDS.test(line), line)
+            assert.ok(!line.includes(t.name) && !line.includes(t.prose), line)
+            if (die === 'quality' && f !== o.quality) assert.ok(!line.includes(` ${QUALITY_WORD[o.quality]} `), `${t.symbol}: “${line}” names the answer`)
+          }
+        }
+      }
+    }
+  }
+})
+const QUALITY_WORD = { major: 'major', minor: 'minor', dim: 'diminished', aug: 'augmented', sus2: 'sus2', sus4: 'sus4', dom: 'dominant' }
+
+test('Name it: the same notes count, whatever the name; a different chord is compared, not marked', () => {
+  const caug = resolveChord({ root: 'C', quality: 'aug' })
+  const eaug = nameFeedback(caug, { root: 'E', quality: 'aug' })
+  assert.equal(eaug.complete, true)
+  assert.equal(eaug.equivalent, true)
+  assert.equal(eaug.chosen.name, 'Eaug')
+  const csus2 = resolveChord({ root: 'C', quality: 'sus2' })
+  assert.equal(nameFeedback(csus2, { root: 'G', quality: 'sus4' }).complete, true, 'Gsus4 has the notes of Csus2')
+  assert.deepEqual(nameFeedback(csus2, { root: 'C', quality: 'sus2' }), { complete: true, equivalent: false, chosen: nameFeedback(csus2, { root: 'C', quality: 'sus2' }).chosen, lines: [] })
+  const a = resolveChord({ root: 'A', quality: 'major' })
+  const am = nameFeedback(a, { root: 'A', quality: 'minor' })
+  assert.deepEqual(am.lines, [
+    'Your Am is A – C – E.',
+    'Next to the notes shown, it adds C and leaves out C♯.',
+    'Which note did you take as the root, and why?',
+  ])
+  // Same notes, different bass: C/E is not C.
+  const ce = resolveChord({ root: 'C', quality: 'major', bass: '3' })
+  const c = nameFeedback(ce, { root: 'C', quality: 'major' })
+  assert.equal(c.complete, false)
+  assert.ok(c.lines.includes('Its lowest note is C; the lowest note shown is E.'), c.lines.join(' | '))
+  assert.equal(nameFeedback(ce, { root: 'C', quality: 'major', bass: '3' }).complete, true)
+  assert.match(nameFeedback(a, { root: 'A', quality: 'dom', colour: 'none' }).lines[0], /always has a note on top/)
+  for (const line of am.lines) assert.ok(!GRADE_WORDS.test(line), line)
+})
+
+test('kept chords from Hear it and Name it', () => {
+  const now = new Date(Date.UTC(2026, 10, 26))
+  const h = makeKept(resolveChord({ root: 'D', quality: 'minor' }), { start: 'hear', replays: 3, reason: 'dark', now })
+  assert.equal(h.start, 'hear')
+  assert.equal(h.replays, 3)
+  const r = makeKept(resolveChord({ root: 'D', quality: 'minor' }), { start: 'read', replays: 5, reason: 'read it', now })
+  assert.equal(r.replays, 0)
+  assert.equal(parseKept(JSON.stringify([h, r])).length, 2)
 })

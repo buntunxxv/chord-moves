@@ -159,6 +159,14 @@ async function pickLevel(page, key) {
   else await page.selectOption('.cd-level-pick select', key)
 }
 
+// The four starts: buttons on tablets, a picker on phones.
+const START_ORDER = ['name', 'sound', 'hear', 'read']
+async function pickStart(page, key) {
+  const radio = page.locator('.cd-starts [role="radio"]').nth(START_ORDER.indexOf(key))
+  if (await radio.isVisible()) await radio.click()
+  else await page.selectOption('.cd-start-pick select', key)
+}
+
 async function isUp() {
   try { return (await fetch(BASE)).ok } catch { return false }
 }
@@ -215,7 +223,7 @@ try {
     check(`${name}: kept chords page instead of scrolling`, pager === 1 || rows === 9, `${rows} rows, no pager`)
 
     // From the sound, after replays and a tap.
-    await page.getByRole('radio', { name: 'From sound' }).click()
+    await pickStart(page, 'sound')
     await page.getByRole('button', { name: /^Roll/ }).click()
     for (let i = 0; i < 12; i++) await page.locator('.cd-replay').click()
     await page.locator('.cd-key[data-chroma="6"]').click()
@@ -224,7 +232,7 @@ try {
     // Level 3, from the name: C♯sus4 with four stray notes and the fourth
     // missing gives the longest Submit feedback there is.
     await pickLevel(page, 'L3')
-    await page.getByRole('radio', { name: 'From name' }).click()
+    await pickStart(page, 'name')
     await page.evaluate(() => { const v = [0, 7 / 48 + 0.001]; Math.random = () => (v.length ? v.shift() : 0.5) })
     await page.getByRole('button', { name: /^Roll/ }).click()
     for (const c of [1, 2, 4, 10, 11]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
@@ -289,6 +297,42 @@ try {
     await verify(page, `${name}: Level 5 bass feedback`, `${slug}-build-l5-bass`, { piano: true })
     await page.getByRole('button', { name: 'Reveal' }).click()
     await verify(page, `${name}: Level 5 Result (slash)`, `${slug}-result-l5`)
+
+    // Name it at Level 5, the heaviest Answer panel: notes, keyboard with a
+    // marked bass, four pickers, after a Submit with every die wrong.
+    await pickStart(page, 'read')
+    await page.evaluate(() => { const v = [0, 36 / 132 + 0.0001]; Math.random = () => (v.length ? v.shift() : 0.5) }) // E♭m/G♭
+    await page.getByRole('button', { name: /^Roll/ }).click()
+    for (const [die, f] of [['Root', 'B'], ['Quality', 'major'], ['Colour', '9'], ['Bass', 'root']]) {
+      await page.getByLabel(die, { exact: true }).selectOption(f)
+    }
+    await page.getByRole('button', { name: 'Submit' }).click()
+    const readFb = await page.locator('.cd-feedback').innerText()
+    check(`${name}: Name it compares the chords`, readFb.includes('Your Bmaj9 is') && readFb.includes('Which note did you take as the root'), readFb)
+    await verify(page, `${name}: Name it at Level 5 after Submit`, `${slug}-read`, { piano: false })
+    // The same notes under another name count: E♭m/G♭ named as G♭6? Not in the pool;
+    // use Caug named Eaug below for the Result.
+    // Hear it at Level 5 after a Submit with three dice wrong.
+    await pickStart(page, 'hear')
+    await page.evaluate(() => { const v = [0, 36 / 132 + 0.0001]; Math.random = () => (v.length ? v.shift() : 0.5) })
+    await page.getByRole('button', { name: /^Roll/ }).click()
+    for (const [die, f] of [['Quality', 'major'], ['Colour', '9'], ['Bass', 'root']]) {
+      await page.getByLabel(die, { exact: true }).selectOption(f)
+    }
+    await page.getByRole('button', { name: 'Submit' }).click()
+    await verify(page, `${name}: Hear it at Level 5 after Submit`, `${slug}-hear`)
+    // Name it, Level 3: Caug named Eaug -> Result with "the same notes".
+    await pickLevel(page, 'L3')
+    await pickStart(page, 'read')
+    await page.evaluate(() => { const v = [0, 1 / 48 + 0.0001]; Math.random = () => (v.length ? v.shift() : 0.5) }) // Caug
+    await page.getByRole('button', { name: /^Roll/ }).click()
+    await page.getByLabel('Root', { exact: true }).selectOption('E')
+    await page.getByLabel('Quality', { exact: true }).selectOption('aug')
+    await page.getByRole('button', { name: 'Submit' }).click()
+    const same = await page.locator('.cd-result').innerText()
+    check(`${name}: Eaug for Caug counts, and says so`, same.includes('Caug') && same.includes('You named it Eaug: the same notes'), same)
+    await verify(page, `${name}: Name it Result, same notes`, `${slug}-read-result`)
+    await pickStart(page, 'name')
 
     check(`${name}: no page errors`, errors.length === 0, errors.join(' | '))
     await ctx.close()

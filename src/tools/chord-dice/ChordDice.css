@@ -409,6 +409,47 @@
 /* Phones pick the level from one compact list; tablets keep the buttons. */
 .cd-level-pick { display: none; }
 
+/* ---------- Hear it and Name it (PR 5) ---------- */
+
+.cd-start-pick { display: none; }
+.cd-answer { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
+.cd-answer:not(:has(.cd-read)) { grid-template-rows: auto auto; align-content: start; }
+.cd-answer__bottom { display: grid; gap: 8px; min-width: 0; }
+/* Wide stages: the choices and Submit share one row. */
+@container stage (min-width: 640px) {
+  .cd-answer__bottom { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+  .cd-answer__bottom .cd-reveal { margin-left: 0; }
+}
+.cd-read { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; }
+.cd-read__notes { font-size: clamp(16px, 2.2vw, 22px); font-weight: 700; }
+.cd-read__label { color: var(--text-muted); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.cd-read .cd-key:disabled { opacity: 1; }
+.cd-answer .cd-feedback__line { font-size: clamp(14px, 1.8vw, 18px); line-height: 1.25; }
+/* Short stages: the spelled notes carry the reading; the keyboard steps aside. */
+@container stage (max-height: 420px) {
+  .cd-read .cd-piano { display: none; }
+  .cd-answer { grid-template-rows: auto auto auto; align-content: start; }
+}
+@container stage (max-height: 300px) {
+  .cd-result__hint { display: none; }
+}
+.cd-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.cd-pick { display: grid; gap: 4px; min-width: 0; }
+.cd-pick__die { color: var(--text-muted); font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.cd-pick select {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 10px;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 16px; /* no iOS zoom on focus */
+  font-weight: 700;
+}
+.cd-pick select:focus { outline: 3px solid var(--teal); outline-offset: 1px; border-color: var(--teal); }
+
 /* ---------- Pro (Levels 4–5) ---------- */
 
 /* A locked Pro level carries a small gold marker; gold is ownership. */
@@ -497,6 +538,26 @@
   .cd-long { display: none; }
   .cd-short { display: inline; }
   .cd-head { gap: 8px; }
+  /* Four starts do not fit beside Roll and Play: one compact picker. */
+  .cd-starts { display: none !important; }
+  .cd-start-pick { display: block; flex: none; }
+  .cd-start-pick select {
+    min-height: 44px;
+    max-width: 118px;
+    padding: 0 8px;
+    color: var(--text);
+    background: var(--teal-tint);
+    border: 1.5px solid var(--teal);
+    border-radius: 12px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  /* One row, in the same order as the dice above. */
+  .cd-picks { grid-template-columns: repeat(var(--cd-picks, 2), minmax(0, 1fr)); gap: 4px; }
+  .cd-pick__die { font-size: 10px; }
+  .cd-pick select { padding: 0 2px 0 6px; }
+  .cd-read__notes { font-size: 15px; }
   /* Six levels do not fit beside the title: phones get one compact picker. */
   .cd-head__levels { display: none !important; }
   .cd-head__controls { flex: none; gap: 6px; }

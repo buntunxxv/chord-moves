@@ -428,6 +428,79 @@ try {
   check('Mix with Pro: the Bass button is there on a Level 1 triad', await p5.getByRole('button', { name: 'Mark the bass' }).count() === 1)
   check('no page errors at Level 5', p5.errors.length === 0, p5.errors.join(' | '))
   await l5.ctx.close()
+
+  // ---------- 9. Hear it and Name it ----------
+  const hn = await freshPage()
+  const ph = hn.page
+  await ph.getByRole('radio', { name: 'Level 1' }).click()
+  await ph.getByRole('radio', { name: 'Hear it' }).click()
+  // C major and C minor, with the same root showing: identical until Submit.
+  const heardViews = []
+  for (const values of [[0, 0], [0, 1 / 14 + 0.001]]) {
+    await forceRoll(ph, values)
+    await ph.locator('.cd-die--rolling').first().waitFor({ state: 'detached' })
+    heardViews.push(await exposed(ph))
+  }
+  check('Hear it: C major and C minor look identical before Submit', heardViews[0].html === heardViews[1].html && heardViews[0].aria === heardViews[1].aria)
+  check('Hear it: only the Root die shows', (await ph.locator('.cd-die__face').allTextContents()).join(' ') === 'C ?')
+  check('Hear it: the chord plays on Roll', (await sounds(ph)).filter(k => k === 'target').length >= 2)
+  // The second roll is C minor. Hear it as major first.
+  await ph.getByLabel('Quality', { exact: true }).selectOption('major')
+  await ph.getByRole('button', { name: 'Submit' }).click()
+  const hfb = await ph.locator('.cd-feedback').innerText()
+  check('Hear it: a wrong Quality says where to listen, not the answer',
+    hfb.includes('You heard a major chord. Listen to the middle note') && !/minor/.test(hfb), hfb)
+  await ph.locator('.cd-replay').click()
+  await ph.getByLabel('Quality', { exact: true }).selectOption('minor')
+  await ph.getByRole('button', { name: 'Submit' }).click()
+  const hres = await ph.locator('.cd-result').innerText()
+  check('Hear it: the right Quality opens Result', hres.includes('Cm') && hres.includes('Heard') && hres.includes('1 replay'), hres)
+  await keepWith(ph, 'The minor third gave it away')
+  check('Hear it: kept with its replays', (await ph.locator('.cd-kept__item').first().innerText()).includes('Heard · 1 replay'))
+
+  // Name it: A major is shown as A – C♯ – E, never A – D♭ – E.
+  await ph.getByRole('radio', { name: 'Name it' }).click()
+  await forceRoll(ph, [0, 10 / 14 + 0.001]) // A major
+  const notes = await ph.locator('.cd-read__notes').innerText()
+  check('Name it: the notes are spelled from the key (A – C♯ – E)', notes.includes('A – C♯ – E') && !notes.includes('D♭'), notes)
+  check('Name it: all dice hidden', (await ph.locator('.cd-die__face').allTextContents()).join(' ') === '? ?')
+  check('Name it: the keyboard shows the notes',
+    (await ph.locator('.cd-read .cd-key[aria-pressed="true"]').evaluateAll(ks => ks.map(k => k.dataset.chroma).sort())).join(',') === ['1', '4', '9'].sort().join(','))
+  await ph.getByLabel('Root', { exact: true }).selectOption('A')
+  await ph.getByLabel('Quality', { exact: true }).selectOption('minor')
+  await ph.getByRole('button', { name: 'Submit' }).click()
+  const nfb = await ph.locator('.cd-feedback').innerText()
+  check('Name it: a different chord is compared', nfb.includes('Your Am is A – C – E.') && nfb.includes('adds C and leaves out C♯'), nfb)
+  await ph.getByLabel('Quality', { exact: true }).selectOption('major')
+  await ph.getByRole('button', { name: 'Submit' }).click()
+  check('Name it: the right name opens Result', (await ph.locator('.cd-result').innerText()).includes('Named from its notes'))
+  // Same notes, another name: Caug named Eaug counts.
+  await ph.getByRole('radio', { name: 'Level 3' }).click()
+  await forceRoll(ph, [0, 1 / 48 + 0.0001]) // Caug
+  await ph.getByLabel('Root', { exact: true }).selectOption('E')
+  await ph.getByLabel('Quality', { exact: true }).selectOption('aug')
+  await ph.getByRole('button', { name: 'Submit' }).click()
+  const same = await ph.locator('.cd-result').innerText()
+  check('Name it: Eaug for Caug counts, and says so', same.includes('Caug') && same.includes('You named it Eaug: the same notes'), same)
+  check('no page errors in Hear it and Name it', ph.errors.length === 0, ph.errors.join(' | '))
+  await hn.ctx.close()
+
+  // Name it at Level 5: a slash chord needs its bass.
+  const n5 = await freshPage()
+  await n5.page.evaluate(() => { localStorage.setItem('kyndaTools.pro', 'pro'); localStorage.setItem('kyndaTools.proEmail', 'a@b.co') })
+  await n5.page.reload({ waitUntil: 'networkidle' })
+  await n5.page.getByRole('radio', { name: 'Level 5 (bass and ninths)', exact: true }).click()
+  await n5.page.getByRole('radio', { name: 'Name it' }).click()
+  await forceRoll(n5.page, [0, 0.0001]) // C/E
+  check('Name it: a slash chord shows its bass', /bass E/i.test(await n5.page.locator('.cd-read__notes').innerText()))
+  for (const [die, f] of [['Root', 'C'], ['Quality', 'major'], ['Colour', 'none'], ['Bass', 'root']]) await n5.page.getByLabel(die, { exact: true }).selectOption(f)
+  await n5.page.getByRole('button', { name: 'Submit' }).click()
+  check('Name it: C is not C/E', (await n5.page.locator('.cd-feedback').innerText()).includes('Its lowest note is C; the lowest note shown is E.'))
+  await n5.page.getByLabel('Bass', { exact: true }).selectOption('3')
+  await n5.page.getByRole('button', { name: 'Submit' }).click()
+  check('Name it: C/E with the 3rd in the bass', (await n5.page.locator('.cd-result').innerText()).includes('C/E'))
+  check('no page errors in Name it at Level 5', n5.page.errors.length === 0, n5.page.errors.join(' | '))
+  await n5.ctx.close()
 } finally {
   await browser.close()
   server.kill()
