@@ -31,7 +31,36 @@ const VIEWPORTS = [
   ['iPad mini landscape', 1133, 670],
   ['iPhone portrait (Safari)', 390, 664],
   ['iPhone 13 mini portrait (Safari)', 375, 616],
+  // iPadOS 15 is the last on an iPad Air 2; its Safari has no container
+  // queries, so these sizes run with them stripped out (see oldSafari).
+  ['iPad Air 2 landscape (Safari 15)', 1024, 687, true],
+  ['iPad Air 2 portrait (Safari 15)', 768, 954, true],
 ]
+
+// Safari 15 drops @container rules, cq units and @supports (container-type)
+// blocks. Chromium has them all, so remove them from the live stylesheets.
+// Idempotent: run before every measurement, after lazy CSS has loaded.
+function stripContainerQueries() {
+  const strip = list => {
+    for (let i = list.cssRules.length - 1; i >= 0; i--) {
+      const r = list.cssRules[i]
+      if (r instanceof CSSContainerRule || (r instanceof CSSSupportsRule && /container/.test(r.conditionText) && !/^\s*not\b/.test(r.conditionText))) { list.deleteRule(i); continue }
+      if (r.style) {
+        for (const p of ['container', 'container-type', 'container-name']) r.style.removeProperty(p)
+        for (const p of [...r.style]) if (/\dcq(w|h|i|b|min|max)\b/.test(r.style.getPropertyValue(p))) r.style.removeProperty(p)
+      }
+      if (r instanceof CSSSupportsRule && /^\s*not\b/.test(r.conditionText) && /container/.test(r.conditionText)) {
+        // Safari 15 applies these; Chromium does not. Lift the rules out.
+        const parent = list
+        for (const inner of [...r.cssRules]) parent.insertRule(inner.cssText, parent.cssRules.length)
+        list.deleteRule(i)
+        continue
+      }
+      if (r.cssRules) strip(r)
+    }
+  }
+  for (const sheet of document.styleSheets) { try { strip(sheet) } catch { /* cross-origin fonts */ } }
+}
 
 const LONG = 'The minor third sits so close to the root that the whole chord sounds like it is leaning back and'
 const KEPT = Array.from({ length: 9 }, (_, i) => ({
@@ -115,6 +144,7 @@ async function measure(page) {
 }
 
 async function verify(page, label, slug, { piano = false } = {}) {
+  if (page.oldSafari) await page.evaluate(stripContainerQueries)
   await page.evaluate(() => document.fonts.ready)
   const m = await measure(page)
   const problems = []
@@ -183,7 +213,7 @@ try {
     if (i > 50) throw new Error('vite preview did not start -- run npm run build first')
     await new Promise(r => setTimeout(r, 200))
   }
-  for (const [name, width, height] of VIEWPORTS) {
+  for (const [name, width, height, oldSafari = false] of VIEWPORTS) {
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
     const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, reducedMotion: 'reduce' })
     await ctx.addInitScript(({ kept }) => {
@@ -194,6 +224,7 @@ try {
       localStorage.setItem('kyndaTools.chordDice.start', 'name')
     }, { kept: KEPT })
     const page = await ctx.newPage()
+    page.oldSafari = oldSafari
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
     await page.goto(`${BASE}/chord-dice`, { waitUntil: 'networkidle' })

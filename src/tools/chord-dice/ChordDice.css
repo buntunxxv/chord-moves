@@ -25,8 +25,14 @@
   min-height: 0;
   width: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 0.7fr) auto minmax(0, 1.5fr);
+  /* Without container queries the tray is sized from the die (below);
+     with them, the tray takes a share and the die fills it. */
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: clamp(8px, 1.5vh, 16px);
+  /* Die size where container queries are missing (Safari 15, the last
+     iPadOS on an iPad Air 2): the tray gets about a third of what the
+     header, controls and shell leave. Newer browsers size from the tray. */
+  --cd-die: min(170px, max(56px, calc((100vh - 320px) * 0.28)));
 }
 
 [data-theme="dark"] .chord-dice {
@@ -113,7 +119,7 @@
 .cd-die {
   /* As big as the column allows, never taller than the tray (the label
      under it needs about 24px). */
-  width: min(100%, calc(100cqh - 26px), 170px);
+  width: min(100%, var(--cd-die));
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -128,20 +134,27 @@
 }
 
 .cd-die__face {
-  font-size: clamp(14px, 30cqw, 56px);
+  font-size: clamp(14px, calc(var(--cd-die) * 0.3), 56px);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
   white-space: nowrap;
 }
 /* Words are longer than a root: "major", "minor", "none". */
-.cd-slot:not(:first-child) .cd-die__face { font-size: clamp(12px, 21cqw, 34px); font-weight: 600; }
+.cd-slot:not(:first-child) .cd-die__face { font-size: clamp(12px, calc(var(--cd-die) * 0.21), 34px); font-weight: 600; }
 .cd-die--button { padding: 0; border: 0; font: inherit; cursor: pointer; }
 .cd-die--button:hover { box-shadow: inset 0 0 0 1px var(--die-edge), 0 0 0 3px var(--teal-tint), 0 2px 6px rgba(0, 0, 0, 0.14); }
 .cd-die--button:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
 .cd-die--button:active { transform: scale(0.97); }
 .cd-die--none .cd-die__face { color: #8A8A8A; font-style: italic; font-weight: 500; }
-.cd-die--hidden .cd-die__face { color: var(--teal); font-size: clamp(18px, 40cqw, 64px) !important; }
+.cd-die--hidden .cd-die__face { color: var(--teal); font-size: clamp(18px, calc(var(--cd-die) * 0.4), 64px) !important; }
+@supports (container-type: size) {
+  .chord-dice { grid-template-rows: auto minmax(0, 0.7fr) auto minmax(0, 1.5fr); }
+  .cd-die { width: min(100%, calc(100cqh - 26px), 170px); }
+  .cd-die__face { font-size: clamp(14px, 30cqw, 56px); }
+  .cd-slot:not(:first-child) .cd-die__face { font-size: clamp(12px, 21cqw, 34px); }
+  .cd-die--hidden .cd-die__face { font-size: clamp(18px, 40cqw, 64px) !important; }
+}
 
 .cd-slot__label {
   color: var(--text-muted);
@@ -298,8 +311,8 @@
 /* Result: the name, the notes, how you got there, then the reflection. */
 .cd-result { display: grid; grid-template-rows: auto auto auto auto auto; align-content: start; gap: 10px; }
 .cd-result__answer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
-.cd-result__name { font-size: clamp(30px, min(16cqh, 12cqw), 60px); font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
-.cd-result__notes { font-size: clamp(18px, 8cqh, 26px); font-weight: 600; color: var(--text-muted); }
+.cd-result__name { font-size: clamp(30px, min(6vh, 5vw), 60px); font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.cd-result__notes { font-size: clamp(18px, 3vh, 26px); font-weight: 600; color: var(--text-muted); }
 .cd-result__meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .cd-result__meta span {
   padding: 4px 10px;
@@ -318,11 +331,16 @@
 .cd-result__reflection {
   font-family: var(--font-script);
   font-style: italic;
-  font-size: clamp(16px, min(7cqh, 5.4cqw), 26px);
+  font-size: clamp(16px, min(2.6vh, 2.2vw), 26px);
   line-height: 1.24;
   text-wrap: pretty;
 }
 .cd-result__hint { color: var(--text-muted); font-size: 13px; font-weight: 600; }
+@supports (container-type: size) {
+  .cd-result__name { font-size: clamp(30px, min(16cqh, 12cqw), 60px); }
+  .cd-result__notes { font-size: clamp(18px, 8cqh, 26px); }
+  .cd-result__reflection { font-size: clamp(16px, min(7cqh, 5.4cqw), 26px); }
+}
 .cd-result__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* Keep: the reason (required), then the kept chords, paged. */
@@ -432,6 +450,18 @@
 }
 @container stage (max-height: 360px) {
   .cd-result__hint { display: none; }
+}
+/* Safari 15 has no container queries: short screens take the same steps. */
+@supports not (container-type: size) {
+  @media (min-width: 701px) {
+    .cd-answer__bottom { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+    .cd-answer__bottom .cd-reveal { margin-left: 0; }
+  }
+  @media (max-height: 760px) {
+    .cd-read .cd-piano { display: none; }
+    .cd-answer { grid-template-rows: auto auto auto; align-content: start; }
+    .cd-result__hint { display: none; }
+  }
 }
 .cd-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
 .cd-pick { display: grid; gap: 4px; min-width: 0; }
@@ -578,6 +608,7 @@
   .cd-head__title { font-size: 1.2rem; }
   .cd-head__levels button { padding: 0 12px; }
   .cd-tray { container-type: inline-size; height: auto; padding: 6px 8px; gap: 6px; }
+  .chord-dice { --cd-die: 76px; }
   .cd-die { width: min(100%, 76px); }
   .cd-slot { gap: 2px; }
   .cd-slot__label { font-size: 10px; }
@@ -604,6 +635,7 @@
 @media (max-width: 700px) and (max-height: 680px) {
   .tool-shell__main:has(.chord-dice) { padding-block: 8px; }
   .chord-dice { gap: 4px; }
+  .chord-dice { --cd-die: 64px; }
   .cd-die { width: min(100%, 64px); }
 }
 
