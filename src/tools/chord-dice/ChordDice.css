@@ -17,7 +17,7 @@
   --cd-key-white: #FFFFFF;
   --cd-key-black: #1A1A1A;
   --cd-key-edge: #CFCFCF;
-  font-family: 'Inter', var(--font);
+  font-family: var(--font);
   /* One screen, no scrolling: header, tray, controls and stage share the
      shell's fixed height; the tray and the stage take what is left. */
   position: relative;
@@ -447,7 +447,7 @@
   --cd-gold-ink: #1A1A1A;
   display: grid;
   gap: 14px;
-  font-family: 'Inter', var(--font);
+  font-family: var(--font);
   font-size: 15px;
   line-height: 1.45;
 }

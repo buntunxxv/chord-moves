@@ -723,3 +723,20 @@ test('sevenths and ninths kept before 26 Nov read as the chord they were', () =>
   assert.deepEqual(old.map(k => resolveChord(k).name), ['C7', 'Cmaj7', 'C9', 'Cmaj9', 'Cm7', 'Cmaj7'])
   assert.deepEqual(old.map(k => `${k.quality}/${k.colour}`), ['dom/7', 'major/7', 'dom/9', 'major/9', 'minor/7', 'major/7'])
 })
+
+// Founder decision (26 Nov): notes are named from the chord's key and scale.
+// A major is A–C♯–E, never A–D♭–E; every chord on every level is spelled by
+// letter from its root (each chord tone on its own letter).
+test('every chord is spelled from its root, letter by letter', () => {
+  assert.deepEqual(resolveChord({ root: 'A', quality: 'major' }).notes, ['A', 'C#', 'E'])
+  const letters = 'CDEFGAB'
+  const step = { root: 0, third: 2, fifth: 4, second: 1, fourth: 3, seventh: 6, ninth: 1 }
+  for (const o of [...ALL, ...L3, ...L4, ...L5]) {
+    const c = resolveChord(o)
+    const r = letters.indexOf(c.root[0])
+    c.roles.forEach((role, i) => {
+      const kind = Object.keys(step).find(k => role.name.endsWith(k))
+      assert.equal(c.notes[i][0], letters[(r + step[kind]) % 7], `${c.symbol}: the ${role.name} is ${c.notes[i]}`)
+    })
+  }
+})
