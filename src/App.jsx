@@ -27,13 +27,14 @@ import OverlayPage from './components/OverlayPage'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
 import { DEMO_PATH, LIBRARY_PATH, UPGRADE_PATH } from './app/sites'
 import { clearProLogin } from './app/proLogin'
+import { PRO_NAME } from './app/brand'
 import { useDismissOnOutsidePress } from './hooks/useDismiss'
 import { safeStorage } from './utils/safeStorage'
 import './App.css'
 
 const PROGRESSION_LIMIT = 4
 const PROGRESSION_STORAGE_KEY = 'chordMovesProgression'
-const PROGRESSION_TEASER = 'Longer progressions are coming in Chord Moves Pro.'
+const PROGRESSION_TEASER = `Longer progressions are coming in ${PRO_NAME}.`
 // How long the one-step "Undo" after a template load stays available before
 // it silently expires -- it also clears sooner, immediately, on any other
 // progression-mutating action (see clearLoadUndo's call sites below).

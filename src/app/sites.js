@@ -1,7 +1,8 @@
 // One site (decided 26 Nov 2026, superseding the 31 Oct two-domain split):
 //
 //   tools.kyndalearning.co.uk/              the Kynda tools directory
-//   tools.kyndalearning.co.uk/chordmoves    Chord Moves (+ /upgrade, /demo)
+//   tools.kyndalearning.co.uk/chordmoves    Chord Moves (+ /chordmoves/demo)
+//   tools.kyndalearning.co.uk/upgrade       Kynda Tools Pro, for every tool
 //   tools.kyndalearning.co.uk/<tool>        metronome, ear trainer, dice...
 //
 // Why one origin: a browser keeps saved work and the Pro login per origin.
@@ -16,7 +17,7 @@
 export const TOOLS_ORIGIN = 'https://tools.kyndalearning.co.uk'
 
 export const CHORD_MOVES_PATH = '/chordmoves'
-export const UPGRADE_PATH = '/chordmoves/upgrade'
+export const UPGRADE_PATH = '/upgrade'
 export const DEMO_PATH = '/chordmoves/demo'
 export const LIBRARY_PATH = '/'
 
@@ -28,7 +29,7 @@ export const LEGACY_CHORD_MOVES_HOSTS = ['www.chordmoves.co.uk', 'chordmoves.co.
 // library tools) keeps its path.
 const LEGACY_PATHS = {
   '/': CHORD_MOVES_PATH,
-  '/upgrade': UPGRADE_PATH,
+  '/chordmoves/upgrade': UPGRADE_PATH,
   '/demo': DEMO_PATH,
   '/tools': LIBRARY_PATH,
 }

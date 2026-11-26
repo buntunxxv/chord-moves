@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { UPGRADE_PATH } from '../app/sites'
+import { PRO_NAME } from '../app/brand'
 import * as Tone from 'tone'
 import { LABEL_COLORS, LABEL_COLORS_DARK, LABEL_EXPLANATIONS } from '../chordData'
 import { createKeysSynth, startAudioContext } from '../audio/synth'
@@ -100,7 +101,7 @@ export default function NextChordSuggestions({ suggestions, currentNotes, bpm, p
       </div>
 
       {hasMoreForPro && (
-        <p className="next-chords__pro-teaser">2 more directions available in Chord Moves Pro.</p>
+        <p className="next-chords__pro-teaser">2 more directions available with {PRO_NAME}.</p>
       )}
 
       {selected && (() => {

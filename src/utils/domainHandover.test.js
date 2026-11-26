@@ -51,7 +51,7 @@ test('collects only the app\'s own keys', () => {
 test('round-trips state, including non-ASCII chord names, and maps the old path', () => {
   const state = { chordMovesSavedProgressions: SAVED, cm_pro_email: 'a@b.co' }
   const url = buildHandoverUrl({ pathname: '/upgrade', search: '?x=1' }, state, { prefer: true })
-  assert.ok(url.startsWith(`${CANONICAL_ORIGIN}/chordmoves/upgrade?x=1#cm-handover=`))
+  assert.ok(url.startsWith(`${CANONICAL_ORIGIN}/upgrade?x=1#cm-handover=`))
   assert.deepEqual(readHandover(new URL(url).hash), { prefer: true, state })
 })
 
@@ -102,7 +102,7 @@ test('a later visit to the old host only fills gaps', () => {
 })
 
 test('every old-host path moves, tools paths keep their path', () => {
-  for (const [from, to] of [['/', '/chordmoves'], ['/upgrade', '/chordmoves/upgrade'], ['/demo', '/chordmoves/demo'], ['/tools', '/'], ['/metronome', '/metronome']]) {
+  for (const [from, to] of [['/', '/chordmoves'], ['/upgrade', '/upgrade'], ['/demo', '/chordmoves/demo'], ['/tools', '/'], ['/metronome', '/metronome']]) {
     const s = memoryStorage()
     const win = fakeWindow(`https://www.chordmoves.co.uk${from}`, s)
     assert.equal(runDomainHandover(win, s), true, from)
@@ -114,7 +114,7 @@ test('old host with blocked storage still moves, without data', () => {
   const win = fakeWindow('https://www.chordmoves.co.uk/upgrade', null)
   Object.defineProperty(win, 'localStorage', { get() { throw new Error('SecurityError') } })
   assert.equal(runDomainHandover(win, memoryStorage()), true)
-  assert.equal(win.calls.replace, `${CANONICAL_ORIGIN}/chordmoves/upgrade`)
+  assert.equal(win.calls.replace, `${CANONICAL_ORIGIN}/upgrade`)
 })
 
 test('new host without a handover does nothing', () => {

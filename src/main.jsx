@@ -74,7 +74,7 @@ else if (!leaving) ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/rhythm-dice" element={<RhythmDice />} />
           <Route path="/chord-dice" element={<ChordDice />} />
           <Route path="/tools" element={<MovedTo to="/" />} />
-          <Route path="/upgrade" element={<MovedTo to={UPGRADE_PATH} />} />
+          <Route path="/chordmoves/upgrade" element={<MovedTo to={UPGRADE_PATH} />} />
           <Route path="/demo" element={<MovedTo to={DEMO_PATH} />} />
         </Routes>
       </Suspense>

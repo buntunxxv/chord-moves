@@ -2,6 +2,7 @@ import { useState } from 'react'
 import BottomSheet from '../components/BottomSheet'
 import { logEvent } from '../analytics/events'
 import { UPGRADE_PATH } from './sites'
+import { PRO_NAME } from './brand'
 import { requestCode, verifyCode } from './toolsPro'
 import { safeStorage } from '../utils/safeStorage'
 
@@ -73,12 +74,12 @@ export default function ToolsProSheet({
   }
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} eyebrow={`${toolName} Pro`}
+    <BottomSheet isOpen={isOpen} onClose={onClose} eyebrow={PRO_NAME}
       title={isPro && step !== 'done' ? 'Pro is on for this device' : step === 'done' ? 'Pro is on' : lockedTitle}>
       <div className={c('pro')}>
         {isPro && step !== 'done' ? (
           <>
-            <p>Unlocked with <strong>{pro.email}</strong>. It is checked each time you open the tools, so it stays while that email has Chord Moves Pro or current lessons with Kynda.</p>
+            <p>Unlocked with <strong>{pro.email}</strong>. It is checked each time you open the tools, so it stays while that email has {PRO_NAME} or current lessons with Kynda. It covers every Kynda tool.</p>
             <button type="button" className={`${c('btn')} ${c('btn--ghost')} ${c('pro__remove')}`} onClick={onRemove}>Remove Pro from this device</button>
           </>
         ) : step === 'done' ? (
@@ -88,16 +89,16 @@ export default function ToolsProSheet({
           </>
         ) : step === 'notPro' ? (
           <>
-            <p><strong>{email.trim().toLowerCase()}</strong> doesn't have Pro yet. Check it's the email you bought Chord Moves Pro with, or the one your lessons are booked under (for under-18s that's usually a parent's).</p>
+            <p><strong>{email.trim().toLowerCase()}</strong> doesn't have Pro yet. Check it's the email you bought {PRO_NAME} with, or the one your lessons are booked under (for under-18s that's usually a parent's).</p>
             <div className={c('pro__row')}>
               <button type="button" className={`${c('btn')} ${c('btn--quiet')}`} onClick={() => { setStep('email'); setCode('') }}>Try another email</button>
-              <a className={`${c('btn')} ${c('btn--keep')}`} href={UPGRADE_PATH} target="_blank" rel="noopener noreferrer">Get Chord Moves Pro</a>
+              <a className={`${c('btn')} ${c('btn--keep')}`} href={UPGRADE_PATH} target="_blank" rel="noopener noreferrer">Get {PRO_NAME}</a>
             </div>
           </>
         ) : (
           <>
             {reason && <p className={c('pro__reason')}>{reason}</p>}
-            <p>You already have Pro if you bought <strong>Chord Moves Pro</strong> or you're having <strong>lessons with Kynda</strong>. We'll email you a 6-digit code. The email says Chord Moves: it's the same Pro.</p>
+            <p>You already have Pro if you bought <strong>{PRO_NAME}</strong> (including Chord Moves Pro, its old name) or you're having <strong>lessons with Kynda</strong>. One unlock covers every Kynda tool. We'll email you a 6-digit code.</p>
             {step === 'email' ? (
               <form className={c('pro__row')} onSubmit={submitEmail}>
                 <label htmlFor={c('pro-email')} className={c('visually-hidden')}>Email</label>
@@ -117,7 +118,7 @@ export default function ToolsProSheet({
               <p className={c('pro__hint')}>Sent to {email.trim().toLowerCase()}. It lasts 10 minutes. <button type="button" className={c('link')} onClick={() => setStep('email')}>Change email</button></p>
             )}
             {error && <p className={c('pro__error')} role="alert">{error}</p>}
-            <p className={c('pro__hint')}>No Pro yet? <a className={c('link')} href={UPGRADE_PATH} target="_blank" rel="noopener noreferrer">Get Chord Moves Pro</a></p>
+            <p className={c('pro__hint')}>No Pro yet? <a className={c('link')} href={UPGRADE_PATH} target="_blank" rel="noopener noreferrer">Get {PRO_NAME}</a></p>
           </>
         )}
       </div>

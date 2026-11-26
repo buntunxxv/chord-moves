@@ -7,6 +7,7 @@ import Results from './Results'
 import { DEFAULT_VOLUME, createRhythmAudio } from './audioEngine'
 import BottomSheet from '../../components/BottomSheet'
 import { readToolsPro, recheck, signOut } from '../../app/toolsPro'
+import { PRO_NAME } from '../../app/brand'
 import ToolsProSheet from '../../app/ToolsProSheet'
 import { safeStorage } from '../../utils/safeStorage'
 import { AVAILABLE_LEVEL_IDS, LEVELS, PRO_LEVEL_IDS, needsPro } from './faces'
@@ -163,7 +164,7 @@ export default function RhythmDice() {
         setLocked(unlockedAll(4))
         return '4/4'
       })
-      setNotice('Pro is no longer on this device: that email no longer has Chord Moves Pro or current lessons.')
+      setNotice(`Pro is no longer on this device: that email no longer has ${PRO_NAME} or current lessons.`)
       logEvent('tools_pro_removed_on_recheck')
     })
     return () => { live = false }

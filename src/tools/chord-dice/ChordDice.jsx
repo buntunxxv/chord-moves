@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import ToolShell from '../../app/ToolShell'
 import ToolsProSheet from '../../app/ToolsProSheet'
 import { readToolsPro, recheck, signOut } from '../../app/toolsPro'
+import { PRO_NAME } from '../../app/brand'
 import { logEvent } from '../../analytics/events'
 import { safeStorage } from '../../utils/safeStorage'
 import { BASSES, COLOURS, DIE_NAMES, LEVEL_CHOICES, facesFor, LEVEL_KEYS, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, needsPro, resolveChord, rollChord } from './faces'
@@ -313,7 +314,7 @@ export default function ChordDice() {
       if (!live || outcome !== 'removed') return
       setPro(readToolsPro(safeStorage))
       dropProWork()
-      setNotice('Pro is no longer on this device: that email no longer has Chord Moves Pro or current lessons.')
+      setNotice(`Pro is no longer on this device: that email no longer has ${PRO_NAME} or current lessons.`)
       logEvent('tools_pro_removed_on_recheck')
     })
     return () => { live = false }
