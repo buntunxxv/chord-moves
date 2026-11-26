@@ -126,10 +126,10 @@ test('new host without a handover does nothing', () => {
 })
 
 test('link previews and canonical point at the canonical domain', async () => {
-  const { readFileSync } = await import('node:fs')
-  const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
-  const urls = [...html.matchAll(/(?:content|href)="(https:\/\/[^"]+)"/g)].map(m => m[1])
-    .filter(u => !u.startsWith('https://fonts.'))
-  assert.ok(urls.length >= 4)
-  for (const u of urls) assert.ok(u.startsWith(CANONICAL_ORIGIN + '/'), `${u} is not on ${CANONICAL_ORIGIN}`)
+  const { renderMetaTags } = await import('../app/siteMeta.js')
+  for (const key of ['tools', 'chordmoves']) {
+    const urls = [...renderMetaTags(key).matchAll(/(?:content|href)="(https:\/\/[^"]+)"/g)].map(m => m[1])
+    assert.ok(urls.length >= 4, key)
+    for (const u of urls) assert.ok(u.startsWith(CANONICAL_ORIGIN + '/'), `${u} is not on ${CANONICAL_ORIGIN}`)
+  }
 })

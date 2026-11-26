@@ -1,9 +1,9 @@
 {
   "id": "/",
-  "name": "Chord Moves — Kynda Learning",
-  "short_name": "Chord Moves",
-  "description": "Build, identify and explore chord progressions on piano and guitar.",
-  "start_url": "/chordmoves",
+  "name": "Kynda Learning Tools",
+  "short_name": "Kynda Tools",
+  "description": "Small, browser-based tools for making more sense of music, from Kynda Learning.",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",
