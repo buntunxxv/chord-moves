@@ -2,7 +2,7 @@
 // once from their real storage), the first-run tour already seen, and nothing
 // else -- no progression, no Pro, no saved work.
 export const DEMO_FRAME_PARAM = 'demo-frame'
-export const DEMO_FRAME_SRC = `/?${DEMO_FRAME_PARAM}`
+export const DEMO_FRAME_SRC = `/chordmoves?${DEMO_FRAME_PARAM}`
 
 const THEME_KEY = 'chordMovesThemePreference'
 

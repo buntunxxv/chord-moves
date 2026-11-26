@@ -1,32 +1,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { CHORD_MOVES_ORIGIN, TOOLS_ORIGIN, resolveLink, siteForHost } from './sites.js'
+import { CHORD_MOVES_PATH, DEMO_PATH, UPGRADE_PATH, currentPathFor } from './sites.js'
 
-test('hosts map to sites; anything else serves everything', () => {
-  assert.equal(siteForHost('www.chordmoves.co.uk'), 'chordmoves')
-  assert.equal(siteForHost('chordmoves.uk'), 'chordmoves')
-  assert.equal(siteForHost('tools.kyndalearning.co.uk'), 'tools')
-  assert.equal(siteForHost('localhost'), 'all')
-  assert.equal(siteForHost('chord-moves-git-x-kyndaltd.vercel.app'), 'all')
+test('old Chord Moves paths move under /chordmoves', () => {
+  assert.equal(currentPathFor('/'), CHORD_MOVES_PATH)
+  assert.equal(currentPathFor('/upgrade'), UPGRADE_PATH)
+  assert.equal(currentPathFor('/upgrade/'), UPGRADE_PATH)
+  assert.equal(currentPathFor('/demo'), DEMO_PATH)
 })
 
-test('on the library, its own tools are internal and the directory is the root', () => {
-  assert.deepEqual(resolveLink('/tools', 'tools'), { internal: '/' })
-  assert.deepEqual(resolveLink('/metronome', 'tools'), { internal: '/metronome' })
-  assert.deepEqual(resolveLink('/rhythm-dice', 'tools'), { internal: '/rhythm-dice' })
-  assert.deepEqual(resolveLink('/chord-dice', 'tools'), { internal: '/chord-dice' })
-  assert.deepEqual(resolveLink('/', 'tools'), { external: `${CHORD_MOVES_ORIGIN}/`, site: 'chordmoves' })
+test('the old /tools directory is now the root', () => {
+  assert.equal(currentPathFor('/tools'), '/')
 })
 
-test('on Chord Moves, library links leave for the tools domain', () => {
-  assert.deepEqual(resolveLink('/', 'chordmoves'), { internal: '/' })
-  assert.deepEqual(resolveLink('/upgrade', 'chordmoves'), { internal: '/upgrade' })
-  assert.deepEqual(resolveLink('/tools', 'chordmoves'), { external: `${TOOLS_ORIGIN}/`, site: 'tools' })
-  assert.deepEqual(resolveLink('/ear-trainer', 'chordmoves'), { external: `${TOOLS_ORIGIN}/ear-trainer`, site: 'tools' })
-  assert.deepEqual(resolveLink('/rhythm-dice', 'chordmoves'), { external: `${TOOLS_ORIGIN}/rhythm-dice`, site: 'tools' })
-  assert.deepEqual(resolveLink('/chord-dice', 'chordmoves'), { external: `${TOOLS_ORIGIN}/chord-dice`, site: 'tools' })
-})
-
-test('previews and localhost keep every link internal', () => {
-  for (const p of ['/', '/tools', '/metronome', '/upgrade']) assert.deepEqual(resolveLink(p, 'all'), { internal: p })
+test('library tools and new paths keep their path', () => {
+  for (const p of ['/metronome', '/chord-dice', '/chordmoves', '/chordmoves/upgrade']) assert.equal(currentPathFor(p), p)
 })

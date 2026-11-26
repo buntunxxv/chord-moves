@@ -48,7 +48,7 @@ try {
     const page = await ctx.newPage()
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
-    await page.goto(`${preview.base}/demo`, { waitUntil: 'networkidle' })
+    await page.goto(`${preview.base}/chordmoves/demo`, { waitUntil: 'networkidle' })
 
     await page.getByRole('button', { name: 'Play the demo' }).click()
     let s = await status(page, ['ended', 'error'], 90000)

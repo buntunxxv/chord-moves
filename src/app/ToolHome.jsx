@@ -1,4 +1,4 @@
-import SiteLink from './SiteLink'
+import { Link } from 'react-router-dom'
 import ToolShell from './ToolShell'
 import { TOOLS } from './tools'
 import './ToolHome.css'
@@ -26,9 +26,9 @@ export default function ToolHome() {
           )
 
           return tool.path ? (
-            <SiteLink key={tool.name} to={tool.path} className="tool-home__card">
+            <Link key={tool.name} to={tool.path} className="tool-home__card">
               {content}
-            </SiteLink>
+            </Link>
           ) : (
             <article key={tool.name} className="tool-home__card tool-home__card--planned">
               {content}

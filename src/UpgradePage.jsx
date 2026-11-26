@@ -5,6 +5,8 @@ import { useTheme } from './hooks/useTheme'
 import ThemeToggle from './components/ThemeToggle'
 import './UpgradePage.css'
 import { safeStorage } from './utils/safeStorage'
+import { CHORD_MOVES_PATH } from './app/sites'
+import { clearProLogin, setProLogin } from './app/proLogin'
 
 // The Stripe payment link for Founder Access (GBP 9, one-time). It is the
 // same link api/stripe-webhook.js gates on: only checkout sessions whose
@@ -71,10 +73,10 @@ export default function UpgradePage() {
       })
       const data = await res.json()
       if (res.ok && data.isPro) {
-        safeStorage.setItem('cm_tier', 'pro')
-        // Lets App.jsx re-check this email on later visits, so access granted
-        // for lessons ends on this device once the lessons do.
-        safeStorage.setItem('cm_pro_email', unlockEmail.trim().toLowerCase())
+        // One login for every Kynda tool (src/app/proLogin.js). The email
+        // lets App.jsx re-check it on later visits, so access granted for
+        // lessons ends on this device once the lessons do.
+        setProLogin(safeStorage, unlockEmail.trim().toLowerCase())
         setUnlockStep('success')
         setUnlockStatus('idle')
         logEvent('pro_unlock_success')
@@ -102,8 +104,7 @@ export default function UpgradePage() {
   }
 
   function handleLogOut() {
-    safeStorage.removeItem('cm_tier')
-    safeStorage.removeItem('cm_pro_email')
+    clearProLogin(safeStorage)
     setIsPro(false)
     // A fresh unlock in this same visit leaves unlockStep on 'success';
     // without this reset the page would keep showing "Pro unlocked" after
@@ -217,7 +218,7 @@ export default function UpgradePage() {
           </p>
           {unlockStep === 'success' ? (
             <div className="upgrade-page__unlock-success" role="status">
-              Pro unlocked — welcome aboard. <Link to="/">Go back to the app →</Link>
+              Pro unlocked — welcome aboard. <Link to={CHORD_MOVES_PATH}>Go back to the app →</Link>
             </div>
           ) : isPro ? (
             <>
@@ -301,7 +302,7 @@ export default function UpgradePage() {
           )}
         </div>
 
-        <Link to="/" className="upgrade-page__back">← Back to Chord Moves</Link>
+        <Link to={CHORD_MOVES_PATH} className="upgrade-page__back">← Back to Chord Moves</Link>
       </main>
     </div>
   )

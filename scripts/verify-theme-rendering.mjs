@@ -19,7 +19,7 @@ import pixelmatch from 'pixelmatch'
 
 const PORT = 4179
 const BASE = `http://localhost:${PORT}`
-const ROUTES = ['/', '/tools', '/metronome', '/ear-trainer', '/chord-scales', '/rhythm-dice', '/chord-dice', '/upgrade']
+const ROUTES = ['/', '/chordmoves', '/metronome', '/ear-trainer', '/chord-scales', '/rhythm-dice', '/chord-dice', '/chordmoves/upgrade']
 // [label, in-app preference or null for "system"]. Forced dark always runs
 // with the phone in dark mode: that is the only way real browsers apply it
 // (Android WebView, Chrome and Samsung Internet darken pages only in dark

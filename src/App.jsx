@@ -25,7 +25,8 @@ import ThemeToggle from './components/ThemeToggle'
 import LearnPath from './components/LearnPath'
 import OverlayPage from './components/OverlayPage'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
-import SiteLink from './app/SiteLink'
+import { DEMO_PATH, LIBRARY_PATH, UPGRADE_PATH } from './app/sites'
+import { clearProLogin } from './app/proLogin'
 import { useDismissOnOutsidePress } from './hooks/useDismiss'
 import { safeStorage } from './utils/safeStorage'
 import './App.css'
@@ -237,8 +238,7 @@ export default function App({ demo = false }) {
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (data && data.isPro === false) {
-          safeStorage.removeItem('cm_tier')
-          safeStorage.removeItem('cm_pro_email')
+          clearProLogin(safeStorage)
           setIsPro(false)
         }
       })
@@ -799,7 +799,7 @@ export default function App({ demo = false }) {
               <img src={resolvedTheme === 'dark' ? '/kynda-logo-white.png' : '/kynda-logo-full.png'} alt="Kynda Learning" />
             </a>
             <span className="app__header-divider" aria-hidden="true" />
-            <SiteLink to="/tools" className="app__suite-link">Tools</SiteLink>
+            <Link to={LIBRARY_PATH} className="app__suite-link">Tools</Link>
           </div>
           <div className="app__header-tool">
             <button
@@ -896,11 +896,11 @@ export default function App({ demo = false }) {
                     page reachable only by typing the URL. */}
                 {isPro
                   ? (
-                    <Link to="/upgrade" className="app__pro-badge">
+                    <Link to={UPGRADE_PATH} className="app__pro-badge">
                       Pro<span className="sr-only"> — unlocked on this device, manage</span>
                     </Link>
                   )
-                  : <Link to="/upgrade" className="app__upgrade-link">Upgrade <span>to Pro</span></Link>}
+                  : <Link to={UPGRADE_PATH} className="app__upgrade-link">Upgrade <span>to Pro</span></Link>}
               </div>
             </section>
 
@@ -1103,7 +1103,7 @@ export default function App({ demo = false }) {
               Start building
             </button>
             {!demo && (
-              <Link to="/demo" className="app__intro-watch">
+              <Link to={DEMO_PATH} className="app__intro-watch">
                 ▶ Watch it in action · 30s
               </Link>
             )}

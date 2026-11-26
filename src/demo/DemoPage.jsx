@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { CHORD_MOVES_PATH } from '../app/sites'
 import { useTheme } from '../hooks/useTheme'
 import { logEvent } from '../analytics/events'
 import { DEMO_CHAPTERS } from './chapters'
@@ -136,7 +137,7 @@ export default function DemoPage() {
             <button type="button" className="demo-bar__tool" aria-pressed={muted} onClick={toggleMute}>
               {muted ? 'Sound off' : 'Sound on'}
             </button>
-            <Link to="/" state={EXIT_STATE} className="demo-bar__tool demo-bar__tool--exit">Exit demo</Link>
+            <Link to={CHORD_MOVES_PATH} state={EXIT_STATE} className="demo-bar__tool demo-bar__tool--exit">Exit demo</Link>
           </div>
         </div>
 
@@ -203,7 +204,7 @@ export default function DemoPage() {
           {status === 'paused' && <p className="demo-stage__badge">Paused · tap to resume</p>}
           {status === 'ended' && (
             <div className="demo-stage__card">
-              <Link to="/" state={EXIT_STATE} className="demo-stage__primary">Try it yourself</Link>
+              <Link to={CHORD_MOVES_PATH} state={EXIT_STATE} className="demo-stage__primary">Try it yourself</Link>
               <button type="button" className="demo-stage__secondary" onClick={() => playFrom(0)}>Watch again</button>
             </div>
           )}
@@ -213,7 +214,7 @@ export default function DemoPage() {
               {state.chapter < DEMO_CHAPTERS.length - 1 && (
                 <button type="button" className="demo-stage__secondary" onClick={() => playFrom(state.chapter + 1)}>Skip to the next chapter</button>
               )}
-              <Link to="/" state={EXIT_STATE} className="demo-stage__primary">Open the app</Link>
+              <Link to={CHORD_MOVES_PATH} state={EXIT_STATE} className="demo-stage__primary">Open the app</Link>
             </div>
           )}
         </div>

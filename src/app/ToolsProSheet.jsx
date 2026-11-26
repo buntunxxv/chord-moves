@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import BottomSheet from '../components/BottomSheet'
 import { logEvent } from '../analytics/events'
-import { CHORD_MOVES_ORIGIN } from './sites'
+import { UPGRADE_PATH } from './sites'
 import { requestCode, verifyCode } from './toolsPro'
 import { safeStorage } from '../utils/safeStorage'
 
@@ -91,7 +91,7 @@ export default function ToolsProSheet({
             <p><strong>{email.trim().toLowerCase()}</strong> doesn't have Pro yet. Check it's the email you bought Chord Moves Pro with, or the one your lessons are booked under (for under-18s that's usually a parent's).</p>
             <div className={c('pro__row')}>
               <button type="button" className={`${c('btn')} ${c('btn--quiet')}`} onClick={() => { setStep('email'); setCode('') }}>Try another email</button>
-              <a className={`${c('btn')} ${c('btn--keep')}`} href={`${CHORD_MOVES_ORIGIN}/upgrade`} target="_blank" rel="noopener noreferrer">Get Chord Moves Pro</a>
+              <a className={`${c('btn')} ${c('btn--keep')}`} href={UPGRADE_PATH} target="_blank" rel="noopener noreferrer">Get Chord Moves Pro</a>
             </div>
           </>
         ) : (
@@ -117,7 +117,7 @@ export default function ToolsProSheet({
               <p className={c('pro__hint')}>Sent to {email.trim().toLowerCase()}. It lasts 10 minutes. <button type="button" className={c('link')} onClick={() => setStep('email')}>Change email</button></p>
             )}
             {error && <p className={c('pro__error')} role="alert">{error}</p>}
-            <p className={c('pro__hint')}>No Pro yet? <a className={c('link')} href={`${CHORD_MOVES_ORIGIN}/upgrade`} target="_blank" rel="noopener noreferrer">Get Chord Moves Pro</a></p>
+            <p className={c('pro__hint')}>No Pro yet? <a className={c('link')} href={UPGRADE_PATH} target="_blank" rel="noopener noreferrer">Get Chord Moves Pro</a></p>
           </>
         )}
       </div>
