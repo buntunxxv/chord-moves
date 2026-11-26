@@ -104,6 +104,11 @@
 
 /* ---------- the tray ---------- */
 
+/* Sizes that read the tray or stage (container units) sit in
+   @supports (width: 1cqh) blocks after a plain fallback: Safari 15 (iPad Air 2)
+   has no container units, and a minifier would merge a fallback and its
+   container version written as two declarations in one rule. */
+
 .rd-tray {
   container: tray / size;
   min-height: 0;
@@ -130,12 +135,15 @@
   padding: 4px 6px;
   color: var(--text);
   font-family: var(--font-script);
-  font-size: clamp(24px, 14cqh, 40px);
+  font-size: 32px;
   font-weight: 600;
   line-height: 0.92;
   text-align: center;
   border-radius: 12px;
   cursor: pointer;
+}
+@supports (width: 1cqh) {
+  .rd-tray__meter { font-size: clamp(24px, 14cqh, 40px); }
 }
 
 .rd-tray__meter > span[aria-hidden] { display: grid; }
@@ -164,6 +172,10 @@
 
 .rd-slot {
   display: grid;
+  /* One full-width column, so the die's percentage width always has a width
+     to resolve against (without it Safari 15 sized the column from the die,
+     and the die from the column: zero). */
+  grid-template-columns: minmax(0, 1fr);
   justify-items: center;
   align-content: center;
   gap: 6px;
@@ -173,12 +185,15 @@
 .rd-die-button {
   /* As big as the column allows, but never taller than the tray: the label
      under it needs about 30px. */
-  width: min(100%, calc(100cqh - 30px), 200px);
+  width: min(100%, calc(20vh - 30px), 200px);
   padding: 0;
   background: none;
   border: 0;
   border-radius: 24%;
   transition: transform 0.12s ease;
+}
+@supports (width: 1cqh) {
+  .rd-die-button { width: min(100%, calc(100cqh - 30px), 200px); }
 }
 
 .rd-die-button:active { transform: scale(0.97); }
@@ -489,9 +504,12 @@
 .rd-results__reflection {
   font-family: var(--font-script);
   font-style: italic;
-  font-size: clamp(18px, 9cqh, 30px);
+  font-size: 20px;
   line-height: 1.22;
   text-wrap: balance;
+}
+@supports (width: 1cqh) {
+  .rd-results__reflection { font-size: clamp(18px, 9cqh, 30px); }
 }
 
 .rd-results__pass { color: var(--text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -895,7 +913,10 @@
   display: grid;
   justify-items: center;
   gap: 14px;
-  width: min(calc((100cqw - (var(--n) - 1) * clamp(16px, 3vw, 48px)) / var(--n)), calc(100cqh - 56px));
+  width: min(calc((92vw - (var(--n) - 1) * clamp(16px, 3vw, 48px)) / var(--n)), calc(55vh - 56px));
+}
+@supports (width: 1cqh) {
+  .rd-class__die { width: min(calc((100cqw - (var(--n) - 1) * clamp(16px, 3vw, 48px)) / var(--n)), calc(100cqh - 56px)); }
 }
 
 .rd-class__die figcaption { font-size: clamp(16px, 2.2vw, 30px); font-weight: 800; color: var(--text-muted); }
@@ -983,3 +1004,7 @@
 .rd-settings__value { min-width: 3.2ch; font-size: 22px; }
 .rd-settings__reset { justify-self: start; min-height: 44px; }
 .rd-settings__reset:disabled { opacity: 0.5; cursor: default; }
+
+/* A device delay spotted in a take: plain text, with the fix inline. */
+.rd-results__lag { font-family: inherit; font-style: normal; font-size: 15px; line-height: 1.45; }
+.rd-results__lag .rd-link { display: inline-block; }

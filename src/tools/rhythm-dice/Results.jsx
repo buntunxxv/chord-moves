@@ -47,7 +47,7 @@ function Timeline({ result, expected, barSec, metre, bars }) {
   )
 }
 
-export default function Results({ outcome }) {
+export default function Results({ outcome, onAllowLag }) {
   const { metre } = outcome
   const bars = outcome.bars ?? 1
   const { result, reflection, expected, barSec, pass, loop } = outcome
@@ -77,7 +77,15 @@ export default function Results({ outcome }) {
     <section className={`rd-results rd-results--${detail}`} aria-labelledby="rd-results-title" aria-live="polite">
       <h2 id="rd-results-title" className="rd-visually-hidden">Your bar</h2>
       <div className="rd-results__lead">
-        <p className="rd-results__reflection">{reflection}</p>
+        {outcome.lag ? (
+          <p className="rd-results__reflection rd-results__lag">
+            Every tap landed about {Math.round(Math.abs(outcome.lag) * 1000)} ms {outcome.lag > 0 ? 'late' : 'early'}, by the same amount.
+            That is this device's delay, not your timing.{' '}
+            <button type="button" className="rd-link" onClick={onAllowLag}>Allow for it and re-score</button>
+          </p>
+        ) : (
+          <p className="rd-results__reflection">{reflection}</p>
+        )}
         {loop && <p className="rd-results__pass">Pass {pass + 1}</p>}
       </div>
 

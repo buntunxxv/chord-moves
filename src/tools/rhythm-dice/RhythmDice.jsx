@@ -14,7 +14,7 @@ import { DEFAULT_DRUM, DRUM_SOUNDS, buildRhythmMidiBytes, phraseFilename, rhythm
 import { COMPOUND_METRE_IDS, METRES, METRE_IDS, SIMPLE_METRE_IDS, barTicks, dieAt, isAllRest, resolveTies, rollBar, secondsPerTick, slotPool } from './rhythm'
 import { buildMusicXml, downloadMusicXml, musicXmlFilename } from './musicxml'
 import ClassroomView from './ClassroomView'
-import { reflect, scoreBar } from './scoring'
+import { detectLag, reflect, scoreBar } from './scoring'
 import { KEYS, readKept, readNumber, readPhrase, readString, remove, write, writeKept, writePhrase } from './storage'
 import { barBoundaries, barSeconds, calibrationOffset, createPassSource, expectedOnsets, phraseOnsets } from './timeline'
 import './RhythmDice.css'
@@ -416,7 +416,7 @@ export default function RhythmDice() {
         const rel = s.taps.map(tap => tap - barStart).filter(x => x >= lo && x < hi)
         const expected = expectedFor(k)
         const result = scoreBar(expected, rel)
-        setOutcome({ result, reflection: reflect(result), expected, barSec, pass: k, loop: passes > 1, metre, bars: 1 })
+        setOutcome({ result, reflection: reflect(result), expected, barSec, pass: k, loop: passes > 1, metre, bars: 1, taps: rel, lag: detectLag(expected, rel) })
         if (passes === 1) setStage('result')
         logEvent('rhythm_dice_scored', { bpm, metre: metreId, mode, accuracy: Math.round(result.accuracy * 100), allRest: result.allRest })
         s.scored += 1
@@ -483,7 +483,7 @@ export default function RhythmDice() {
         const expected = phraseOnsets(phraseBars, m, bpm)
         const rel = s.taps.map(tap => tap - s.firstBar).filter(x => x >= -LEAD_IN && x < total + LEAD_IN)
         const result = scoreBar(expected, rel)
-        setOutcome({ result, reflection: reflect(result), expected, barSec: total, pass: 0, loop: false, metre: m, bars: n })
+        setOutcome({ result, reflection: reflect(result), expected, barSec: total, pass: 0, loop: false, metre: m, bars: n, taps: rel, lag: detectLag(expected, rel) })
         setStage('result')
         logEvent('rhythm_dice_phrase_scored', { bpm, bars: n, metre: m.id, accuracy: Math.round(result.accuracy * 100) })
       }
@@ -558,6 +558,23 @@ export default function RhythmDice() {
       setNotice(`Calibrated: taps on this device register ${Math.abs(ms)} ms ${ms >= 0 ? 'late' : 'early'}. Scoring now allows for that.`)
       logEvent('rhythm_dice_calibrated', { ms })
     }
+  }
+
+  // The device's delay, spotted in a take (see detectLag): fold it into this
+  // device's calibration and re-score the take with it.
+  function allowForLag() {
+    const o = outcome
+    if (!o?.lag) return
+    const ms = Math.round(Math.max(-100, Math.min(400, (latencyMs ?? 0) + o.lag * 1000)))
+    const applied = (ms - (latencyMs ?? 0)) / 1000
+    setLatencyMs(ms)
+    write(KEYS.latency, ms)
+    if (sessionRef.current) sessionRef.current.latency = ms / 1000
+    const taps = o.taps.map(t => t - applied)
+    const result = scoreBar(o.expected, taps)
+    setOutcome({ ...o, taps, result, reflection: reflect(result), lag: null })
+    setNotice(`This device now allows for ${Math.abs(ms)} ms. Calibrate any time to fine-tune it.`)
+    logEvent('rhythm_dice_lag_allowed', { ms })
   }
 
   function resetCalibration() {
@@ -919,7 +936,7 @@ export default function RhythmDice() {
 
           {stage === 'result' && outcome && (
             <div className="rd-stage__panel" role="tabpanel" id="rd-panel-result" aria-labelledby="rd-tab-result">
-              <Results outcome={outcome} />
+              <Results outcome={outcome} onAllowLag={allowForLag} />
             </div>
           )}
 

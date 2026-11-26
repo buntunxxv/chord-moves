@@ -47,13 +47,29 @@ export function createRhythmAudio() {
   // so a tap is placed against what the player was actually hearing. The
   // per-device calibration then removes the rest (touch latency).
   function eventTime(event) {
-    const stamp = typeof event?.timeStamp === 'number' && event.timeStamp > 0 ? event.timeStamp : performance.now()
-    if (ctx?.getOutputTimestamp) {
+    const now = ctx.currentTime
+    // How long ago the event happened. Older Safari can hand back a
+    // timestamp on another clock; anything not a recent past moment means
+    // "just now".
+    const stamp = typeof event?.timeStamp === 'number' ? event.timeStamp : NaN
+    let age = (performance.now() - stamp) / 1000
+    if (!(age >= 0 && age < 1)) age = 0
+    if (ctx.getOutputTimestamp) {
       const ts = ctx.getOutputTimestamp()
-      if (ts && ts.performanceTime > 0) return ts.contextTime + (stamp - ts.performanceTime) / 1000
+      if (ts && ts.performanceTime > 0 && ts.contextTime > 0) {
+        const t = ts.contextTime + (performance.now() - age * 1000 - ts.performanceTime) / 1000
+        // Only trusted when it lands where it must: a little behind the
+        // clock that is rendering now, never ahead of it.
+        if (t <= now + 0.02 && t >= now - 1) return t
+      }
     }
-    return ctx.currentTime - (performance.now() - stamp) / 1000
+    // No usable output timestamp: allow for the output latency the browser
+    // reports (Safari reports none), then calibration removes the rest.
+    const reported = ctx.outputLatency || ctx.baseLatency || 0
+    const latency = reported > 0 && reported < 0.5 ? reported : 0
+    return now - latency - age
   }
+
 
   // The student's own tap, heard the moment it lands: the same clap the dice
   // play with "Hear it", so they hear their rhythm against the click.
