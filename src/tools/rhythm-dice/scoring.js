@@ -125,3 +125,32 @@ export function formatOffsetMs(offset) {
   if (ms === 0) return 'on time'
   return ms < 0 ? `${-ms} ms early` : `${ms} ms late`
 }
+
+// A device's own delay (touchscreen, speaker, Bluetooth) shifts every tap by
+// the same amount, often past the 100 ms window, so a bar played well scores
+// as all misses and extras. detectLag spots that: the taps sit a steady
+// distance from the onsets, and allowing for it catches clearly more notes.
+// Returns the shift in seconds (positive = taps land late), or null.
+// A person's own lean is small and uneven; a device's is large and steady.
+export const LAG_MIN_S = 0.06
+export const LAG_MAX_S = 0.5
+const LAG_STEADY_S = 0.05
+
+export function detectLag(expected, taps) {
+  if (expected.length < 2 || taps.length < 3) return null
+  const times = expected.map(e => e.time)
+  const offsets = taps.map(t => {
+    let best = Infinity
+    for (const o of times) if (Math.abs(t - o) < Math.abs(best)) best = t - o
+    return best
+  }).filter(d => Math.abs(d) <= LAG_MAX_S)
+  if (offsets.length < 3) return null
+  const sorted = [...offsets].sort((a, b) => a - b)
+  const lag = sorted[Math.floor(sorted.length / 2)]
+  if (Math.abs(lag) < LAG_MIN_S) return null
+  const spread = [...offsets.map(d => Math.abs(d - lag))].sort((a, b) => a - b)[Math.floor(offsets.length / 2)]
+  if (spread > LAG_STEADY_S) return null
+  const before = scoreBar(expected, taps).matched
+  const after = scoreBar(expected, taps.map(t => t - lag)).matched
+  return after >= before + 2 && after >= Math.ceil(expected.length * 0.6) ? lag : null
+}
