@@ -5,27 +5,13 @@
     <!-- No zooming, pinch or on-focus: see src/utils/lockZoom.js for the parts
          a meta tag cannot reach on iOS or desktop. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-    <title>Chord Moves — Kynda Learning</title>
-    <meta name="description" content="Build a chord, hear where it can go next, and name the shapes under your fingers. A free chord tool from Kynda Learning." />
-
-    <!-- Link previews (Threads, Instagram, Facebook, WhatsApp, iMessage read
-         Open Graph; X reads the twitter: tags). Absolute URLs: crawlers do
-         not resolve relative ones. The image is real app screens, not a
-         mock-up -- regenerate it when the UI it shows changes. -->
-    <link rel="canonical" href="https://tools.kyndalearning.co.uk/chordmoves" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Kynda Learning" />
-    <meta property="og:title" content="Chord Moves — find the next chord" />
-    <meta property="og:description" content="Build a chord, hear where it can go next, and name the shapes under your fingers." />
-    <meta property="og:url" content="https://tools.kyndalearning.co.uk/chordmoves" />
-    <meta property="og:image" content="https://tools.kyndalearning.co.uk/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Chord Moves on a phone: next-chord suggestions from E flat, and a Badd sharp 11 guitar shape." />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Chord Moves — find the next chord" />
-    <meta name="twitter:description" content="Build a chord, hear where it can go next, and name the shapes under your fingers." />
-    <meta name="twitter:image" content="https://tools.kyndalearning.co.uk/og-image.png" />
+    <!-- Title, description, link previews, manifest and Home Screen name
+         are rendered from src/app/siteMeta.js by vite.config.js: this page
+         gets the Kynda Learning Tools ones, dist/chordmoves.html (served for
+         /chordmoves/*) gets Chord Moves'. Link previews never run
+         JavaScript, so they have to be in the HTML the server sends. -->
+    <!-- site-meta:start -->
+    <!-- site-meta:end -->
 
     <!-- The .ico carries 16/32/48 so each browser picks its own size instead
          of downsampling one bitmap; the PNG is what modern browsers prefer.
@@ -34,10 +20,9 @@
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
 
-    <!-- Home screen. iOS reads apple-touch-icon and these meta tags, not the
-         manifest; Android reads the manifest. -->
+    <!-- Home screen. iOS reads apple-touch-icon and the apple-* meta tags,
+         not the manifest; Android reads the manifest (both in site-meta). -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#119392" />
 
     <!-- Tell the browser this page draws its own light AND dark theme.
@@ -67,9 +52,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <!-- Without this iOS labels the icon from <title>, which would read
-         "Chord Moves — Kynda Learning" and truncate to "Chord Mov…". -->
-    <meta name="apple-mobile-web-app-title" content="Chord Moves" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -6,7 +6,8 @@ import { migrateStorageKeys } from './utils/migrateStorageKeys.js'
 import { lockZoom } from './utils/lockZoom.js'
 import { safeStorage, startSandbox } from './utils/safeStorage.js'
 import { runDomainHandover } from './utils/domainHandover.js'
-import { CHORD_MOVES_PATH, DEMO_PATH, TOOLS_ORIGIN, UPGRADE_PATH } from './app/sites.js'
+import { CHORD_MOVES_PATH, DEMO_PATH, UPGRADE_PATH } from './app/sites.js'
+import RouteMeta from './app/RouteMeta.jsx'
 import { shareProLogin } from './app/proLogin.js'
 import { DEMO_FRAME_PARAM, demoSeed } from './demo/demoFrameSeed.js'
 
@@ -23,14 +24,6 @@ const leaving = !demoFrame && runDomainHandover(window, safeStorage)
 // One Pro login across Chord Moves and the tools (src/app/proLogin.js).
 if (!demoFrame && !leaving) shareProLogin(safeStorage)
 lockZoom()
-
-// index.html is shared, so its canonical/og:url name Chord Moves. Point
-// search engines at the page actually being viewed.
-{
-  const path = window.location.pathname.replace(/\/+$/, '') || '/'
-  document.querySelector('link[rel="canonical"]')?.setAttribute('href', TOOLS_ORIGIN + path)
-  document.querySelector('meta[property="og:url"]')?.setAttribute('content', TOOLS_ORIGIN + path)
-}
 
 // Old paths from before Chord Moves moved under /chordmoves (bookmarks,
 // Stripe and email links). Keeps the query, e.g. ?unlock=1.
@@ -62,6 +55,7 @@ if (demoFrame) ReactDOM.createRoot(document.getElementById('root')).render(
 else if (!leaving) ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
+      <RouteMeta />
       <Suspense fallback={<div className="route-loading" role="status">Loading…</div>}>
         <Routes>
           <Route path="/" element={<ToolHome />} />
