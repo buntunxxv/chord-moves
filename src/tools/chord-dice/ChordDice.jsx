@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ToolShell from '../../app/ToolShell'
-import { DIE_NAMES, LEVEL_CHOICES, LEVEL_KEYS, changeOneDie, diceFor, displayNote, feedbackStyle, resolveChord, rollChord } from './faces'
+import ToolsProSheet from '../../app/ToolsProSheet'
+import { readToolsPro, recheck, signOut } from '../../app/toolsPro'
+import { logEvent } from '../../analytics/events'
+import { safeStorage } from '../../utils/safeStorage'
+import { DIE_NAMES, LEVEL_CHOICES, LEVEL_KEYS, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, needsPro, resolveChord, rollChord } from './faces'
 import { compare, finishReflection, keyLabel, keySpoken, nextPrompt, placementFeedback, spelledNotes, submitFeedback } from './answer'
 import { createChordAudio, selectionVoicing, targetVoicing } from './audio'
 import { KEYS, REASON_MAX, STARTS, makeKept, readKept, readString, write, writeKept } from './storage'
@@ -58,7 +62,15 @@ export default function ChordDice() {
   const audio = audioRef.current
   useEffect(() => () => audio.dispose(), [audio])
 
-  const [levelKey, setLevelKey] = useState(() => readString(KEYS.level, 'L1', LEVEL_KEYS))
+  // Pro on the Tools site (src/app/toolsPro.js), shared with Rhythm Dice:
+  // its own keys, set only by an emailed code, re-checked on every load.
+  const [pro, setPro] = useState(() => readToolsPro(safeStorage))
+  const isPro = pro.isPro
+  const [proSheet, setProSheet] = useState(null) // null | { reason }
+  const [levelKey, setLevelKey] = useState(() => {
+    const stored = readString(KEYS.level, 'L1', LEVEL_KEYS)
+    return needsPro(stored) && !readToolsPro(safeStorage).isPro ? 'L1' : stored
+  })
   const [start, setStart] = useState(() => readString(KEYS.start, 'name', STARTS))
   // The chord on the table and how this round started.
   //   { chord, outcome, start, levelKey, feedback: 'note'|'submit', changedFrom: { die, chord }|null }
@@ -89,7 +101,7 @@ export default function ChordDice() {
   const hiddenDie = die => concealed && (!round.changedFrom || round.changedFrom.die === die)
   const submitMode = round?.feedback === 'submit'
   // Levels 1–3 roll two dice; the Colour die joins at Level 4.
-  const dice = diceFor(round?.levelKey ?? levelKey)
+  const dice = diceFor(round?.levelKey ?? levelKey, isPro)
   const dieList = names => names.map(d => DIE_NAMES[d]).join(names.length === 2 ? ' or ' : ', ').replace(/, (?=[^,]*$)/, ' or ')
 
   useEffect(() => {
@@ -127,13 +139,13 @@ export default function ChordDice() {
     if (start === 'sound') audio.playChord(targetVoicing(next), 'target')
   }, [audio, start])
 
-  const roll = () => startRound(rollChord(levelKey, { avoid: chord }))
+  const roll = () => startRound(rollChord(levelKey, { avoid: chord, isPro }))
 
   // Change one die: the other two stay. When nothing else fits, say which
   // die to change first.
   const changeDie = die => {
     if (!chord || !finished) return
-    const res = changeOneDie(round.outcome, die, round.levelKey)
+    const res = changeOneDie(round.outcome, die, round.levelKey, { isPro })
     if (res.blocked) { setNotice(res.blocked); return }
     startRound(res.outcome, { changedFrom: { die, chord }, dice: [die] })
   }
@@ -176,6 +188,7 @@ export default function ChordDice() {
   }
 
   const chooseLevel = key => {
+    if (needsPro(key) && !isPro) return openPro(`${LEVEL_CHOICES.find(c => c.key === key).name} is part of Pro.`)
     setLevelKey(key)
     write(KEYS.level, key)
     if (chord && !finished) setNotice('The new level applies to your next roll.')
@@ -199,6 +212,57 @@ export default function ChordDice() {
     setKeptPage(0)
     setNotice(`Kept ${chord.name}.`)
   }
+
+  // ----- Pro (Levels 4–5) -----
+
+  function openPro(reason = '') {
+    setProSheet({ reason })
+    logEvent('tools_pro_sheet_open', { reason: reason ? 'gate' : 'manage' })
+  }
+  const closePro = useCallback(() => setProSheet(null), [])
+
+  // Without Pro: back to Level 1, and a seventh chord on the table goes
+  // (with its Result and Keep, which have nothing to show without it).
+  const roundRef = useRef(round)
+  roundRef.current = round
+  const dropProWork = useCallback(() => {
+    setLevelKey(k => {
+      if (!needsPro(k)) return k
+      write(KEYS.level, 'L1')
+      return 'L1'
+    })
+    if (roundRef.current && isProChord(roundRef.current.outcome)) {
+      setRound(null)
+      setSelected([])
+      setSubmitted(null)
+      setFeedback('')
+      setStatus('building')
+      setStage('build')
+    }
+  }, [])
+
+  function removePro() {
+    signOut(safeStorage)
+    setPro(readToolsPro(safeStorage))
+    dropProWork()
+    setProSheet(null)
+    setNotice('Pro removed from this device.')
+    logEvent('tools_pro_removed')
+  }
+
+  // Re-check Pro once per visit. Only a definite "not Pro" removes it (a
+  // student whose lessons have ended); an offline or failed check keeps it.
+  useEffect(() => {
+    let live = true
+    recheck(window.fetch.bind(window), safeStorage).then(outcome => {
+      if (!live || outcome !== 'removed') return
+      setPro(readToolsPro(safeStorage))
+      dropProWork()
+      setNotice('Pro is no longer on this device: that email no longer has Chord Moves Pro or current lessons.')
+      logEvent('tools_pro_removed_on_recheck')
+    })
+    return () => { live = false }
+  }, [dropProWork])
 
   const removeKept = id => {
     const list = kept.filter(k => k.id !== id)
@@ -242,18 +306,24 @@ export default function ChordDice() {
   return (
     <ToolShell>
       <div className="chord-dice">
-        <header className="cd-head">
+        <header className={`cd-head${isPro ? ' cd-head--pro' : ''}`}>
           <div className="cd-head__copy">
             <p className="cd-head__eyebrow">Chord Dice</p>
             <h1 className="cd-head__title">Roll, build and keep a chord</h1>
           </div>
+          <div className="cd-head__controls">
           <div className="cd-seg cd-head__levels" role="radiogroup" aria-label="Dice level">
             {LEVEL_CHOICES.map(c => (
-              <button key={c.key} type="button" role="radio" aria-checked={levelKey === c.key} aria-label={c.name}
-                className={levelKey === c.key ? 'is-on' : ''} onClick={() => chooseLevel(c.key)}>
+              <button key={c.key} type="button" role="radio" aria-checked={levelKey === c.key}
+                aria-label={c.key === 'mix' ? `Mix levels 1 to ${isPro ? 4 : 3}` : c.pro && !isPro ? `${c.name}, Pro` : c.name}
+                className={`${levelKey === c.key ? 'is-on' : ''}${c.pro && !isPro ? ' is-pro-locked' : ''}`} onClick={() => chooseLevel(c.key)}>
                 {c.key !== 'mix' && <span className="cd-long" aria-hidden="true">Level </span>}{c.label}
               </button>
             ))}
+          </div>
+          {isPro && (
+            <button type="button" className="cd-pro-chip" onClick={() => openPro()} aria-label="Pro is on for this device. Manage">Pro</button>
+          )}
           </div>
         </header>
 
@@ -397,7 +467,8 @@ export default function ChordDice() {
                         </p>
                       </div>
                       <div className="cd-kept__actions">
-                        <button type="button" className="cd-btn cd-btn--small" onClick={() => audio.playChord(targetVoicing(kc), 'kept')}
+                        <button type="button" className="cd-btn cd-btn--small"
+                          onClick={() => (isProChord(k) && !isPro ? openPro('This chord is from Level 4, which is part of Pro.') : audio.playChord(targetVoicing(kc), 'kept'))}
                           aria-label={`Hear ${kc.name}`}>Hear</button>
                         <button type="button" className="cd-btn cd-btn--small cd-btn--ghost" onClick={() => removeKept(k.id)}
                           aria-label={`Remove kept ${kc.name}: ${k.reason}`}>✕</button>
@@ -411,6 +482,11 @@ export default function ChordDice() {
         </section>
 
         {notice && <p className="cd-notice" role="status">{notice}</p>}
+
+        <ToolsProSheet isOpen={!!proSheet} onClose={closePro} prefix="cd" toolName="Chord Dice" lockedTitle="Unlock Level 4"
+          reason={proSheet?.reason ?? ''} pro={pro} onUnlocked={() => setPro(readToolsPro(safeStorage))} onRemove={removePro}
+          doneText="Level 4 (sevenths) is open, with the Colour die, and Mix now includes it."
+          doneAction={{ label: 'Try Level 4', onClick: () => { closePro(); setLevelKey('L4'); write(KEYS.level, 'L4') } }} />
       </div>
     </ToolShell>
   )

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Chord, Note } from 'tonal'
-import { L1_ROOTS, L2_ROOTS, LEVEL_CHOICES, alternatives, changeOneDie, diceFor, displayNote, feedbackStyle, outcomes, poolFor, resolveChord, rollChord } from './faces.js'
+import { L1_ROOTS, L2_ROOTS, LEVEL_CHOICES, alternatives, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, levelIdsFor, needsPro, outcomes, poolFor, resolveChord, rollChord } from './faces.js'
 import {
   INTERVAL_NAMES, KEY_NAMES, chromaOf, compare, describeChange, finishReflection, keyLabel, matches, nextPrompt,
   pitchClassSet, placementFeedback, semitonesUp, submitFeedback,
@@ -59,7 +59,8 @@ test('rolls stay in their level; Mix draws from all three', () => {
   assert.equal(new Set(l2.map(r => r.root + r.quality)).size, 24)
   const mix = Array.from({ length: 600 }, () => rollChord('mix', { rng }))
   assert.ok(['L1', 'L2', 'L3'].every(l => mix.some(r => r.levelId === l)))
-  assert.deepEqual(LEVEL_CHOICES.map(c => c.key), ['L1', 'L2', 'L3', 'mix'])
+  assert.deepEqual(LEVEL_CHOICES.map(c => c.key), ['L1', 'L2', 'L3', 'L4', 'mix'])
+  assert.ok(mix.every(r => r.levelId !== 'L4'), 'Mix without Pro never rolls Level 4')
   const l3 = Array.from({ length: 900 }, () => rollChord('L3', { rng }))
   assert.equal(new Set(l3.map(r => r.root + r.quality + r.colour)).size, 48)
   const prev = { root: 'C', quality: 'major' }
@@ -443,4 +444,107 @@ test('kept Level 3 and changed chords round-trip', () => {
   assert.equal(old[0].quality, 'sus4')
   assert.equal(old[0].colour, 'none')
   assert.equal(resolveChord(old[0]).name, 'Csus4')
+})
+
+// ================= PR 3: Level 4 sevenths, Pro =================
+
+const L4 = outcomes('L4')
+const L4_FORMULAS = { 'major/7': ['1P', '3M', '5P', '7m'], 'major/maj7': ['1P', '3M', '5P', '7M'], 'minor/7': ['1P', '3m', '5P', '7m'] }
+
+test('face table: 36 outcomes at Level 4, all 12 roots × 7, maj7, m7', () => {
+  assert.equal(L4.length, 36)
+  assert.deepEqual([...new Set(L4.map(o => o.root))], L2_ROOTS)
+  assert.equal(new Set(L4.map(o => resolveChord(o).symbol)).size, 36)
+  assert.ok(needsPro('L4') && !needsPro('L3') && !needsPro('mix'))
+  assert.equal(feedbackStyle('L4'), 'submit')
+  assert.deepEqual(levelIdsFor('mix'), ['L1', 'L2', 'L3'])
+  assert.deepEqual(levelIdsFor('mix', true), ['L1', 'L2', 'L3', 'L4'])
+  assert.equal(poolFor('mix', true).length, 72 + 36)
+  assert.deepEqual(diceFor('L4'), ['root', 'quality', 'colour'], 'the Colour die returns at Level 4')
+  assert.deepEqual(diceFor('mix'), ['root', 'quality'])
+  assert.deepEqual(diceFor('mix', true), ['root', 'quality', 'colour'])
+  assert.ok(L4.every(isProChord) && !L3.some(isProChord))
+})
+
+for (const o of L4) {
+  test(`Tonal resolves L4 ${o.root}${o.quality === 'minor' ? 'm' : ''}${o.colour}`, () => {
+    const c = resolveChord(o)
+    const tonal = Chord.get(c.symbol)
+    assert.equal(tonal.empty, false)
+    assert.equal(tonal.tonic, o.root)
+    assert.deepEqual(tonal.intervals, L4_FORMULAS[`${o.quality}/${o.colour}`])
+    assert.deepEqual(c.notes, tonal.notes)
+    assert.equal(c.chromas.length, 4)
+  })
+}
+
+test('Level 4 names and spellings', () => {
+  const r = (root, quality, colour) => resolveChord({ root, quality, colour })
+  assert.equal(r('C', 'major', '7').name, 'C7')
+  assert.equal(r('C', 'major', '7').prose, 'C dominant seventh')
+  assert.equal(r('Bb', 'major', 'maj7').name, 'B♭maj7')
+  assert.equal(r('Bb', 'major', 'maj7').prose, 'B♭ major seventh')
+  assert.equal(r('F#', 'minor', '7').name, 'F♯m7')
+  assert.deepEqual(r('G#', 'major', 'maj7').notes, ['G#', 'B#', 'D#', 'F##'])
+  assert.ok(matches(r('G#', 'major', 'maj7'), ['Ab', 'C', 'Eb', 'G']))
+  assert.throws(() => r('C', 'minor', 'maj7'), 'minor/maj7 is not in the pool')
+  assert.throws(() => r('C', 'dim', '7'))
+})
+
+test('Submit at Level 4: Phase 0 example and every wrong note', () => {
+  const cmaj7 = resolveChord({ root: 'C', quality: 'major', colour: 'maj7' })
+  assert.deepEqual(submitFeedback(cmaj7, [0, 4, 7, 10]), {
+    complete: false,
+    extra: 'You played a minor seventh above C. C major seventh uses a major seventh. What changes if you move that note up a semitone?',
+    missing: null,
+  })
+  assert.equal(submitFeedback(cmaj7, [0, 4, 7]).missing, 'Which note is a major seventh above C?')
+  assert.equal(submitFeedback(cmaj7, [0, 4, 7, 11]).complete, true)
+  for (const o of L4) {
+    const c = resolveChord(o)
+    for (let k = 0; k < 12; k++) {
+      if (c.chromas.includes(k)) continue
+      for (const mode of ['name', 'sound']) {
+        const fb = submitFeedback(c, [...c.chromas.slice(0, 3), k], mode)
+        assert.ok(fb.extra && !GRADE_WORDS.test(fb.extra), `${c.symbol} + ${k}: ${fb.extra}`)
+        if (mode === 'sound') {
+          for (const line of [fb.extra, fb.missing].filter(Boolean)) {
+            assert.ok(!/seventh|dominant/.test(line), `from the sound, no hint of the seventh: “${line}”`)
+          }
+        }
+      }
+    }
+  }
+})
+
+test('Change one die at Level 4: blocked dice say which to change first', () => {
+  const rng = () => 0
+  assert.deepEqual(alternatives({ root: 'C', quality: 'major', colour: '7' }, 'colour', 'L4').map(o => o.colour), ['maj7'])
+  assert.deepEqual(alternatives({ root: 'C', quality: 'major', colour: '7' }, 'quality', 'L4').map(o => o.quality), ['minor'])
+  assert.equal(changeOneDie({ root: 'C', quality: 'minor', colour: '7' }, 'colour', 'L4', { rng }).blocked,
+    'Nothing else on the Colour die fits with a minor chord here. Change the Quality first.')
+  assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'maj7' }, 'quality', 'L4', { rng }).blocked,
+    'Nothing else on the Quality die fits with the maj7 colour here. Change the Colour first.')
+  // Mix with Pro: a triad's Colour can gain a seventh.
+  const added = changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'colour', 'mix', { rng, isPro: true })
+  assert.equal(added.outcome.colour, '7')
+  assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'colour', 'mix', { rng }).blocked !== undefined, true, 'without Pro, Mix has no colours')
+  const r = (root, quality, colour) => resolveChord({ root, quality, colour })
+  assert.equal(describeChange(r('C', 'major', 'none'), r('C', 'major', '7'), 'colour'),
+    'You changed the Colour: C became C7. A minor seventh, B♭, was added on top. What does that change do to the sound?')
+  assert.equal(describeChange(r('C', 'major', 'maj7'), r('C', 'major', 'none'), 'colour'),
+    'You changed the Colour: Cmaj7 became C. The major seventh, B, came off the top. What does that change do to the sound?')
+  assert.equal(describeChange(r('C', 'major', '7'), r('C', 'major', 'maj7'), 'colour'),
+    'You changed the Colour: C7 became Cmaj7. B♭ moved up a semitone to B. What does that change do to the sound?')
+  assert.equal(describeChange(r('D', 'major', '7'), r('D', 'minor', '7'), 'quality'),
+    'You changed the Quality: D7 became Dm7. F♯ moved down a semitone to F. What does that change do to the sound?')
+  assert.match(finishReflection(r('A', 'minor', '7'), { start: 'name' }), /What does the minor seventh add on top\?/)
+})
+
+test('kept Level 4 chords round-trip', () => {
+  const store = memory()
+  const k = makeKept(resolveChord({ root: 'Eb', quality: 'major', colour: 'maj7' }), { start: 'name', reason: 'soft', levelKey: 'L4', now: new Date(Date.UTC(2026, 10, 27)) })
+  writeKept([k], store)
+  assert.deepEqual(readKept(store), [k])
+  assert.ok(isProChord(readKept(store)[0]))
 })
