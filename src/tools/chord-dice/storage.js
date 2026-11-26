@@ -48,10 +48,18 @@ export function makeKept(chord, { start, replays, revealed, reason, levelKey, ch
   }
 }
 
-// Before 25 Nov (PR 2 review) sus chords were kept as quality "sus" with
-// the suspension on the Colour die; read them as the sus2/sus4 quality.
+// Older shapes, read as today's dice:
+// - before 25 Nov (PR 2 review) sus chords were quality "sus" with the
+//   suspension on the Colour die;
+// - before 26 Nov, sevenths and ninths were major + 7 (a dominant seventh)
+//   and major + maj7. Now major + 7 is a major seventh and dominant is a
+//   quality; the stored symbol says which chord was meant.
 function migrate(k) {
-  return k && k.quality === 'sus' && (k.colour === 'sus2' || k.colour === 'sus4') ? { ...k, quality: k.colour, colour: 'none' } : k
+  if (!k) return k
+  if (k.quality === 'sus' && (k.colour === 'sus2' || k.colour === 'sus4')) return { ...k, quality: k.colour, colour: 'none' }
+  if (k.quality === 'major' && (k.colour === 'maj7' || k.colour === 'maj9')) return { ...k, colour: k.colour.slice(3) }
+  if (k.quality === 'major' && (k.colour === '7' || k.colour === '9') && typeof k.symbol === 'string' && !k.symbol.includes('maj')) return { ...k, quality: 'dom' }
+  return k
 }
 
 // A face combination that makes a real chord.

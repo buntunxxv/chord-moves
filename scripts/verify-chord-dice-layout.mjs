@@ -259,7 +259,7 @@ try {
     await pickLevel(page, 'L4')
     await page.evaluate(() => { const v = [0, 25 / 36 + 0.001]; Math.random = () => (v.length ? v.shift() : 0.5) })
     await page.getByRole('button', { name: /^Roll/ }).click()
-    check(`${name}: Level 4 rolls G♯maj7 on three dice`, (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'G♯ major maj7')
+    check(`${name}: Level 4 rolls G♯maj7 on three dice`, (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'G♯ major 7')
     for (const c of [8, 0, 3, 6, 10, 1]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
     await page.getByRole('button', { name: 'Submit' }).click()
     await verify(page, `${name}: Level 4 with Pro, after Submit`, `${slug}-build-l4`, { piano: true })
