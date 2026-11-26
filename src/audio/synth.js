@@ -1,14 +1,22 @@
 import * as Tone from 'tone'
+import { watchAudioContext, wakeAudioContext } from '../shared/audio/wakeAudio.js'
 
 // Use the playback audio session on iOS so sound follows the device volume
 // rather than the ringer/silent switch (requires iOS 16.4+; no-op elsewhere).
 // Must be called from every place that starts audio, not just one -- iOS
 // only applies this once a session type has been set at all.
+// Safari can leave the context interrupted, or "running" but silent, after
+// the screen locks or another app takes the sound; wakeAudioContext restarts
+// it (see src/shared/audio/wakeAudio.js), so a reload is never needed.
 export async function startAudioContext() {
   if (navigator.audioSession) {
     navigator.audioSession.type = 'playback'
   }
+  const raw = Tone.getContext().rawContext
+  const native = raw?._nativeAudioContext ?? raw
+  watchAudioContext(native)
   await Tone.start()
+  await wakeAudioContext(native)
 }
 
 // The crackle on playback was the audio thread missing its deadline, not the
