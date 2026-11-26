@@ -115,6 +115,7 @@ async function measure(page) {
 }
 
 async function verify(page, label, slug, { piano = false } = {}) {
+  await page.evaluate(() => document.fonts.ready)
   const m = await measure(page)
   const problems = []
   if (m.pageScroll > 0 || m.pageScrollX > 0) problems.push(`page scrolls ${m.pageScrollX}x${m.pageScroll}px`)

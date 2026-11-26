@@ -430,7 +430,7 @@
   .cd-read .cd-piano { display: none; }
   .cd-answer { grid-template-rows: auto auto auto; align-content: start; }
 }
-@container stage (max-height: 300px) {
+@container stage (max-height: 360px) {
   .cd-result__hint { display: none; }
 }
 .cd-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
@@ -526,7 +526,7 @@
 
 /* ---------- short stages ---------- */
 
-@container stage (max-height: 300px) {
+@container stage (max-height: 360px) {
   .cd-result { gap: 6px; }
   .cd-result__reflection { font-size: 17px; }
 }
