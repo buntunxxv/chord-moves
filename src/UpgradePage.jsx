@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { logEvent } from './analytics/events'
 import { useTheme } from './hooks/useTheme'
 import ThemeToggle from './components/ThemeToggle'
 import './UpgradePage.css'
 import { safeStorage } from './utils/safeStorage'
+import { LIBRARY_PATH } from './app/sites'
+import { PRO_NAME } from './app/brand'
+import { clearProLogin, setProLogin } from './app/proLogin'
 
 // The Stripe payment link for Founder Access (GBP 9, one-time). It is the
 // same link api/stripe-webhook.js gates on: only checkout sessions whose
@@ -14,6 +17,17 @@ import { safeStorage } from './utils/safeStorage'
 const CHECKOUT_URL = 'https://buy.stripe.com/14A7sMgxD0qLaWm1wgbAs0o'
 
 export default function UpgradePage() {
+  // People arrive from whichever tool sent them; going back returns there.
+  // A direct visit (no in-app history) goes to the tools directory.
+  // React Router numbers in-app history entries (idx); 0 means this page
+  // was the first one opened here, including after an old-path redirect.
+  const navigate = useNavigate()
+  const cameFromApp = (window.history.state?.idx ?? 0) > 0
+  function goBack(e) {
+    if (!cameFromApp) return
+    e.preventDefault()
+    navigate(-1)
+  }
   const { preference: themePreference, resolvedTheme, setPreference: setThemePreference } = useTheme()
   const [unlockEmail, setUnlockEmail] = useState('')
   const [unlockCode, setUnlockCode] = useState('')
@@ -71,10 +85,10 @@ export default function UpgradePage() {
       })
       const data = await res.json()
       if (res.ok && data.isPro) {
-        safeStorage.setItem('cm_tier', 'pro')
-        // Lets App.jsx re-check this email on later visits, so access granted
-        // for lessons ends on this device once the lessons do.
-        safeStorage.setItem('cm_pro_email', unlockEmail.trim().toLowerCase())
+        // One login for every Kynda tool (src/app/proLogin.js). The email
+        // lets App.jsx re-check it on later visits, so access granted for
+        // lessons ends on this device once the lessons do.
+        setProLogin(safeStorage, unlockEmail.trim().toLowerCase())
         setUnlockStep('success')
         setUnlockStatus('idle')
         logEvent('pro_unlock_success')
@@ -102,8 +116,7 @@ export default function UpgradePage() {
   }
 
   function handleLogOut() {
-    safeStorage.removeItem('cm_tier')
-    safeStorage.removeItem('cm_pro_email')
+    clearProLogin(safeStorage)
     setIsPro(false)
     // A fresh unlock in this same visit leaves unlockStep on 'success';
     // without this reset the page would keep showing "Pro unlocked" after
@@ -127,7 +140,7 @@ export default function UpgradePage() {
           </div>
           <div className="upgrade-page__header-tool">
             <div className="upgrade-page__header-divider" />
-            <span className="upgrade-page__header-tool-name">Chord Moves</span>
+            <span className="upgrade-page__header-tool-name">Tools</span>
             <ThemeToggle preference={themePreference} onChange={setThemePreference} />
           </div>
         </div>
@@ -135,8 +148,8 @@ export default function UpgradePage() {
 
       <main className="upgrade-page__main">
         <div className="upgrade-page__hero">
-          <h1 className="upgrade-page__title">Chord Moves Pro</h1>
-          <p className="upgrade-page__subtitle">More directions. More movement. More song.</p>
+          <h1 className="upgrade-page__title">{PRO_NAME}</h1>
+          <p className="upgrade-page__subtitle">One unlock for every Kynda Learning tool.</p>
         </div>
 
         {/* No buy button for someone who already paid -- they keep the
@@ -149,7 +162,7 @@ export default function UpgradePage() {
               <span className="upgrade-page__plan-amount">£9</span>
             </div>
             <p className="upgrade-page__plan-note">One-time payment — £9</p>
-            <p className="upgrade-page__plan-blurb">You're backing the build, not paying for a finished product.</p>
+            <p className="upgrade-page__plan-blurb">You're backing the Kynda Learning tools as they're built, not paying for a finished product.</p>
             {/* A link, not a button: this navigates to Stripe's hosted
                 checkout rather than doing anything in the app. New tab so
                 this page stays open behind it -- unlocking Pro means coming
@@ -181,6 +194,7 @@ export default function UpgradePage() {
             move an item up only once it actually ships. */}
         <div className="upgrade-page__features">
           <h2 className="upgrade-page__features-heading">Live now</h2>
+          <h3 className="upgrade-page__features-tool">Chord Moves</h3>
           <ul className="upgrade-page__feature-list">
             <li>5 next-chord suggestions per chord</li>
             <li>Extended chord types — 9th, 11th, 13th, altered</li>
@@ -189,9 +203,19 @@ export default function UpgradePage() {
             <li>Save and export progressions</li>
             <li>Multiple piano voicings</li>
           </ul>
+          <h3 className="upgrade-page__features-tool">Rhythm Dice</h3>
+          <ul className="upgrade-page__feature-list">
+            <li>Level 4 rhythms</li>
+            <li>Compound time and 7/8, with Level 5</li>
+          </ul>
+          <h3 className="upgrade-page__features-tool">Chord Dice</h3>
+          <ul className="upgrade-page__feature-list">
+            <li>Level 4: sevenths</li>
+            <li>Level 5: bass notes and ninths</li>
+          </ul>
           <h2 className="upgrade-page__features-heading upgrade-page__features-heading--planned">Still being built</h2>
           <ul className="upgrade-page__feature-list upgrade-page__feature-list--planned">
-            <li>"Explain this like I'm writing a song" mode</li>
+            <li>Chord Moves: "Explain this like I'm writing a song" mode</li>
           </ul>
         </div>
 
@@ -200,8 +224,9 @@ export default function UpgradePage() {
             the general caveat once, quietly. Shown to Pro users too, since it
             stays true for them. */}
         <p className="upgrade-page__dev-notice" role="note">
-          Chord Moves is still in development. Some features are unfinished or missing, and things will change as
-          it grows. Pro includes everything live today and each new feature as it arrives.
+          The Kynda Learning tools are still in development. Some features are unfinished or missing, and things
+          will change as they grow. Pro includes everything live today, and each new Pro feature, in any tool, as it
+          arrives.
         </p>
 
         <div className="upgrade-page__unlock">
@@ -217,7 +242,7 @@ export default function UpgradePage() {
           </p>
           {unlockStep === 'success' ? (
             <div className="upgrade-page__unlock-success" role="status">
-              Pro unlocked — welcome aboard. <Link to="/">Go back to the app →</Link>
+              Pro unlocked across every Kynda tool. <Link to={LIBRARY_PATH} onClick={goBack}>{cameFromApp ? 'Go back to your tool →' : 'Open the tools →'}</Link>
             </div>
           ) : isPro ? (
             <>
@@ -228,8 +253,9 @@ export default function UpgradePage() {
                   flag. Saying so up front stops it reading like "delete my
                   account", which it is not -- there is no account. */}
               <p className="upgrade-page__logout-note">
-                You can unlock again any time with the same email. Your saved
-                progressions stay on this device either way.
+                This logs out of Pro in every Kynda tool on this device. You can
+                unlock again any time with the same email, and your saved work
+                stays either way.
               </p>
             </>
           ) : unlockStep === 'code' ? (
@@ -301,7 +327,7 @@ export default function UpgradePage() {
           )}
         </div>
 
-        <Link to="/" className="upgrade-page__back">← Back to Chord Moves</Link>
+        <Link to={LIBRARY_PATH} onClick={goBack} className="upgrade-page__back">{cameFromApp ? '← Back' : '← All tools'}</Link>
       </main>
     </div>
   )

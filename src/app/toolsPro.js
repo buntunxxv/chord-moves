@@ -1,20 +1,23 @@
 // Pro on the Kynda Tools site (tools.kyndalearning.co.uk).
 //
 // Decided 15 Nov 2026 (Rhythm Dice, Phase 0):
-// - The same entitlement as Chord Moves Pro unlocks it: a Founder Access
+// - The same entitlement as Kynda Learning Tools Pro (formerly Chord Moves Pro) unlocks it: a Founder Access
 //   purchase, or an active student grant. It reuses the email-code flow and
 //   the server check (api/request-unlock-code, api/verify-unlock-code,
 //   api/check-entitlement). No new Stripe product, webhook or single sign-on.
-// - It has its own keys. Chord Moves lived on this origin until 31 Oct, so
-//   a legacy `cm_tier=pro` can still sit here -- often with no email, so it
-//   could never be re-checked. That flag is deliberately not trusted: Pro on
-//   Tools is only ever set by a code sent to the email.
+// - It reads its own keys, which since 26 Nov are one login with Chord
+//   Moves' (src/app/proLogin.js). A legacy `cm_tier=pro` with no email can
+//   still sit on this origin and could never be re-checked, so it is
+//   deliberately not trusted here: Pro on Tools only ever comes from a code
+//   sent to the email.
 // - Every load re-checks the stored email. A definite "not Pro" (a student
 //   whose lessons ended) removes it from this device; a failed or offline
 //   check keeps it, so a bad connection never takes Pro away.
 //
 // Pure apart from the injected `storage` (getItem/setItem/removeItem) and
 // `fetchFn`, so the rules are unit-tested without a browser.
+
+import { clearProLogin, setProLogin } from './proLogin.js'
 
 export const TOOLS_PRO_KEY = 'kyndaTools.pro'
 export const TOOLS_PRO_EMAIL_KEY = 'kyndaTools.proEmail'
@@ -43,7 +46,7 @@ async function post(fetchFn, url, body) {
 // Step 1: email a six-digit code. Returns { ok } or { ok: false, error }.
 export async function requestCode(fetchFn, email) {
   const e = normaliseEmail(email)
-  if (!e.includes('@')) return { ok: false, error: 'Enter the email you use for Chord Moves Pro or your lessons.' }
+  if (!e.includes('@')) return { ok: false, error: 'Enter the email you use for Kynda Learning Tools Pro or your lessons.' }
   try {
     const { ok, data } = await post(fetchFn, '/api/request-unlock-code', { email: e })
     return ok ? { ok: true } : { ok: false, error: data.error || 'The code could not be sent. Try again.' }
@@ -60,8 +63,7 @@ export async function verifyCode(fetchFn, storage, email, code) {
     const { ok, data } = await post(fetchFn, '/api/verify-unlock-code', { email: e, code: String(code ?? '').trim() })
     if (!ok) return { ok: false, error: data.error || 'That code did not work. Try again.' }
     if (data.isPro) {
-      storage.setItem(TOOLS_PRO_KEY, 'pro')
-      storage.setItem(TOOLS_PRO_EMAIL_KEY, e)
+      setProLogin(storage, e)
       return { ok: true, isPro: true }
     }
     return { ok: true, isPro: false }
@@ -84,7 +86,7 @@ export async function recheck(fetchFn, storage) {
   return 'kept'
 }
 
+// Signs out of every app (Chord Moves too): it is one login.
 export function signOut(storage) {
-  storage.removeItem(TOOLS_PRO_KEY)
-  storage.removeItem(TOOLS_PRO_EMAIL_KEY)
+  clearProLogin(storage)
 }

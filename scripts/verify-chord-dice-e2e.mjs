@@ -284,7 +284,7 @@ try {
   check('Level 4 is marked Pro and locked', await p4.getByRole('radio', { name: 'Level 4 (sevenths), Pro' }).count() === 1)
   await p4.getByRole('radio', { name: 'Level 4 (sevenths), Pro' }).click()
   const gate = await p4.locator('[role="dialog"]').innerText()
-  check('Level 4 opens the Pro sheet with its reason', gate.includes('Level 4 (sevenths) is part of Pro.') && /chord dice pro/i.test(gate), gate)
+  check('Level 4 opens the Pro sheet with its reason', gate.includes('Level 4 (sevenths) is part of Pro.') && /kynda learning tools pro/i.test(gate) && !/chord dice pro/i.test(gate), gate)
   check('the level stays where it was', await p4.getByRole('radio', { name: 'Level 1' }).getAttribute('aria-checked') === 'true')
   await p4.fill('#cd-pro-email', 'Student@Example.com')
   await p4.getByRole('button', { name: 'Send code', exact: true }).click()

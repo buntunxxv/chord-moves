@@ -68,8 +68,8 @@ export default async function handler(req, res) {
     body: JSON.stringify({
       from: 'Kynda Learning <hello@kyndalearning.co.uk>',
       to: normalizedEmail,
-      subject: `Your Chord Moves unlock code: ${code}`,
-      text: `Your Chord Moves Pro unlock code is ${code}.\n\nIt expires in ${CODE_TTL_MINUTES} minutes. If you didn't request this, you can ignore this email.`,
+      subject: `Your Kynda Learning Tools Pro unlock code: ${code}`,
+      text: `Your Kynda Learning Tools Pro unlock code is ${code}. It unlocks Pro in every Kynda Learning tool.\n\nIt expires in ${CODE_TTL_MINUTES} minutes. If you didn't request this, you can ignore this email.`,
     }),
   })
 

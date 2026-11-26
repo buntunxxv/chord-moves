@@ -229,6 +229,19 @@
   text-transform: uppercase;
 }
 
+/* Pro is one product across the suite: each tool's Pro features sit under
+   its own name, inside the one "Live now" list. */
+.upgrade-page__features-tool {
+  margin: 16px 0 8px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.upgrade-page__features-heading + .upgrade-page__features-tool {
+  margin-top: 0;
+}
+
 .upgrade-page__features-heading--planned {
   margin-top: 22px;
 }

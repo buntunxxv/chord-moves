@@ -10,7 +10,7 @@ import { TOOLS } from './tools'
 // renders indented beneath it -- a parent/child grouping rather than 6 flat
 // peers. Portal sits outside that group, same as before.
 export const SUITE_MENU_ITEMS = [
-  { key: 'all-tools', label: 'All tools', to: '/tools' },
+  { key: 'all-tools', label: 'All tools', to: '/' },
   ...TOOLS.map(tool => ({ key: tool.path, label: tool.name, to: tool.path, child: true })),
   { key: 'portal', label: 'Portal', href: 'https://www.kyndalearning.co.uk/portal' },
 ]

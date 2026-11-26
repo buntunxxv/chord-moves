@@ -65,7 +65,7 @@ async function capture(device) {
     console.log(`  ${file}`)
   }
 
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' })
+  await page.goto(BASE + '/chordmoves', { waitUntil: 'networkidle' })
   await settle(page, 800)
   await shot('welcome')
 

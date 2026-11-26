@@ -1,51 +1,40 @@
-// One codebase, two public sites (decided 31 Oct 2026):
+// One site (decided 26 Nov 2026, superseding the 31 Oct two-domain split):
 //
-//   www.chordmoves.co.uk        Chord Moves, the flagship: "/", "/upgrade", "/demo"
-//   tools.kyndalearning.co.uk   the Kynda tools library: "/" is the directory,
-//                               plus the metronome, ear trainer, chord-scales
-//                               and the rhythm and chord dice
+//   tools.kyndalearning.co.uk/              the Kynda tools directory
+//   tools.kyndalearning.co.uk/chordmoves    Chord Moves (+ /chordmoves/demo)
+//   tools.kyndalearning.co.uk/upgrade       Kynda Learning Tools Pro, for every tool
+//   tools.kyndalearning.co.uk/<tool>        metronome, ear trainer, dice...
 //
-// Any other host (localhost, Vercel previews) serves everything, so dev and
-// preview links keep working without either domain.
+// Why one origin: a browser keeps saved work and the Pro login per origin.
+// With every app on the same origin, one Pro unlock and one set of saved
+// state serve them all (see src/app/proLogin.js).
 //
-// Links between the sites go through resolveLink(): same site -> a router
-// path; other site -> an absolute URL. The server half of the split lives in
-// vercel.json (tools paths requested on chordmoves.co.uk redirect to the
-// library).
+// www.chordmoves.co.uk is now a doorway: it hands this browser's saved
+// Chord Moves state across and moves to the matching path here (see
+// src/utils/domainHandover.js). Any other host (localhost, Vercel
+// previews) serves the same routes, so dev and preview links keep working.
 
-export const CHORD_MOVES_ORIGIN = 'https://www.chordmoves.co.uk'
 export const TOOLS_ORIGIN = 'https://tools.kyndalearning.co.uk'
 
-const CHORD_MOVES_HOSTS = ['www.chordmoves.co.uk', 'chordmoves.co.uk', 'www.chordmoves.uk', 'chordmoves.uk']
-const TOOLS_HOSTS = ['tools.kyndalearning.co.uk']
+export const CHORD_MOVES_PATH = '/chordmoves'
+export const UPGRADE_PATH = '/upgrade'
+export const DEMO_PATH = '/chordmoves/demo'
+export const LIBRARY_PATH = '/'
 
-// Logical paths owned by Chord Moves; every other app path is a library tool.
-export const CHORD_MOVES_PATHS = ['/', '/upgrade', '/demo']
-// The library's directory. Its logical path is /tools; on its own host it is
-// served at the root.
-export const LIBRARY_PATH = '/tools'
+// Hosts that used to serve Chord Moves on their own origin.
+export const LEGACY_CHORD_MOVES_HOSTS = ['www.chordmoves.co.uk', 'chordmoves.co.uk', 'www.chordmoves.uk', 'chordmoves.uk']
 
-export function siteForHost(hostname) {
-  if (CHORD_MOVES_HOSTS.includes(hostname)) return 'chordmoves'
-  if (TOOLS_HOSTS.includes(hostname)) return 'tools'
-  return 'all'
+// Where a path from the old chordmoves.co.uk layout lives now. Old Chord
+// Moves paths move under /chordmoves; anything else (already-new paths,
+// library tools) keeps its path.
+const LEGACY_PATHS = {
+  '/': CHORD_MOVES_PATH,
+  '/chordmoves/upgrade': UPGRADE_PATH,
+  '/demo': DEMO_PATH,
+  '/tools': LIBRARY_PATH,
 }
 
-export function siteOfPath(path) {
-  return CHORD_MOVES_PATHS.includes(path) ? 'chordmoves' : 'tools'
+export function currentPathFor(legacyPath) {
+  const trimmed = legacyPath.length > 1 ? legacyPath.replace(/\/+$/, '') : legacyPath
+  return LEGACY_PATHS[trimmed] ?? trimmed
 }
-
-// Where a logical app path lives when viewed from `site`.
-//   { internal: '/x' }               router link on this site
-//   { external: 'https://...', site } full URL on the other site
-export function resolveLink(path, site) {
-  const owner = siteOfPath(path)
-  if (site === 'all') return { internal: path }
-  if (owner === site) {
-    return { internal: site === 'tools' && path === LIBRARY_PATH ? '/' : path }
-  }
-  if (owner === 'chordmoves') return { external: CHORD_MOVES_ORIGIN + path, site: owner }
-  return { external: TOOLS_ORIGIN + (path === LIBRARY_PATH ? '/' : path), site: owner }
-}
-
-export const CURRENT_SITE = typeof window === 'undefined' ? 'all' : siteForHost(window.location.hostname)

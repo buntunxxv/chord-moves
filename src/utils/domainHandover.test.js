@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   CANONICAL_ORIGIN,
+  HANDED_OVER_KEY,
   applyHandover,
   buildHandoverUrl,
   collectAppState,
@@ -36,21 +37,26 @@ function fakeWindow(url, storage) {
 }
 
 const SAVED = JSON.stringify([{ name: 'Verse ♭VI', chords: ['A♭', 'B♭', 'Cm'] }])
+const appKeys = dump => Object.fromEntries(Object.entries(dump).filter(([k]) => k !== HANDED_OVER_KEY))
+
+test('the new home is the tools domain', () => {
+  assert.equal(CANONICAL_ORIGIN, 'https://tools.kyndalearning.co.uk')
+})
 
 test('collects only the app\'s own keys', () => {
-  const s = memoryStorage({ cm_tier: 'pro', chordMovesSavedProgressions: SAVED, 'kyndaTools.metronome.bpm': '96', other_site: 'x' })
+  const s = memoryStorage({ cm_tier: 'pro', chordMovesSavedProgressions: SAVED, 'kyndaTools.metronome.bpm': '96', other_site: 'x', [HANDED_OVER_KEY]: 'x' })
   assert.deepEqual(collectAppState(s), { cm_tier: 'pro', chordMovesSavedProgressions: SAVED, 'kyndaTools.metronome.bpm': '96' })
 })
 
-test('round-trips state, including non-ASCII chord names, through the URL', () => {
+test('round-trips state, including non-ASCII chord names, and maps the old path', () => {
   const state = { chordMovesSavedProgressions: SAVED, cm_pro_email: 'a@b.co' }
-  const url = buildHandoverUrl({ pathname: '/upgrade', search: '?x=1' }, state)
+  const url = buildHandoverUrl({ pathname: '/upgrade', search: '?x=1' }, state, { prefer: true })
   assert.ok(url.startsWith(`${CANONICAL_ORIGIN}/upgrade?x=1#cm-handover=`))
-  assert.deepEqual(readHandover(new URL(url).hash), state)
+  assert.deepEqual(readHandover(new URL(url).hash), { prefer: true, state })
 })
 
 test('no state means a clean URL with no fragment', () => {
-  assert.equal(buildHandoverUrl({ pathname: '/', search: '' }, {}), `${CANONICAL_ORIGIN}/`)
+  assert.equal(buildHandoverUrl({ pathname: '/', search: '' }, {}), `${CANONICAL_ORIGIN}/chordmoves`)
 })
 
 test('malformed handover is ignored, never throws', () => {
@@ -59,45 +65,61 @@ test('malformed handover is ignored, never throws', () => {
   assert.equal(readHandover('#something-else'), null)
 })
 
-test('never overwrites existing data or writes foreign keys', () => {
+test('fill-only never overwrites existing data or writes foreign keys', () => {
   const s = memoryStorage({ chordMovesSavedProgressions: '[]' })
   const written = applyHandover(s, { chordMovesSavedProgressions: SAVED, cm_tier: 'pro', evil: 'x', cm_path: 5 })
   assert.deepEqual(written, ['cm_tier'])
   assert.deepEqual(s.dump(), { chordMovesSavedProgressions: '[]', cm_tier: 'pro' })
 })
 
-test('old host hands a Chord Moves deep link to the new origin and stops rendering', () => {
-  const old = memoryStorage({ cm_tier: 'pro', cm_pro_email: 'a@b.co', chordMovesSavedProgressions: SAVED })
-  const oldWin = fakeWindow('https://tools.kyndalearning.co.uk/upgrade', old)
-  assert.equal(runDomainHandover(oldWin, old), true)
-  assert.ok(oldWin.calls.replace.startsWith(`${CANONICAL_ORIGIN}/upgrade#cm-handover=`))
+test('prefer overwrites stale Chord Moves keys but never companion tool keys', () => {
+  const s = memoryStorage({ chordMovesSavedProgressions: '[]', 'kyndaTools.metronome.bpm': '120' })
+  applyHandover(s, { chordMovesSavedProgressions: SAVED, 'kyndaTools.metronome.bpm': '60' }, { prefer: true })
+  assert.deepEqual(s.dump(), { chordMovesSavedProgressions: SAVED, 'kyndaTools.metronome.bpm': '120' })
+})
 
-  const fresh = memoryStorage()
-  const newWin = fakeWindow(oldWin.calls.replace, fresh)
-  assert.equal(runDomainHandover(newWin, fresh), false)
-  assert.deepEqual(fresh.dump(), old.dump())
-  assert.equal(newWin.calls.replaceState, '/upgrade')
+test('first visit to the old host carries newer work across, overwriting the stale copy', () => {
+  const old = memoryStorage({ cm_tier: 'pro', cm_pro_email: 'a@b.co', chordMovesSavedProgressions: SAVED })
+  const oldWin = fakeWindow('https://www.chordmoves.co.uk/', old)
+  assert.equal(runDomainHandover(oldWin, old), true)
+  assert.ok(oldWin.calls.replace.startsWith(`${CANONICAL_ORIGIN}/chordmoves#cm-handover=`))
+  assert.notEqual(old.getItem(HANDED_OVER_KEY), null)
+
+  const stale = memoryStorage({ chordMovesSavedProgressions: '[]', 'kyndaTools.pro': 'pro' })
+  const newWin = fakeWindow(oldWin.calls.replace, stale)
+  assert.equal(runDomainHandover(newWin, stale), false)
+  assert.deepEqual(stale.dump(), { ...appKeys(old.dump()), 'kyndaTools.pro': 'pro' })
+  assert.equal(newWin.calls.replaceState, '/chordmoves')
+})
+
+test('a later visit to the old host only fills gaps', () => {
+  const old = memoryStorage({ chordMovesSavedProgressions: SAVED, [HANDED_OVER_KEY]: '2026-11-26' })
+  const oldWin = fakeWindow('https://chordmoves.co.uk/upgrade', old)
+  runDomainHandover(oldWin, old)
+  const fresh = memoryStorage({ chordMovesSavedProgressions: '[{"name":"newer"}]' })
+  runDomainHandover(fakeWindow(oldWin.calls.replace, fresh), fresh)
+  assert.equal(fresh.getItem('chordMovesSavedProgressions'), '[{"name":"newer"}]')
+})
+
+test('every old-host path moves, tools paths keep their path', () => {
+  for (const [from, to] of [['/', '/chordmoves'], ['/upgrade', '/upgrade'], ['/demo', '/chordmoves/demo'], ['/tools', '/'], ['/metronome', '/metronome']]) {
+    const s = memoryStorage()
+    const win = fakeWindow(`https://www.chordmoves.co.uk${from}`, s)
+    assert.equal(runDomainHandover(win, s), true, from)
+    assert.equal(win.calls.replace, CANONICAL_ORIGIN + to, from)
+  }
 })
 
 test('old host with blocked storage still moves, without data', () => {
-  const win = fakeWindow('https://tools.kyndalearning.co.uk/upgrade', null)
+  const win = fakeWindow('https://www.chordmoves.co.uk/upgrade', null)
   Object.defineProperty(win, 'localStorage', { get() { throw new Error('SecurityError') } })
   assert.equal(runDomainHandover(win, memoryStorage()), true)
   assert.equal(win.calls.replace, `${CANONICAL_ORIGIN}/upgrade`)
 })
 
-test('old host serves the library: root and tools render in place', () => {
-  for (const path of ['/', '/tools', '/metronome', '/ear-trainer', '/chord-scales']) {
-    const s = memoryStorage({ cm_tier: 'pro' })
-    const win = fakeWindow(`https://tools.kyndalearning.co.uk${path}`, s)
-    assert.equal(runDomainHandover(win, s), false, path)
-    assert.equal(win.calls.replace, null, path)
-  }
-})
-
 test('new host without a handover does nothing', () => {
   const s = memoryStorage({ cm_tier: 'pro' })
-  const win = fakeWindow('https://www.chordmoves.co.uk/#top', s)
+  const win = fakeWindow('https://tools.kyndalearning.co.uk/chordmoves#top', s)
   assert.equal(runDomainHandover(win, s), false)
   assert.equal(win.calls.replaceState, null)
   assert.deepEqual(s.dump(), { cm_tier: 'pro' })
