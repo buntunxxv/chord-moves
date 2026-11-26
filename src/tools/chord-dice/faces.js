@@ -24,19 +24,45 @@ export const QUALITIES = {
   sus4: { id: 'sus4', label: 'sus4', word: 'sus4', suffix: 'sus4', middle: { interval: '4P', name: 'perfect fourth' }, fifth: { interval: '5P', name: 'perfect fifth' } },
 }
 
-// Colours arrive with Level 4: a seventh on top of the triad. Until then
-// every chord's colour is "none" and the Colour die stays off the tray.
+// Colours arrive with Level 4: notes added on top of the triad (a seventh;
+// at Level 5 a ninth, with or without the seventh). Until then every chord's
+// colour is "none" and the Colour die stays off the tray.
+const SEVENTH_m = { interval: '7m', name: 'minor seventh' }
+const SEVENTH_M = { interval: '7M', name: 'major seventh' }
+const NINTH = { interval: '9M', name: 'major ninth' }
 export const COLOURS = {
-  none: { id: 'none', label: 'none', suffix: '', added: null },
-  7: { id: '7', label: '7', suffix: '7', added: { interval: '7m', name: 'minor seventh' } },
-  maj7: { id: 'maj7', label: 'maj7', suffix: 'maj7', added: { interval: '7M', name: 'major seventh' } },
+  none: { id: 'none', label: 'none', suffix: '', adds: [] },
+  7: { id: '7', label: '7', suffix: '7', adds: [SEVENTH_m] },
+  maj7: { id: 'maj7', label: 'maj7', suffix: 'maj7', adds: [SEVENTH_M] },
+  add9: { id: 'add9', label: 'add9', suffix: 'add9', adds: [NINTH] },
+  9: { id: '9', label: '9', suffix: '9', adds: [SEVENTH_m, NINTH] },
+  maj9: { id: 'maj9', label: 'maj9', suffix: 'maj9', adds: [SEVENTH_M, NINTH] },
 }
 
-// How sentences say a seventh chord (the symbol alone does not tell you
-// that C7 is a dominant seventh).
-const SEVENTH_NAMES = { 'major/7': 'dominant seventh', 'major/maj7': 'major seventh', 'minor/7': 'minor seventh' }
+// How sentences say a coloured chord (the symbol alone does not tell you
+// that C7 is a dominant seventh). Only these pairs exist.
+const COLOURED_NAMES = {
+  'major/7': 'dominant seventh', 'major/maj7': 'major seventh', 'minor/7': 'minor seventh',
+  'major/add9': 'add9', 'minor/add9': 'minor add9',
+  'major/9': 'dominant ninth', 'major/maj9': 'major ninth', 'minor/9': 'minor ninth',
+}
+
+// The Bass die (Level 5): which note is lowest. A third or fifth bass is a
+// chord tone already; the 2nd is a note from outside the chord, added below
+// it (approved Phase 0). Unmarked means root position.
+export const BASSES = {
+  root: { id: 'root', label: 'root' },
+  3: { id: '3', label: '3rd', role: 1 },
+  5: { id: '5', label: '5th', role: 2 },
+  2: { id: '2', label: '2nd', foreign: { interval: '2M', name: 'major second' } },
+}
 
 const TRIADS = [['major', 'none'], ['minor', 'none']]
+// Level 5: triads over a 3rd, 5th or 2nd bass, and the ninths (root bass).
+const L5_TUPLES = [
+  ...['major', 'minor'].flatMap(q => ['3', '5', '2'].map(b => [q, 'none', b])),
+  ['major', 'add9'], ['minor', 'add9'], ['major', '9'], ['major', 'maj9'], ['minor', '9'],
+]
 export const LEVELS = {
   L1: { id: 'L1', name: 'Level 1', roots: L1_ROOTS, tuples: TRIADS },
   L2: { id: 'L2', name: 'Level 2', roots: L2_ROOTS, tuples: TRIADS },
@@ -45,11 +71,13 @@ export const LEVELS = {
   // Level 4 (Pro): C7, Cmaj7, Cm7 on all 12 roots (36). Minor/maj7 and the
   // dim/aug sevenths stay out, as approved in Phase 0.
   L4: { id: 'L4', name: 'Level 4', roots: L2_ROOTS, tuples: [['major', '7'], ['major', 'maj7'], ['minor', '7']], pro: true },
+  // Level 5 (Pro): slash bass and ninths on all 12 roots (132).
+  L5: { id: 'L5', name: 'Level 5', roots: L2_ROOTS, tuples: L5_TUPLES, pro: true },
 }
 
 // The level switch. Mix rolls one of its levels with equal chance, then a
 // chord from that level, as Mix pools levels in Rhythm Dice: Levels 1–3, and
-// Level 4 too with Pro. Levels 4–5 are Pro (shared Tools Pro, decided 25 Nov).
+// Levels 4–5 too with Pro. Levels 4–5 are Pro (shared Tools Pro, decided 25 Nov).
 // Feedback: Levels 1–2 reflect on each note as it is placed; from Level 3
 // (and in Mix, which includes it) the keyboard stays neutral until Submit,
 // so the feedback style itself never hints at which level a chord is from.
@@ -58,7 +86,8 @@ export const LEVEL_CHOICES = [
   { key: 'L2', label: '2', name: 'Level 2', levelIds: ['L2'], feedback: 'note' },
   { key: 'L3', label: '3', name: 'Level 3', levelIds: ['L3'], feedback: 'submit' },
   { key: 'L4', label: '4', name: 'Level 4 (sevenths)', levelIds: ['L4'], feedback: 'submit', pro: true },
-  { key: 'mix', label: 'Mix', name: 'Mix levels', levelIds: ['L1', 'L2', 'L3'], proLevelIds: ['L4'], feedback: 'submit' },
+  { key: 'L5', label: '5', name: 'Level 5 (bass and ninths)', levelIds: ['L5'], feedback: 'submit', pro: true },
+  { key: 'mix', label: 'Mix', name: 'Mix levels', levelIds: ['L1', 'L2', 'L3'], proLevelIds: ['L4', 'L5'], feedback: 'submit' },
 ]
 export const LEVEL_KEYS = LEVEL_CHOICES.map(c => c.key)
 export const levelChoice = key => LEVEL_CHOICES.find(c => c.key === key) ?? LEVEL_CHOICES[0]
@@ -70,7 +99,7 @@ export const levelIdsFor = (key, isPro = false) => {
   return isPro && c.proLevelIds ? [...c.levelIds, ...c.proLevelIds] : c.levelIds
 }
 // A chord from a Pro level (kept chords use this to gate "Hear").
-export const isProChord = o => (o.colour ?? 'none') !== 'none'
+export const isProChord = o => (o.colour ?? 'none') !== 'none' || (o.bass ?? 'root') !== 'root'
 
 // ASCII spelling -> display spelling (♯ ♭ 𝄪 𝄫).
 // Only the letter's own accidentals change, so a suffix is left alone.
@@ -82,13 +111,14 @@ export function displayNote(name) {
   return m[1] + ACCIDENTAL_GLYPHS[m[2] ?? ''] + m[3]
 }
 
-// Every outcome a level can roll, as { root, quality, colour, levelId }.
+// Every outcome a level can roll, as { root, quality, colour, bass, levelId }.
 export function outcomes(levelId) {
   const level = LEVELS[levelId]
-  return level.roots.flatMap(root => level.tuples.map(([quality, colour]) => ({ root, quality, colour, levelId })))
+  return level.roots.flatMap(root => level.tuples.map(([quality, colour, bass = 'root']) => ({ root, quality, colour, bass, levelId })))
 }
 
-const sameChord = (a, b) => a && b && a.root === b.root && a.quality === b.quality && (a.colour ?? 'none') === (b.colour ?? 'none')
+const face = (o, die) => o[die] ?? (die === 'colour' ? 'none' : die === 'bass' ? 'root' : undefined)
+const sameChord = (a, b) => a && b && ['root', 'quality', 'colour', 'bass'].every(d => face(a, d) === face(b, d))
 
 // Every distinct chord a level choice can give (Mix: its levels together).
 export function poolFor(levelKey, isPro = false) {
@@ -108,24 +138,32 @@ export const isAllowed = (outcome, levelKey, isPro = false) => poolFor(levelKey,
 //   notes    ['F#','A','C#']  spelled chord tones, root first
 //   chromas  [6, 9, 1]    pitch classes, same order
 //   roles    [{ interval:'1P', name:'root' }, ...]
-export function resolveChord({ root, quality, colour = 'none' }) {
+//   bass     { degree:'3', note:'E', chroma:4, name:'major third' }
+// A foreign bass (the 2nd) is part of the answer too: its role comes last.
+export function resolveChord({ root, quality, colour = 'none', bass = 'root' }) {
   const q = QUALITIES[quality]
   const c = COLOURS[colour]
-  if (!q || !c) throw new Error(`Unknown face ${quality}/${colour}`)
-  const symbol = root + q.suffix + c.suffix
+  const b = BASSES[bass]
+  if (!q || !c || !b) throw new Error(`Unknown face ${quality}/${colour}/${bass}`)
+  const coloured = COLOURED_NAMES[`${quality}/${colour}`]
+  if (c.adds.length && !coloured) throw new Error(`No chord for ${quality}/${colour}`)
+  if (bass !== 'root' && (colour !== 'none' || !['major', 'minor'].includes(quality))) throw new Error(`No slash chord for ${quality}/${colour}/${bass}`)
+  const roles = [{ interval: '1P', name: 'root' }, q.middle, q.fifth, ...c.adds]
+  if (b.foreign) roles.push(b.foreign)
+  const notes = roles.map(r => Note.transpose(root, r.interval))
+  const bassIndex = b.foreign ? roles.length - 1 : b.role ?? 0
+  const bassNote = notes[bassIndex]
+  const symbol = root + q.suffix + c.suffix + (bass === 'root' ? '' : `/${bassNote}`)
   const chord = Chord.get(symbol)
   if (chord.empty) throw new Error(`Tonal has no chord ${symbol}`)
-  const roles = [{ interval: '1P', name: 'root' }, q.middle, q.fifth, ...(c.added ? [c.added] : [])]
-  const seventh = SEVENTH_NAMES[`${quality}/${colour}`]
-  if (c.added && !seventh) throw new Error(`No chord for ${quality}/${colour}`)
-  const notes = roles.map(r => Note.transpose(root, r.interval))
   return {
     root,
     quality,
     colour,
+    bass: { degree: bass, note: bassNote, chroma: Note.chroma(bassNote), name: roles[bassIndex].name, index: bassIndex },
     symbol,
-    name: displayNote(symbol),
-    prose: `${displayNote(root)} ${seventh ?? q.word}`,
+    name: symbol.split('/').map(displayNote).join('/'),
+    prose: `${displayNote(root)} ${coloured ?? q.word}`,
     notes,
     chromas: notes.map(n => Note.chroma(n)),
     roles,
@@ -148,19 +186,32 @@ export function rollChord(levelKey, { rng = Math.random, avoid = null, isPro = f
 
 // ---------- Change one die ----------
 
-export const DICE = ['root', 'quality', 'colour']
-export const DIE_NAMES = { root: 'Root', quality: 'Quality', colour: 'Colour' }
+export const DICE = ['root', 'quality', 'colour', 'bass']
+export const DIE_NAMES = { root: 'Root', quality: 'Quality', colour: 'Colour', bass: 'Bass' }
 
 // The dice on the tray: the Colour die joins once a level gives it a face
-// other than "none" (Level 4).
-export const diceFor = (levelKey, isPro = false) =>
-  poolFor(levelKey, isPro).some(o => o.colour !== 'none') ? DICE : DICE.filter(d => d !== 'colour')
+// other than "none" (Level 4), the Bass die once a bass other than the root
+// is possible (Level 5).
+export const diceFor = (levelKey, isPro = false) => {
+  const pool = poolFor(levelKey, isPro)
+  return DICE.filter(d => (d !== 'colour' || pool.some(o => o.colour !== 'none')) && (d !== 'bass' || pool.some(o => o.bass !== 'root')))
+}
+
+// How a die's face reads in a sentence.
+const faceWords = (die, o) => ({
+  quality: `a ${QUALITIES[o.quality].word} chord`,
+  colour: `the ${COLOURS[face(o, 'colour')].label} colour`,
+  bass: face(o, 'bass') === 'root' ? 'the root in the bass' : `the ${BASSES[face(o, 'bass')].label} in the bass`,
+})[die]
+const faceLabel = (die, o) => ({
+  quality: QUALITIES[o.quality].label, colour: COLOURS[face(o, 'colour')].label, bass: BASSES[face(o, 'bass')].label,
+})[die]
 
 // The faces this die could change to while the other two dice stay put,
 // using only chords the level allows.
 export function alternatives(outcome, die, levelKey, isPro = false) {
   return poolFor(levelKey, isPro).filter(o =>
-    o[die] !== outcome[die] && DICE.every(d => d === die || o[d] === outcome[d]))
+    face(o, die) !== face(outcome, die) && DICE.every(d => d === die || face(o, d) === face(outcome, d)))
 }
 
 // Re-roll one die, keeping the others. When nothing else fits, say which
@@ -171,12 +222,16 @@ export function changeOneDie(outcome, die, levelKey, { rng = Math.random, isPro 
     const pick = options[Math.floor(rng() * options.length)]
     return { outcome: { ...pick, levelKey } }
   }
-  const others = DICE.filter(d => d !== die && d !== 'root')
+  const onTray = diceFor(levelKey, isPro)
+  const others = onTray.filter(d => d !== die && d !== 'root')
+  // The other die that, changed first, would give this die a choice: every
+  // die but these two stays as it is.
   const freedBy = others.find(other => poolFor(levelKey, isPro).some(o =>
-    o.root === outcome.root && o[die] !== outcome[die] && o[other] !== outcome[other]))
-  const face = die === 'colour' ? COLOURS[outcome.colour].label : QUALITIES[outcome.quality].label
+    face(o, die) !== face(outcome, die) && DICE.every(d => d === die || d === other || face(o, d) === face(outcome, d))))
   if (freedBy) {
-    return { blocked: `Nothing else on the ${DIE_NAMES[die]} die fits with ${freedBy === 'colour' ? `the ${COLOURS[outcome.colour].label} colour` : `a ${QUALITIES[outcome.quality].word} chord`} here. Change the ${DIE_NAMES[freedBy]} first.` }
+    return { blocked: `Nothing else on the ${DIE_NAMES[die]} die fits with ${faceWords(freedBy, outcome)} here. Change the ${DIE_NAMES[freedBy]} first.` }
   }
-  return { blocked: `The ${DIE_NAMES[die]} die has only “${face}” at this level. Change the Root or the ${DIE_NAMES[die === 'colour' ? 'quality' : 'colour']} instead, or move up a level.` }
+  const rest = (onTray.includes(die) ? onTray : [...onTray, die]).filter(d => d !== die).map(d => `the ${DIE_NAMES[d]}`)
+  const list = rest.length > 1 ? `${rest.slice(0, -1).join(', ')} or ${rest.at(-1)}` : rest[0]
+  return { blocked: `The ${DIE_NAMES[die]} die has only “${faceLabel(die, outcome)}” at this level. Change ${list} instead, or move up a level.` }
 }

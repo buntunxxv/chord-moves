@@ -291,8 +291,8 @@ try {
   await p4.fill('#cd-pro-code', '123 456')
   check('the code field keeps six digits', await p4.inputValue('#cd-pro-code') === '123456')
   await p4.getByRole('button', { name: 'Unlock', exact: true }).click()
-  await p4.getByText('Level 4 (sevenths) is open').waitFor()
-  check('unlocked: the sheet says what is open', (await p4.locator('[role="dialog"]').innerText()).includes('Level 4 (sevenths) is open'))
+  await p4.getByText('Levels 4 and 5 are open').waitFor()
+  check('unlocked: the sheet says what is open', (await p4.locator('[role="dialog"]').innerText()).includes('Levels 4 and 5 are open'))
   await p4.getByRole('button', { name: 'Try Level 4' }).click()
   check('Try Level 4 selects it, with a Pro chip',
     await p4.getByRole('radio', { name: 'Level 4 (sevenths)', exact: true }).getAttribute('aria-checked') === 'true'
@@ -360,6 +360,70 @@ try {
     && await rd.page.getByRole('radio', { name: 'Level 1' }).getAttribute('aria-checked') === 'true'
     && await rd.page.evaluate(() => localStorage.getItem('kyndaTools.pro')) === null)
   await rd.ctx.close()
+
+  // ---------- 8. Level 5: the Bass die ----------
+  const l5 = await freshPage(undefined, { entitled: true })
+  const p5 = l5.page
+  await p5.evaluate(() => { localStorage.setItem('kyndaTools.pro', 'pro'); localStorage.setItem('kyndaTools.proEmail', 'a@b.co') })
+  await p5.reload({ waitUntil: 'networkidle' })
+  await p5.getByRole('radio', { name: 'Level 5 (bass and ninths)', exact: true }).click()
+  await p5.getByRole('radio', { name: 'From name' }).click()
+  await forceRoll(p5, [0, 0.0001]) // C/E
+  check('Level 5 rolls four dice', (await p5.locator('.cd-die__face').allTextContents()).join(' ') === 'C major none 3rd')
+  for (const c of [0, 4, 7]) await p5.locator(`.cd-key[data-chroma="${c}"]`).click()
+  await p5.getByRole('button', { name: 'Submit' }).click()
+  const unmarked = await p5.locator('.cd-feedback').innerText()
+  check('the right notes with the root in the bass are not C/E', unmarked.includes('The bass is still the root. Which note is the major third? Mark it as the bass.'), unmarked)
+  await p5.getByRole('button', { name: 'Mark the bass' }).click()
+  await p5.locator('.cd-key[data-chroma="7"]').click()
+  check('the marked key says so to a screen reader', await p5.locator('.cd-key[data-chroma="7"]').getAttribute('aria-label') === 'G, marked as the bass')
+  await p5.getByRole('button', { name: 'Submit' }).click()
+  const wrongBass = await p5.locator('.cd-feedback').innerText()
+  check('Phase 0 bass example', wrongBass.includes('Your chord tones are there. You chose the perfect fifth as bass. Which note is the major third?'), wrongBass)
+  await p5.getByRole('button', { name: /^Change the bass/ }).click()
+  await p5.locator('.cd-key[data-chroma="4"]').click()
+  await p5.getByRole('button', { name: 'Hear my chord' }).click()
+  await p5.getByRole('button', { name: 'Submit' }).click()
+  const r5 = await p5.locator('.cd-result').innerText()
+  check('marked E: C/E is built', r5.includes('C/E') && r5.includes('E in the bass'), r5)
+  // Change the Bass die: C/E -> C/G (rng 0 picks the first of 5th, 2nd).
+  await p5.evaluate(() => { const v = [0]; Math.random = () => (v.length ? v.shift() : 0.5) })
+  await p5.getByRole('button', { name: /^Change the Bass die/ }).click()
+  check('the Bass die changes on its own', (await p5.locator('.cd-die__face').allTextContents()).join(' ') === 'C major none 5th')
+  await p5.getByRole('button', { name: 'Reveal' }).click()
+  check('the change reflection names the new lowest note',
+    (await p5.locator('.cd-result').innerText()).includes('C/G'))
+  await keepWith(p5, 'The fifth underneath makes it float')
+  const keptL5 = JSON.parse(await p5.evaluate(() => localStorage.getItem('kyndaTools.chordDice.keptChords')))[0]
+  check('a kept slash chord keeps its bass', keptL5.symbol === 'C/G' && keptL5.bass === '5' && keptL5.revealed === true, JSON.stringify(keptL5))
+
+  // From the sound: C/E and Cadd9 with the same keys and the same marked
+  // bass look identical before Submit; the Bass die is hidden.
+  await p5.getByRole('radio', { name: 'From sound' }).click()
+  const l5views = []
+  for (const values of [[0, 0.0001], [0, 6 / 132 + 0.0001]]) {
+    await forceRoll(p5, values)
+    for (const c of [0, 4, 7]) await p5.locator(`.cd-key[data-chroma="${c}"]`).click()
+    await p5.getByRole('button', { name: 'Mark the bass' }).click()
+    await p5.locator('.cd-key[data-chroma="4"]').click()
+    await p5.locator('.cd-die--rolling').first().waitFor({ state: 'detached' }) // the roll's tumble, not the chord
+    l5views.push(await exposed(p5))
+  }
+  {
+    const [x, y] = [l5views[0].html, l5views[1].html]
+    let k = 0
+    while (k < x.length && x[k] === y[k]) k++
+    check('Level 5 from the sound: C/E and Cadd9 look identical before Submit', x === y && l5views[0].aria === l5views[1].aria,
+      `first difference: …${x.slice(Math.max(0, k - 120), k + 80)}… vs …${y.slice(Math.max(0, k - 120), k + 80)}…`)
+  }
+  check('Level 5 from the sound: all four dice hidden', (await p5.locator('.cd-die__face').allTextContents()).join(' ') === '? ? ? ?')
+
+  // Mix with Pro: every round offers the Bass button, triads included.
+  await p5.getByRole('radio', { name: /^Mix levels/ }).click()
+  await forceRoll(p5, [0, 0])
+  check('Mix with Pro: the Bass button is there on a Level 1 triad', await p5.getByRole('button', { name: 'Mark the bass' }).count() === 1)
+  check('no page errors at Level 5', p5.errors.length === 0, p5.errors.join(' | '))
+  await l5.ctx.close()
 } finally {
   await browser.close()
   server.kill()

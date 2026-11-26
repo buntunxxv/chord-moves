@@ -24,7 +24,8 @@ export function write(key, value, store = safeStorage) {
 
 // A kept chord:
 //   { id, keptAt, root, quality, colour, symbol, start: 'name'|'sound',
-//     replays, revealed, reason, levelKey, changedFrom: { die, symbol }|null }
+//     replays, revealed, reason, levelKey, changedFrom: { die, symbol }|null,
+//     bass: 'root'|'3'|'5'|'2' }
 // The reason is required and short; everything else comes from the roll.
 export function makeKept(chord, { start, replays, revealed, reason, levelKey, changedFrom = null, now = new Date() }) {
   const trimmed = String(reason ?? '').trim().slice(0, REASON_MAX)
@@ -36,6 +37,7 @@ export function makeKept(chord, { start, replays, revealed, reason, levelKey, ch
     root: chord.root,
     quality: chord.quality,
     colour: chord.colour,
+    bass: chord.bass?.degree ?? 'root',
     symbol: chord.symbol,
     start,
     replays: start === 'sound' ? Math.max(0, Math.floor(Number(replays) || 0)) : 0,
@@ -54,7 +56,7 @@ function migrate(k) {
 
 // A face combination that makes a real chord.
 function exists(k) {
-  try { resolveChord({ root: k.root, quality: k.quality, colour: k.colour ?? 'none' }); return true } catch { return false }
+  try { resolveChord({ root: k.root, quality: k.quality, colour: k.colour ?? 'none', bass: k.bass ?? 'root' }); return true } catch { return false }
 }
 
 // Only well-formed items survive a read: a bad or foreign entry is dropped
@@ -72,6 +74,7 @@ export function parseKept(raw) {
       .map(k => ({
         ...k,
         colour: k.colour ?? 'none',
+        bass: k.bass ?? 'root',
         replays: Math.max(0, Math.floor(Number(k.replays) || 0)),
         revealed: k.revealed === true,
         changedFrom: k.changedFrom && DICE.includes(k.changedFrom.die) && typeof k.changedFrom.symbol === 'string'

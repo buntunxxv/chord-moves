@@ -4,7 +4,7 @@ import ToolsProSheet from '../../app/ToolsProSheet'
 import { readToolsPro, recheck, signOut } from '../../app/toolsPro'
 import { logEvent } from '../../analytics/events'
 import { safeStorage } from '../../utils/safeStorage'
-import { DIE_NAMES, LEVEL_CHOICES, LEVEL_KEYS, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, needsPro, resolveChord, rollChord } from './faces'
+import { BASSES, DIE_NAMES, LEVEL_CHOICES, LEVEL_KEYS, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, needsPro, resolveChord, rollChord } from './faces'
 import { compare, finishReflection, keyLabel, keySpoken, nextPrompt, placementFeedback, spelledNotes, submitFeedback } from './answer'
 import { createChordAudio, selectionVoicing, targetVoicing } from './audio'
 import { KEYS, REASON_MAX, STARTS, makeKept, readKept, readString, write, writeKept } from './storage'
@@ -24,7 +24,7 @@ const DIE_FACE = { major: 'major', minor: 'minor', dim: 'dim', aug: 'aug', sus2:
 // tap it to change that one die and keep the other two.
 function Die({ label, face, hidden, rolling, onChange }) {
   const spoken = hidden ? `${label} die: hidden until you finish` : face ? `${label} die: ${face}` : `${label} die: not rolled yet`
-  const className = `cd-die${rolling ? ' cd-die--rolling' : ''}${hidden ? ' cd-die--hidden' : ''}${face === 'none' ? ' cd-die--none' : ''}${onChange ? ' cd-die--button' : ''}`
+  const className = `cd-die${rolling ? ' cd-die--rolling' : ''}${hidden ? ' cd-die--hidden' : ''}${face === 'none' && !hidden ? ' cd-die--none' : ''}${onChange ? ' cd-die--button' : ''}`
   const faceEl = <span className="cd-die__face" aria-hidden="true">{hidden ? '?' : face ?? '–'}</span>
   return (
     <div className="cd-slot">
@@ -36,20 +36,24 @@ function Die({ label, face, hidden, rolling, onChange }) {
   )
 }
 
-function Piano({ selected, onToggle, disabled }) {
+// Level 5: the key the student marked as the bass carries a "bass" tab.
+// It is their choice, shown the same whether it is right or not.
+function Piano({ selected, onToggle, disabled, bassMark = null, bassMode = false }) {
   const isOn = c => selected.includes(c)
   const key = (c, black, style) => (
     <button key={c} type="button" style={style}
-      className={`cd-key ${black ? 'cd-key--black' : 'cd-key--white'}${isOn(c) ? ' is-on' : ''}`}
-      aria-pressed={isOn(c)} aria-label={keySpoken(c)} data-chroma={c}
+      className={`cd-key ${black ? 'cd-key--black' : 'cd-key--white'}${isOn(c) ? ' is-on' : ''}${bassMark === c ? ' is-bass' : ''}`}
+      aria-pressed={isOn(c)} aria-label={`${keySpoken(c)}${bassMark === c ? ', marked as the bass' : ''}`} data-chroma={c}
       onClick={() => onToggle(c)} disabled={disabled}>
+      {bassMark === c && <span className="cd-key__bass" aria-hidden="true">bass</span>}
       <span className="cd-key__label" aria-hidden="true">
         {black ? keyLabel(c).split('/').map(n => <span key={n}>{n}</span>) : keyLabel(c)}
       </span>
     </button>
   )
   return (
-    <div className="cd-piano" role="group" aria-label="Piano, one octave. Tap a key to add or remove a note.">
+    <div className={`cd-piano${bassMode ? ' is-bass-mode' : ''}`} role="group"
+      aria-label={bassMode ? 'Piano: tap the note you want in the bass.' : 'Piano, one octave. Tap a key to add or remove a note.'}>
       {WHITE.map(c => key(c, false))}
       {BLACK.map(({ chroma, after }) => key(chroma, true, { '--cd-after': after + 1 }))}
     </div>
@@ -78,6 +82,10 @@ export default function ChordDice() {
   // Levels 3 and Mix: what the last Submit said ({ extra, missing }).
   const [submitted, setSubmitted] = useState(null)
   const [selected, setSelected] = useState([])
+  // Level 5: the note marked as the bass (null = the root) and whether the
+  // next key tap marks it.
+  const [bassMark, setBassMark] = useState(null)
+  const [bassMode, setBassMode] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [replays, setReplays] = useState(0)
   const [status, setStatus] = useState('building') // building | done | revealed
@@ -100,8 +108,11 @@ export default function ChordDice() {
   // the changed one is hidden.
   const hiddenDie = die => concealed && (!round.changedFrom || round.changedFrom.die === die)
   const submitMode = round?.feedback === 'submit'
-  // Levels 1–3 roll two dice; the Colour die joins at Level 4.
+  // Levels 1–3 roll two dice; the Colour die joins at Level 4, the Bass die
+  // at Level 5. Wherever a Level 5 chord can come up, every round offers the
+  // Bass button, so its presence never hints at the chord.
   const dice = diceFor(round?.levelKey ?? levelKey, isPro)
+  const bassOn = dice.includes('bass')
   const dieList = names => names.map(d => DIE_NAMES[d]).join(names.length === 2 ? ' or ' : ', ').replace(/, (?=[^,]*$)/, ' or ')
 
   useEffect(() => {
@@ -120,12 +131,14 @@ export default function ChordDice() {
   }, [stage])
 
   // A new round: from a roll, or from changing one die of the last chord.
-  const startRound = useCallback((outcome, { changedFrom = null, dice = ['root', 'quality', 'colour'] } = {}) => {
+  const startRound = useCallback((outcome, { changedFrom = null, dice = ['root', 'quality', 'colour', 'bass'] } = {}) => {
     const next = resolveChord(outcome)
     setRound({ chord: next, outcome, start, levelKey: outcome.levelKey, feedback: feedbackStyle(outcome.levelKey), changedFrom })
     setSubmitted(null)
     setNotice('')
     setSelected([])
+    setBassMark(null)
+    setBassMode(false)
     setReplays(0)
     setStatus('building')
     setStage('build')
@@ -163,9 +176,19 @@ export default function ChordDice() {
 
   const toggleKey = chroma => {
     if (!chord) return
+    if (bassMode) {
+      // Mark (or unmark) this key as the bass; marking also plays it low.
+      setBassMode(false)
+      if (bassMark === chroma) return setBassMark(null)
+      setBassMark(chroma)
+      if (!selected.includes(chroma)) setSelected([...selected, chroma])
+      audio.playNote(48 + chroma)
+      return
+    }
     const adding = !selected.includes(chroma)
     const next = adding ? [...selected, chroma] : selected.filter(c => c !== chroma)
     setSelected(next)
+    if (!adding && bassMark === chroma) setBassMark(null)
     if (adding) audio.playNote(60 + chroma)
     // From Level 3 the keyboard is neutral until Submit: no words, no
     // finishing by itself.
@@ -177,7 +200,7 @@ export default function ChordDice() {
 
   const submit = () => {
     if (!chord || finished || !selected.length) return
-    const res = submitFeedback(chord, selected, round.start)
+    const res = submitFeedback(chord, selected, round.start, bassOn ? bassMark : null)
     if (res.complete) finish('done')
     else setSubmitted(res)
   }
@@ -284,16 +307,18 @@ export default function ChordDice() {
       if (round.start === 'sound') {
         return round.changedFrom
           ? `You changed the ${DIE_NAMES[round.changedFrom.die]}. Listen, then build the new chord. Submit when you’re ready.`
-          : 'Listen, then build what you hear. Submit when you’re ready.'
+          : `Listen, then build what you hear.${bassOn ? ' Mark the bass if it isn’t the root.' : ''} Submit when you’re ready.`
       }
-      return `Build ${chord.name}. Choose all its notes, then Submit.`
+      return bassOn
+        ? `Build ${chord.name}. Choose all its notes, mark the bass if it isn’t the root, then Submit.`
+        : `Build ${chord.name}. Choose all its notes, then Submit.`
     }
     const next = nextPrompt(chord, selected, round.start)
     if (selected.length === 0) {
       return round.start === 'sound' ? `Listen, then build what you hear. ${next}` : `Build ${chord.name}. ${next}`
     }
     return next
-  }, [chord, finished, round, selected, submitted])
+  }, [chord, finished, round, selected, submitted, bassOn])
 
   const stages = [
     { key: 'build', label: 'Build' },
@@ -306,7 +331,7 @@ export default function ChordDice() {
   return (
     <ToolShell>
       <div className="chord-dice">
-        <header className={`cd-head${isPro ? ' cd-head--pro' : ''}`}>
+        <header className="cd-head">
           <div className="cd-head__copy">
             <p className="cd-head__eyebrow">Chord Dice</p>
             <h1 className="cd-head__title">Roll, build and keep a chord</h1>
@@ -321,6 +346,17 @@ export default function ChordDice() {
               </button>
             ))}
           </div>
+          {/* Phones: one compact picker instead of six buttons (as in Rhythm Dice). */}
+          <label className="cd-level-pick">
+            <span className="cd-visually-hidden">Dice level</span>
+            <select value={levelKey} onChange={e => chooseLevel(e.target.value)}>
+              {LEVEL_CHOICES.map(c => (
+                <option key={c.key} value={c.key}>
+                  {c.key === 'mix' ? 'Mix levels' : `Level ${c.label}`}{c.pro && !isPro ? ' · Pro' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
           {isPro && (
             <button type="button" className="cd-pro-chip" onClick={() => openPro()} aria-label="Pro is on for this device. Manage">Pro</button>
           )}
@@ -335,6 +371,10 @@ export default function ChordDice() {
           {dice.includes('colour') && (
             <Die label="Colour" face={chord ? chord.colour : null} hidden={hiddenDie('colour')} rolling={rolling.includes('colour')}
               onChange={finished ? () => changeDie('colour') : null} />
+          )}
+          {dice.includes('bass') && (
+            <Die label="Bass" face={chord ? BASSES[chord.bass.degree].label : null} hidden={hiddenDie('bass')} rolling={rolling.includes('bass')}
+              onChange={finished ? () => changeDie('bass') : null} />
           )}
         </section>
 
@@ -389,19 +429,28 @@ export default function ChordDice() {
                     <p className="cd-feedback__label">Your last Submit</p>
                     {submitted.extra && <p className="cd-feedback__line">{submitted.extra}</p>}
                     {submitted.missing && <p className="cd-feedback__line">{submitted.missing}</p>}
+                    {submitted.bass && <p className="cd-feedback__line">{submitted.bass}</p>}
                   </>
                 )}
                 {prompt && <p className="cd-feedback__prompt">{prompt}</p>}
                 {finished && <p className="cd-feedback__prompt">{status === 'revealed' ? 'Revealed.' : 'Built.'} See Result.</p>}
               </div>
-              <Piano selected={selected} onToggle={toggleKey} disabled={!chord} />
+              <Piano selected={selected} onToggle={toggleKey} disabled={!chord} bassMark={bassOn ? bassMark : null} bassMode={bassMode} />
               <div className="cd-build__actions">
                 <button type="button" className="cd-btn cd-btn--quiet" disabled={!selected.length} aria-label="Hear my chord"
-                  onClick={() => audio.playChord(selectionVoicing(selected), 'selection')}>
+                  onClick={() => audio.playChord(selectionVoicing(selected, bassOn ? bassMark : null), 'selection')}>
                   <span className="cd-long" aria-hidden="true">Hear my chord</span><span className="cd-short" aria-hidden="true">Hear</span>
                 </button>
                 <button type="button" className="cd-btn cd-btn--ghost" disabled={!selected.length || finished}
-                  onClick={() => { setSelected([]); if (!submitMode) setFeedback('You cleared the keyboard.') }}>Clear</button>
+                  onClick={() => { setSelected([]); setBassMark(null); setBassMode(false); if (!submitMode) setFeedback('You cleared the keyboard.') }}>Clear</button>
+                {bassOn && (
+                  <button type="button" className={`cd-btn cd-btn--ghost cd-bass-btn${bassMode ? ' is-on' : ''}`} aria-pressed={bassMode}
+                    disabled={!chord || finished} onClick={() => setBassMode(m => !m)}
+                    aria-label={bassMode ? 'Marking the bass: tap a key' : bassMark === null ? 'Mark the bass' : `Change the bass, now ${keySpoken(bassMark)}`}>
+                    <span className="cd-long" aria-hidden="true">{bassMode ? 'Tap a key…' : 'Mark bass'}</span>
+                    <span className="cd-short" aria-hidden="true">{bassMode ? 'Tap…' : 'Bass'}</span>
+                  </button>
+                )}
                 {submitMode && (
                   <button type="button" className="cd-btn cd-btn--submit" disabled={!selected.length || finished} onClick={submit}>Submit</button>
                 )}
@@ -420,6 +469,7 @@ export default function ChordDice() {
                 <span>{startedFrom}</span>
                 {round.start === 'sound' && <span>{times(replays)}</span>}
                 {status === 'revealed' && <span className="cd-flag">Revealed</span>}
+                {chord.bass.degree !== 'root' && <span>{displayNote(chord.bass.note)} in the bass</span>}
                 {round.changedFrom && <span>Changed {DIE_NAMES[round.changedFrom.die]} from {round.changedFrom.chord.name}</span>}
               </p>
               <p className="cd-result__reflection">{finishReflection(chord, { start: round.start, replays, revealed: status === 'revealed', changedFrom: round.changedFrom })}</p>
@@ -483,9 +533,9 @@ export default function ChordDice() {
 
         {notice && <p className="cd-notice" role="status">{notice}</p>}
 
-        <ToolsProSheet isOpen={!!proSheet} onClose={closePro} prefix="cd" toolName="Chord Dice" lockedTitle="Unlock Level 4"
+        <ToolsProSheet isOpen={!!proSheet} onClose={closePro} prefix="cd" toolName="Chord Dice" lockedTitle="Unlock Levels 4 and 5"
           reason={proSheet?.reason ?? ''} pro={pro} onUnlocked={() => setPro(readToolsPro(safeStorage))} onRemove={removePro}
-          doneText="Level 4 (sevenths) is open, with the Colour die, and Mix now includes it."
+          doneText="Levels 4 and 5 are open: sevenths, then the Bass die and ninths. Mix now includes them."
           doneAction={{ label: 'Try Level 4', onClick: () => { closePro(); setLevelKey('L4'); write(KEYS.level, 'L4') } }} />
       </div>
     </ToolShell>
