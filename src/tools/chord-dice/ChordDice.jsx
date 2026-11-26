@@ -18,7 +18,7 @@ const START_LABELS = { name: 'From name', sound: 'From sound' }
 const KEPT_ROW = 60 // px per kept row, gap included
 
 const times = n => (n === 1 ? '1 replay' : `${n} replays`)
-const DIE_FACE = { major: 'major', minor: 'minor', dim: 'dim', aug: 'aug', sus2: 'sus2', sus4: 'sus4' }
+const DIE_FACE = { major: 'major', minor: 'minor', dim: 'dim', aug: 'aug', sus2: 'sus2', sus4: 'sus4', dom: 'dom' }
 
 // A die. Once a chord is built or revealed, each die becomes a button:
 // tap it to change that one die and keep the other two.

@@ -13,8 +13,12 @@ export const L2_ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', '
 // Two dice, two jobs (founder decision, 25 Nov, PR 2):
 //   Quality = how the triad is built: its middle note and its fifth. A sus
 //             chord replaces the third, so sus2 and sus4 are qualities.
-//   Colour  = a note added on top (7, maj7, add9 …). It has no faces until
+//   Colour  = a note added on top (7, 9, add9). It has no faces until
 //             Level 4, so the tray leaves it out until then.
+// The dice read the way a chord is said (founder decision, 26 Nov): major·7
+// is a major seventh, dom·7 a dominant seventh, minor·7 a minor seventh. So
+// "dominant" is a quality (a major triad that takes a minor seventh), and
+// it only ever comes with a colour.
 export const QUALITIES = {
   major: { id: 'major', label: 'major', word: 'major', suffix: '', middle: { interval: '3M', name: 'major third' }, fifth: { interval: '5P', name: 'perfect fifth' } },
   minor: { id: 'minor', label: 'minor', word: 'minor', suffix: 'm', middle: { interval: '3m', name: 'minor third' }, fifth: { interval: '5P', name: 'perfect fifth' } },
@@ -22,6 +26,7 @@ export const QUALITIES = {
   aug: { id: 'aug', label: 'aug', word: 'augmented', suffix: 'aug', middle: { interval: '3M', name: 'major third' }, fifth: { interval: '5A', name: 'augmented fifth' } },
   sus2: { id: 'sus2', label: 'sus2', word: 'sus2', suffix: 'sus2', middle: { interval: '2M', name: 'major second' }, fifth: { interval: '5P', name: 'perfect fifth' } },
   sus4: { id: 'sus4', label: 'sus4', word: 'sus4', suffix: 'sus4', middle: { interval: '4P', name: 'perfect fourth' }, fifth: { interval: '5P', name: 'perfect fifth' } },
+  dom: { id: 'dom', label: 'dom', word: 'dominant', suffix: '', middle: { interval: '3M', name: 'major third' }, fifth: { interval: '5P', name: 'perfect fifth' } },
 }
 
 // Colours arrive with Level 4: notes added on top of the triad (a seventh;
@@ -31,20 +36,24 @@ const SEVENTH_m = { interval: '7m', name: 'minor seventh' }
 const SEVENTH_M = { interval: '7M', name: 'major seventh' }
 const NINTH = { interval: '9M', name: 'major ninth' }
 export const COLOURS = {
-  none: { id: 'none', label: 'none', suffix: '', adds: [] },
-  7: { id: '7', label: '7', suffix: '7', adds: [SEVENTH_m] },
-  maj7: { id: 'maj7', label: 'maj7', suffix: 'maj7', adds: [SEVENTH_M] },
-  add9: { id: 'add9', label: 'add9', suffix: 'add9', adds: [NINTH] },
-  9: { id: '9', label: '9', suffix: '9', adds: [SEVENTH_m, NINTH] },
-  maj9: { id: 'maj9', label: 'maj9', suffix: 'maj9', adds: [SEVENTH_M, NINTH] },
+  none: { id: 'none', label: 'none' },
+  7: { id: '7', label: '7' },
+  9: { id: '9', label: '9' },
+  add9: { id: 'add9', label: 'add9' },
 }
 
-// How sentences say a coloured chord (the symbol alone does not tell you
-// that C7 is a dominant seventh). Only these pairs exist.
-const COLOURED_NAMES = {
-  'major/7': 'dominant seventh', 'major/maj7': 'major seventh', 'minor/7': 'minor seventh',
-  'major/add9': 'add9', 'minor/add9': 'minor add9',
-  'major/9': 'dominant ninth', 'major/maj9': 'major ninth', 'minor/9': 'minor ninth',
+// Quality + Colour -> the chord. Only these pairs exist. The seventh a
+// colour adds depends on the quality: major takes a major seventh, dominant
+// and minor a minor seventh.
+const COLOURED = {
+  'major/7': { suffix: 'maj7', adds: [SEVENTH_M], name: 'major seventh' },
+  'dom/7': { suffix: '7', adds: [SEVENTH_m], name: 'dominant seventh' },
+  'minor/7': { suffix: 'm7', adds: [SEVENTH_m], name: 'minor seventh' },
+  'major/9': { suffix: 'maj9', adds: [SEVENTH_M, NINTH], name: 'major ninth' },
+  'dom/9': { suffix: '9', adds: [SEVENTH_m, NINTH], name: 'dominant ninth' },
+  'minor/9': { suffix: 'm9', adds: [SEVENTH_m, NINTH], name: 'minor ninth' },
+  'major/add9': { suffix: 'add9', adds: [NINTH], name: 'add9' },
+  'minor/add9': { suffix: 'madd9', adds: [NINTH], name: 'minor add9' },
 }
 
 // The Bass die (Level 5): which note is lowest. A third or fifth bass is a
@@ -61,7 +70,7 @@ const TRIADS = [['major', 'none'], ['minor', 'none']]
 // Level 5: triads over a 3rd, 5th or 2nd bass, and the ninths (root bass).
 const L5_TUPLES = [
   ...['major', 'minor'].flatMap(q => ['3', '5', '2'].map(b => [q, 'none', b])),
-  ['major', 'add9'], ['minor', 'add9'], ['major', '9'], ['major', 'maj9'], ['minor', '9'],
+  ['major', 'add9'], ['minor', 'add9'], ['dom', '9'], ['major', '9'], ['minor', '9'],
 ]
 export const LEVELS = {
   L1: { id: 'L1', name: 'Level 1', roots: L1_ROOTS, tuples: TRIADS },
@@ -70,7 +79,7 @@ export const LEVELS = {
   L3: { id: 'L3', name: 'Level 3', roots: L2_ROOTS, tuples: [['dim', 'none'], ['aug', 'none'], ['sus2', 'none'], ['sus4', 'none']] },
   // Level 4 (Pro): C7, Cmaj7, Cm7 on all 12 roots (36). Minor/maj7 and the
   // dim/aug sevenths stay out, as approved in Phase 0.
-  L4: { id: 'L4', name: 'Level 4', roots: L2_ROOTS, tuples: [['major', '7'], ['major', 'maj7'], ['minor', '7']], pro: true },
+  L4: { id: 'L4', name: 'Level 4', roots: L2_ROOTS, tuples: [['dom', '7'], ['major', '7'], ['minor', '7']], pro: true },
   // Level 5 (Pro): slash bass and ninths on all 12 roots (132).
   L5: { id: 'L5', name: 'Level 5', roots: L2_ROOTS, tuples: L5_TUPLES, pro: true },
 }
@@ -145,15 +154,16 @@ export function resolveChord({ root, quality, colour = 'none', bass = 'root' }) 
   const c = COLOURS[colour]
   const b = BASSES[bass]
   if (!q || !c || !b) throw new Error(`Unknown face ${quality}/${colour}/${bass}`)
-  const coloured = COLOURED_NAMES[`${quality}/${colour}`]
-  if (c.adds.length && !coloured) throw new Error(`No chord for ${quality}/${colour}`)
+  const coloured = colour === 'none' ? null : COLOURED[`${quality}/${colour}`]
+  if (colour !== 'none' && !coloured) throw new Error(`No chord for ${quality}/${colour}`)
+  if (colour === 'none' && quality === 'dom') throw new Error('A dominant chord needs its colour')
   if (bass !== 'root' && (colour !== 'none' || !['major', 'minor'].includes(quality))) throw new Error(`No slash chord for ${quality}/${colour}/${bass}`)
-  const roles = [{ interval: '1P', name: 'root' }, q.middle, q.fifth, ...c.adds]
+  const roles = [{ interval: '1P', name: 'root' }, q.middle, q.fifth, ...(coloured?.adds ?? [])]
   if (b.foreign) roles.push(b.foreign)
   const notes = roles.map(r => Note.transpose(root, r.interval))
   const bassIndex = b.foreign ? roles.length - 1 : b.role ?? 0
   const bassNote = notes[bassIndex]
-  const symbol = root + q.suffix + c.suffix + (bass === 'root' ? '' : `/${bassNote}`)
+  const symbol = root + (coloured ? coloured.suffix : q.suffix) + (bass === 'root' ? '' : `/${bassNote}`)
   const chord = Chord.get(symbol)
   if (chord.empty) throw new Error(`Tonal has no chord ${symbol}`)
   return {
@@ -163,7 +173,7 @@ export function resolveChord({ root, quality, colour = 'none', bass = 'root' }) 
     bass: { degree: bass, note: bassNote, chroma: Note.chroma(bassNote), name: roles[bassIndex].name, index: bassIndex },
     symbol,
     name: symbol.split('/').map(displayNote).join('/'),
-    prose: `${displayNote(root)} ${coloured ?? q.word}`,
+    prose: `${displayNote(root)} ${coloured?.name ?? q.word}`,
     notes,
     chromas: notes.map(n => Note.chroma(n)),
     roles,

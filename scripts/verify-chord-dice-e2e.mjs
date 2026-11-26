@@ -301,7 +301,8 @@ try {
     await p4.evaluate(() => localStorage.getItem('kyndaTools.pro') === 'pro' && localStorage.getItem('kyndaTools.proEmail') === 'student@example.com'))
   // C major seventh (index 1 of Level 4): three dice, the Colour die is back.
   await forceRoll(p4, [0, 1 / 36 + 0.001])
-  check('Level 4 rolls three dice', (await p4.locator('.cd-die__face').allTextContents()).join(' ') === 'C major maj7')
+  // The dice read as the chord is said: major · 7 is a major seventh.
+  check('Level 4 rolls three dice: major · 7 is Cmaj7', (await p4.locator('.cd-die__face').allTextContents()).join(' ') === 'C major 7')
   for (const c of [0, 4, 7, 10]) await p4.locator(`.cd-key[data-chroma="${c}"]`).click()
   await p4.getByRole('button', { name: 'Submit' }).click()
   const fb7 = await p4.locator('.cd-feedback').innerText()
@@ -310,11 +311,14 @@ try {
   await p4.locator('.cd-key[data-chroma="11"]').click()
   await p4.getByRole('button', { name: 'Submit' }).click()
   check('Level 4 built: Result', (await p4.locator('.cd-result').innerText()).includes('Cmaj7'))
-  await p4.getByRole('button', { name: /^Change the Quality die/ }).click()
-  check('a blocked die says which to change first',
-    (await p4.locator('.cd-notice').innerText()).includes('Nothing else on the Quality die fits with the maj7 colour here. Change the Colour first.'))
+  // At Level 4 the Colour die is always 7: it says why instead of changing.
   await p4.getByRole('button', { name: /^Change the Colour die/ }).click()
-  check('the Colour die changes maj7 to 7', (await p4.locator('.cd-die__face').allTextContents()).join(' ') === 'C major 7')
+  check('a die with one face says what to change instead',
+    (await p4.locator('.cd-notice').innerText()).includes('The Colour die has only “7” at this level. Change the Root or the Quality instead'))
+  // The Quality die moves between the sevenths: major · 7 -> dom · 7 is C7.
+  await p4.evaluate(() => { const v = [0]; Math.random = () => (v.length ? v.shift() : 0.5) })
+  await p4.getByRole('button', { name: /^Change the Quality die/ }).click()
+  check('the Quality die turns Cmaj7 into C7 (dom · 7)', (await p4.locator('.cd-die__face').allTextContents()).join(' ') === 'C dom 7')
   await p4.getByRole('button', { name: 'Reveal' }).click()
   await keepWith(p4, 'The flat seventh wants to move')
 
