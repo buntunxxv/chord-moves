@@ -3,6 +3,7 @@
 // clock, so taps and clicks are compared on the same clock.
 import { createLookaheadScheduler } from '../../shared/audio/lookaheadScheduler.js'
 import { scheduleClap, scheduleClick } from '../../shared/audio/clickVoices.js'
+import { watchAudioContext, wakeAudioContext } from '../../shared/audio/wakeAudio.js'
 
 // Volumes run 0-100 on the Settings sheet; DEFAULT_VOLUME is the level the
 // voices were tuned at, so the top of the scale leaves a third more headroom.
@@ -33,8 +34,9 @@ export function createRhythmAudio() {
       ctx = new AudioContextClass({ latencyHint: 'interactive' })
       clickBus = bus('click')
       tapBus = bus('tap')
+      watchAudioContext(ctx)
     }
-    if (ctx.state !== 'running') await ctx.resume()
+    await wakeAudioContext(ctx)
     return ctx
   }
 

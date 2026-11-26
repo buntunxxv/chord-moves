@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { watchAudioContext, wakeAudioContext } from '../../shared/audio/wakeAudio.js'
 
 const LOOKAHEAD_MS = 25
 const SCHEDULE_AHEAD_SECONDS = 0.1
@@ -84,8 +85,11 @@ export function useMetronome({ bpm, beatsPerMeasure, beatUnit }) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext
     if (!AudioContextClass) return
 
-    if (!audioContextRef.current) audioContextRef.current = new AudioContextClass()
-    await audioContextRef.current.resume()
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextClass()
+      watchAudioContext(audioContextRef.current)
+    }
+    await wakeAudioContext(audioContextRef.current)
 
     beatRef.current = 0
     nextNoteTimeRef.current = audioContextRef.current.currentTime + 0.05
