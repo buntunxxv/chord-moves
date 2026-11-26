@@ -151,6 +151,14 @@ async function verifySheet(page, label, slug) {
   if (problems.length) await page.screenshot({ path: `${OUT}/${slug}.png` })
 }
 
+// Level buttons on tablets, a level picker on phones.
+const LEVEL_ORDER = ['L1', 'L2', 'L3', 'L4', 'L5', 'mix']
+async function pickLevel(page, key) {
+  const radio = page.locator('.cd-head__levels [role="radio"]').nth(LEVEL_ORDER.indexOf(key))
+  if (await radio.isVisible()) await radio.click()
+  else await page.selectOption('.cd-level-pick select', key)
+}
+
 async function isUp() {
   try { return (await fetch(BASE)).ok } catch { return false }
 }
@@ -215,7 +223,7 @@ try {
 
     // Level 3, from the name: C♯sus4 with four stray notes and the fourth
     // missing gives the longest Submit feedback there is.
-    await page.getByRole('radio', { name: 'Level 3' }).click()
+    await pickLevel(page, 'L3')
     await page.getByRole('radio', { name: 'From name' }).click()
     await page.evaluate(() => { const v = [0, 7 / 48 + 0.001]; Math.random = () => (v.length ? v.shift() : 0.5) })
     await page.getByRole('button', { name: /^Roll/ }).click()
@@ -240,7 +248,7 @@ try {
     await verify(page, `${name}: Result after Change one die`, `${slug}-result-change`)
 
     // Level 4 without Pro: the sheet must fit.
-    await page.getByRole('radio', { name: 'Level 4 (sevenths), Pro' }).click()
+    await pickLevel(page, 'L4')
     await verifySheet(page, `${name}: Pro unlock sheet`, `${slug}-pro-sheet`)
     await page.keyboard.press('Escape')
 
@@ -248,7 +256,7 @@ try {
     // dice; G♯maj7 (with F𝄪) after a Submit with stray notes.
     await page.evaluate(() => { localStorage.setItem('kyndaTools.pro', 'pro'); localStorage.setItem('kyndaTools.proEmail', 'a@b.co') })
     await page.reload({ waitUntil: 'networkidle' })
-    await page.getByRole('radio', { name: 'Level 4 (sevenths)', exact: true }).click()
+    await pickLevel(page, 'L4')
     await page.evaluate(() => { const v = [0, 25 / 36 + 0.001]; Math.random = () => (v.length ? v.shift() : 0.5) })
     await page.getByRole('button', { name: /^Roll/ }).click()
     check(`${name}: Level 4 rolls G♯maj7 on three dice`, (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'G♯ major maj7')
@@ -257,6 +265,30 @@ try {
     await verify(page, `${name}: Level 4 with Pro, after Submit`, `${slug}-build-l4`, { piano: true })
     await page.getByRole('button', { name: 'Reveal' }).click()
     await verify(page, `${name}: Level 4 Result`, `${slug}-result-l4`)
+
+    // Level 5: four dice. B♭madd9 (the longest name) with its ninth missing
+    // and the bass marked, then E♭m/G♭ with the wrong bass: the two longest
+    // Level 5 lines.
+    await pickLevel(page, 'L5')
+    await page.evaluate(() => { const v = [0, 117 / 132 + 0.0001]; Math.random = () => (v.length ? v.shift() : 0.5) })
+    await page.getByRole('button', { name: /^Roll/ }).click()
+    check(`${name}: Level 5 rolls B♭madd9 on four dice`, (await page.locator('.cd-die__face').allTextContents()).join(' ') === 'B♭ minor add9 root')
+    for (const c of [10, 1, 5]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
+    await page.getByRole('button', { name: 'Mark the bass' }).click()
+    await page.locator('.cd-key[data-chroma="1"]').click()
+    await page.getByRole('button', { name: 'Submit' }).click()
+    await verify(page, `${name}: Level 5 after Submit, bass marked`, `${slug}-build-l5`, { piano: true })
+    await page.evaluate(() => { const v = [0, 36 / 132 + 0.0001]; Math.random = () => (v.length ? v.shift() : 0.5) })
+    await page.getByRole('button', { name: /^Roll/ }).click()
+    for (const c of [3, 6, 10]) await page.locator(`.cd-key[data-chroma="${c}"]`).click()
+    await page.getByRole('button', { name: 'Mark the bass' }).click()
+    await page.locator('.cd-key[data-chroma="10"]').click()
+    await page.getByRole('button', { name: 'Submit' }).click()
+    const bassLine = await page.locator('.cd-feedback').innerText()
+    check(`${name}: the bass line shows`, bassLine.includes('You chose the perfect fifth as bass. Which note is the minor third?'), bassLine)
+    await verify(page, `${name}: Level 5 bass feedback`, `${slug}-build-l5-bass`, { piano: true })
+    await page.getByRole('button', { name: 'Reveal' }).click()
+    await verify(page, `${name}: Level 5 Result (slash)`, `${slug}-result-l5`)
 
     check(`${name}: no page errors`, errors.length === 0, errors.join(' | '))
     await ctx.close()

@@ -182,9 +182,17 @@ export const spelledNotes = chord => chord.notes.map(displayNote).join(' – ')
 const times = n => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`)
 
 // What makes this chord sound the way it does, for the finish reflection.
+// The chord's own tones: a 2nd in the bass is outside the chord, so it is
+// left out when comparing tones role by role.
+const toneCount = c => (c.bass?.degree === '2' ? c.notes.length - 1 : c.notes.length)
+const isSlash = c => Boolean(c.bass) && c.bass.degree !== 'root'
+
 function whatMakesIt(chord) {
+  if (isSlash(chord)) {
+    return `The ${chord.bass.name}, ${displayNote(chord.bass.note)}, is in the bass. Play it, then play it with the root in the bass. What changes?`
+  }
   if (chord.roles.length > 3) {
-    return `What does the ${chord.roles[3].name} add on top? Play it with and without that note.`
+    return `What does the ${chord.roles[toneCount(chord) - 1].name} add on top? Play it with and without that note.`
   }
   switch (chord.quality) {
     case 'major':
@@ -208,7 +216,9 @@ export function finishReflection(chord, { start, replays = 0, revealed = false, 
   }
   if (revealed) {
     const heard = start === 'sound' && replays > 0 ? `You played it ${times(replays + 1)} before revealing. ` : ''
-    const listenFor = chord.roles.length > 3 ? chord.roles[3].name : thirdName(chord)
+    const listenFor = isSlash(chord)
+      ? `${displayNote(chord.bass.note)} in the bass`
+      : chord.roles.length > 3 ? chord.roles[toneCount(chord) - 1].name : thirdName(chord)
     return `${heard}Play it again and listen for the ${listenFor}. Where would you have found it?`
   }
   if (start === 'sound') {
@@ -219,7 +229,7 @@ export function finishReflection(chord, { start, replays = 0, revealed = false, 
   return whatMakesIt(chord)
 }
 
-const DIE_LABEL = { root: 'Root', quality: 'Quality', colour: 'Colour' }
+const DIE_LABEL = { root: 'Root', quality: 'Quality', colour: 'Colour', bass: 'Bass' }
 const semitoneWords = n => (n === 1 ? 'a semitone' : n === 2 ? 'a tone' : `${n} semitones`)
 
 // Change one die: what moved, note by note, then a question about the sound.
@@ -232,19 +242,30 @@ export function describeChange(from, to, die) {
     const n = up <= 6 ? up : 12 - up
     return `${lead} Every note moved ${dir} ${withArticle(INTERVAL_NAMES[n].replace(/ \(.*\)$/, ''))}, so the shape stayed the same. What changed in the sound, and what didn’t?`
   }
-  const moves = []
-  for (let i = 0; i < Math.min(from.chromas.length, to.chromas.length); i++) {
-    if (from.chromas[i] === to.chromas[i]) continue
-    const up = semitonesUp(from.chromas[i], to.chromas[i])
-    const dir = up <= 6 ? 'up' : 'down'
-    moves.push(`${displayNote(from.notes[i])} moved ${dir} ${semitoneWords(up <= 6 ? up : 12 - up)} to ${displayNote(to.notes[i])}`)
+  if (die === 'bass') {
+    const outside = to.bass.degree === '2' ? ` ${displayNote(to.bass.note)} isn’t one of the triad’s own notes.` : ''
+    return `${lead} The lowest note moved from ${displayNote(from.bass.note)} to ${displayNote(to.bass.note)}.${outside} What does that change do to the sound?`
   }
-  if (to.chromas.length > from.chromas.length) {
-    const i = from.chromas.length
-    moves.push(`${withArticle(to.roles[i].name)}, ${displayNote(to.notes[i])}, was added on top`)
-  } else if (from.chromas.length > to.chromas.length) {
-    const i = to.chromas.length
-    moves.push(`the ${from.roles[i].name}, ${displayNote(from.notes[i])}, came off the top`)
+  const moves = []
+  const move = (f, t, fi, ti) => {
+    if (f.chromas[fi] === t.chromas[ti]) return
+    const up = semitonesUp(f.chromas[fi], t.chromas[ti])
+    const dir = up <= 6 ? 'up' : 'down'
+    moves.push(`${displayNote(f.notes[fi])} moved ${dir} ${semitoneWords(up <= 6 ? up : 12 - up)} to ${displayNote(t.notes[ti])}`)
+  }
+  // The triad, note by note; then the added notes, matched by degree (a 7th
+  // with a 7th, a 9th with a 9th), so Cadd9 -> C9 adds a seventh rather than
+  // "moving" the ninth.
+  for (let i = 0; i < 3; i++) move(from, to, i, i)
+  const degree = (c, i) => c.roles[i].interval.replace(/\D/g, '')
+  const adds = c => Array.from({ length: toneCount(c) - 3 }, (_, k) => k + 3)
+  for (const ti of adds(to)) {
+    const fi = adds(from).find(i => degree(from, i) === degree(to, ti))
+    if (fi === undefined) moves.push(`${withArticle(to.roles[ti].name)}, ${displayNote(to.notes[ti])}, was added on top`)
+    else move(from, to, fi, ti)
+  }
+  for (const fi of adds(from)) {
+    if (!adds(to).some(ti => degree(to, ti) === degree(from, fi))) moves.push(`the ${from.roles[fi].name}, ${displayNote(from.notes[fi])}, came off the top`)
   }
   const said = moves.length ? `${moves.join(', and ')}.`.replace(/^./, ch => ch.toUpperCase()) : 'The notes stayed the same; only the spelling changed.'
   return `${lead} ${said} What does that change do to the sound?`
@@ -257,9 +278,28 @@ export function describeChange(from, to, die) {
 // notes are described separately. A wrong note is paired with a missing
 // one only when it sits a semitone from exactly one of them.
 //   { complete: true } or { complete: false, extra: string|null, missing: string|null }
-export function submitFeedback(chord, selected, mode = 'name') {
-  const { found, missing, extras, complete } = compare(chord, selected)
-  if (complete) return { complete: true, extra: null, missing: null }
+// Level 5 adds the bass: `bassMark` is the key the student marked as the
+// bass, or null for "the root". It is checked apart from the notes, and only
+// once the notes themselves are all there.
+export function submitFeedback(chord, selected, mode = 'name', bassMark = null) {
+  const { found, missing, extras, complete: notesComplete } = compare(chord, selected)
+  const bassAt = bassMark ?? chord.chromas[0]
+  const bassRight = !chord.bass || bassAt === chord.bass.chroma
+  if (notesComplete && bassRight) return { complete: true, extra: null, missing: null, bass: null }
+  if (notesComplete) {
+    let bass
+    if (mode === 'sound') {
+      bass = bassMark === null
+        ? 'Your notes are all in the chord. Listen to the lowest note, then mark it as the bass.'
+        : `Your notes are all in the chord. Listen to the lowest note: is it ${keyLabel(bassMark)}?`
+    } else {
+      const want = chord.bass.name
+      bass = bassMark === null
+        ? `Your chord tones are there. The bass is still the root. Which note is the ${want}? Mark it as the bass.`
+        : `Your chord tones are there. You chose the ${chord.roles[chord.chromas.indexOf(bassMark)].name} as bass. Which note is the ${want}?`
+    }
+    return { complete: false, extra: null, missing: null, bass }
+  }
   const near = (a, b) => semitonesUp(a, b) === 1 || semitonesUp(b, a) === 1
   const pairs = []
   for (const e of extras) {
@@ -299,10 +339,14 @@ export function submitFeedback(chord, selected, mode = 'name') {
         : `${n === 1 ? 'One note is' : `${n} notes are`} still to find. Replay it and listen.`
     } else {
       const next = stillMissing[0]
-      missingLine = next.index === 0
+      const triadThere = [0, 1, 2].every(i => !missing.some(m => m.index === i))
+      const added = next.index >= 3 && (!chord.bass || next.index !== chord.bass.index || chord.bass.degree !== '2')
+      missingLine = triadThere && added && !extras.length
+        ? `The triad is there. What happens when you add the ${next.name}, ${displayNote(next.note)}?`
+        : next.index === 0
         ? `Where is the root, ${root}?`
         : `Which note is ${withArticle(next.name)} above ${root}?`
     }
   }
-  return { complete: false, extra, missing: missingLine }
+  return { complete: false, extra, missing: missingLine, bass: null }
 }

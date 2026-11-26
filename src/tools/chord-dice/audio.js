@@ -3,24 +3,9 @@
 // the page and disposes it when the page is left. Every new sound releases
 // the last one first, so quick taps and replays never pile up voices.
 import * as Tone from 'tone'
-import { Note } from 'tonal'
 import { createKeysSynth, startAudioContext } from '../../audio/synth'
 
-// The reference voicing: root position, close, around middle C. Roots from
-// G upwards start an octave lower so every chord sits in the same range.
-export function targetVoicing(chord) {
-  const octave = chord.chromas[0] >= 7 ? 3 : 4
-  let last = -Infinity
-  return chord.notes.map(n => {
-    let midi = Note.midi(`${n}${octave}`)
-    while (midi <= last) midi += 12
-    last = midi
-    return midi
-  })
-}
-
-// The student's notes, played upwards from C4 in keyboard order.
-export const selectionVoicing = chromas => [...new Set(chromas)].sort((a, b) => a - b).map(c => 60 + c)
+export { targetVoicing, selectionVoicing } from './voicing.js'
 
 // Tells tests (and nothing else) that a sound started. Carries only its kind,
 // never the notes, so it can never give an answer away.

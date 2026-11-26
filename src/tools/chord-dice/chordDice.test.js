@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Chord, Note } from 'tonal'
-import { L1_ROOTS, L2_ROOTS, LEVEL_CHOICES, alternatives, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, levelIdsFor, needsPro, outcomes, poolFor, resolveChord, rollChord } from './faces.js'
+import { BASSES, L1_ROOTS, L2_ROOTS, LEVEL_CHOICES, alternatives, changeOneDie, diceFor, displayNote, feedbackStyle, isProChord, levelIdsFor, needsPro, outcomes, poolFor, resolveChord, rollChord } from './faces.js'
 import {
   INTERVAL_NAMES, KEY_NAMES, chromaOf, compare, describeChange, finishReflection, keyLabel, matches, nextPrompt,
   pitchClassSet, placementFeedback, semitonesUp, submitFeedback,
 } from './answer.js'
+import { selectionVoicing, targetVoicing } from './voicing.js'
 import { KEYS, REASON_MAX, makeKept, parseKept, readKept, serialiseKept, writeKept } from './storage.js'
 
 const ALL = [...outcomes('L1'), ...outcomes('L2')]
@@ -59,7 +60,7 @@ test('rolls stay in their level; Mix draws from all three', () => {
   assert.equal(new Set(l2.map(r => r.root + r.quality)).size, 24)
   const mix = Array.from({ length: 600 }, () => rollChord('mix', { rng }))
   assert.ok(['L1', 'L2', 'L3'].every(l => mix.some(r => r.levelId === l)))
-  assert.deepEqual(LEVEL_CHOICES.map(c => c.key), ['L1', 'L2', 'L3', 'L4', 'mix'])
+  assert.deepEqual(LEVEL_CHOICES.map(c => c.key), ['L1', 'L2', 'L3', 'L4', 'L5', 'mix'])
   assert.ok(mix.every(r => r.levelId !== 'L4'), 'Mix without Pro never rolls Level 4')
   const l3 = Array.from({ length: 900 }, () => rollChord('L3', { rng }))
   assert.equal(new Set(l3.map(r => r.root + r.quality + r.colour)).size, 48)
@@ -219,8 +220,8 @@ test('keep: reason required and trimmed, records start, replays and reveal', () 
   assert.throws(() => makeKept(c, { start: 'ear', reason: 'x', now }))
   const k = makeKept(c, { start: 'sound', replays: 4, revealed: true, reason: '  the dark third  ', levelKey: 'L2', now })
   assert.deepEqual(k, {
-    id: String(now.getTime()), keptAt: now.toISOString(), root: 'Bb', quality: 'minor', colour: 'none', symbol: 'Bbm',
-    start: 'sound', replays: 4, revealed: true, reason: 'the dark third', levelKey: 'L2', changedFrom: null,
+    id: String(now.getTime()), keptAt: now.toISOString(), root: 'Bb', quality: 'minor', colour: 'none', bass: 'root', symbol: 'Bbm',
+    start: 'sound', replays: 4, revealed: true, reason: 'the dark third', levelKey: 'L2', changedFrom: null, bass: 'root',
   })
   assert.equal(makeKept(c, { start: 'name', replays: 9, reason: 'x', now }).replays, 0, 'no replays from the name')
   assert.equal(makeKept(c, { start: 'name', reason: 'y'.repeat(500), now }).reason.length, REASON_MAX)
@@ -328,6 +329,7 @@ test('Submit: Phase 0 Level 3 example, pairing only when clear', () => {
     complete: false,
     extra: 'You played a major third above C. C sus4 uses a perfect fourth in place of the third. What changes if you move that note up a semitone?',
     missing: null,
+    bass: null,
   })
   const cdim = resolveChord({ root: 'C', quality: 'dim' })
   assert.match(submitFeedback(cdim, [0, 3, 7]).extra, /perfect fifth above C\. C diminished uses a diminished fifth\. .*down a semitone\?$/)
@@ -339,7 +341,7 @@ test('Submit: Phase 0 Level 3 example, pairing only when clear', () => {
   assert.equal(amb.extra, 'F♯/G♭ is a tritone (augmented fourth or diminished fifth) above C. C sus4 doesn’t use it. Which would you take away?')
   assert.equal(amb.missing, 'Which note is a perfect fourth above C?')
   assert.equal(submitFeedback(csus2, [0, 2, 7]).complete, true)
-  assert.deepEqual(submitFeedback(cdim, [0]), { complete: false, extra: null, missing: 'Which note is a minor third above C?' })
+  assert.deepEqual(submitFeedback(cdim, [0]), { complete: false, extra: null, missing: 'Which note is a minor third above C?', bass: null })
 })
 
 test('Submit from the sound never names the chord, its quality or an unplaced note', () => {
@@ -401,7 +403,7 @@ test('Levels 1–3 roll two dice; every die on the tray can always change', () =
   assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'colour', 'L1', { rng: () => 0 }).blocked,
     'The Colour die has only “none” at this level. Change the Root or the Quality instead, or move up a level.')
   const ok = changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'quality', 'L2', { rng: () => 0 })
-  assert.deepEqual(ok.outcome, { root: 'C', quality: 'minor', colour: 'none', levelId: 'L2', levelKey: 'L2' })
+  assert.deepEqual(ok.outcome, { root: 'C', quality: 'minor', colour: 'none', bass: 'root', levelId: 'L2', levelKey: 'L2' })
 })
 
 test('the change reflection says what moved, then asks', () => {
@@ -435,7 +437,7 @@ test('kept Level 3 and changed chords round-trip', () => {
   assert.equal(plain.changedFrom, null)
   writeKept([k, plain], store)
   assert.deepEqual(readKept(store), [k, plain])
-  const bad = parseKept(JSON.stringify([{ ...k, changedFrom: { die: 'bass', symbol: 'C' } }, { ...k, quality: 'sus', colour: 'none' }]))
+  const bad = parseKept(JSON.stringify([{ ...k, changedFrom: { die: 'tempo', symbol: 'C' } }, { ...k, quality: 'sus', colour: 'none' }]))
   assert.equal(bad.length, 1, 'a chord that cannot exist is dropped')
   assert.equal(bad[0].changedFrom, null, 'an unknown change is ignored, the chord kept')
   // Sus chords kept before the Quality die took sus2/sus4 still load.
@@ -458,11 +460,11 @@ test('face table: 36 outcomes at Level 4, all 12 roots × 7, maj7, m7', () => {
   assert.ok(needsPro('L4') && !needsPro('L3') && !needsPro('mix'))
   assert.equal(feedbackStyle('L4'), 'submit')
   assert.deepEqual(levelIdsFor('mix'), ['L1', 'L2', 'L3'])
-  assert.deepEqual(levelIdsFor('mix', true), ['L1', 'L2', 'L3', 'L4'])
-  assert.equal(poolFor('mix', true).length, 72 + 36)
+  assert.deepEqual(levelIdsFor('mix', true), ['L1', 'L2', 'L3', 'L4', 'L5'])
+  assert.equal(poolFor('mix', true).length, 72 + 36 + 132)
   assert.deepEqual(diceFor('L4'), ['root', 'quality', 'colour'], 'the Colour die returns at Level 4')
   assert.deepEqual(diceFor('mix'), ['root', 'quality'])
-  assert.deepEqual(diceFor('mix', true), ['root', 'quality', 'colour'])
+  assert.deepEqual(diceFor('mix', true), ['root', 'quality', 'colour', 'bass'])
   assert.ok(L4.every(isProChord) && !L3.some(isProChord))
 })
 
@@ -497,8 +499,9 @@ test('Submit at Level 4: Phase 0 example and every wrong note', () => {
     complete: false,
     extra: 'You played a minor seventh above C. C major seventh uses a major seventh. What changes if you move that note up a semitone?',
     missing: null,
+    bass: null,
   })
-  assert.equal(submitFeedback(cmaj7, [0, 4, 7]).missing, 'Which note is a major seventh above C?')
+  assert.equal(submitFeedback(cmaj7, [0, 4, 7]).missing, 'The triad is there. What happens when you add the major seventh, B?')
   assert.equal(submitFeedback(cmaj7, [0, 4, 7, 11]).complete, true)
   for (const o of L4) {
     const c = resolveChord(o)
@@ -547,4 +550,158 @@ test('kept Level 4 chords round-trip', () => {
   writeKept([k], store)
   assert.deepEqual(readKept(store), [k])
   assert.ok(isProChord(readKept(store)[0]))
+})
+
+// ================= PR 4: Level 5, the Bass die, ninths =================
+
+const L5 = outcomes('L5')
+const L5_FORMULAS = {
+  'major/add9': ['1P', '3M', '5P', '9M'], 'minor/add9': ['1P', '3m', '5P', '9M'],
+  'major/9': ['1P', '3M', '5P', '7m', '9M'], 'major/maj9': ['1P', '3M', '5P', '7M', '9M'], 'minor/9': ['1P', '3m', '5P', '7m', '9M'],
+}
+const r5 = (root, quality, colour = 'none', bass = 'root') => resolveChord({ root, quality, colour, bass })
+
+test('face table: 132 outcomes at Level 5', () => {
+  assert.equal(L5.length, 132)
+  assert.equal(L5.filter(o => o.bass !== 'root').length, 72, '12 roots × major/minor × 3rd, 5th, 2nd')
+  assert.equal(L5.filter(o => o.colour !== 'none').length, 60, '12 roots × add9, madd9, 9, maj9, m9')
+  assert.equal(new Set(L5.map(o => resolveChord(o).symbol)).size, 132)
+  assert.deepEqual(diceFor('L5'), ['root', 'quality', 'colour', 'bass'], 'the Bass die joins at Level 5')
+  assert.deepEqual(diceFor('L4'), ['root', 'quality', 'colour'])
+  assert.ok(needsPro('L5') && feedbackStyle('L5') === 'submit')
+  assert.ok(L5.every(isProChord))
+  assert.deepEqual(Object.values(BASSES).map(b => b.label), ['2nd', '3rd', '5th', 'root'])
+})
+
+for (const o of L5) {
+  test(`Tonal resolves L5 ${resolveChord(o).symbol}`, () => {
+    const c = resolveChord(o)
+    const tonal = Chord.get(c.symbol)
+    assert.equal(tonal.empty, false)
+    assert.equal(tonal.tonic, o.root)
+    assert.deepEqual(new Set(c.chromas), new Set(tonal.notes.map(Note.chroma)), 'the answer is Tonal’s pitch set, foreign bass included')
+    if (o.bass === 'root') {
+      assert.deepEqual(tonal.intervals, L5_FORMULAS[`${o.quality}/${o.colour}`])
+      assert.deepEqual(c.notes, tonal.notes)
+      assert.equal(c.bass.chroma, c.chromas[0])
+    } else {
+      assert.equal(tonal.bass, c.bass.note, 'the bass note is Tonal’s')
+      assert.equal(tonal.notes[0], c.bass.note, 'and sounds first')
+      assert.equal(semitonesUp(c.chromas[0], c.bass.chroma), { 3: o.quality === 'major' ? 4 : 3, 5: 7, 2: 2 }[o.bass])
+    }
+  })
+}
+
+test('Level 5 names, prose and spellings', () => {
+  assert.equal(r5('C', 'major', 'none', '3').name, 'C/E')
+  assert.equal(r5('C', 'minor', 'none', '3').name, 'Cm/E♭')
+  assert.equal(r5('C', 'major', 'none', '2').name, 'C/D')
+  assert.deepEqual(r5('C', 'major', 'none', '2').notes, ['C', 'E', 'G', 'D'], 'the 2nd joins the chord, below it')
+  assert.equal(r5('C', 'major', 'add9').name, 'Cadd9')
+  assert.equal(r5('C', 'minor', 'add9').name, 'Cmadd9')
+  assert.equal(r5('C', 'minor', 'add9').prose, 'C minor add9')
+  assert.equal(r5('Bb', 'major', '9').prose, 'B♭ dominant ninth')
+  assert.equal(r5('F#', 'minor', '9').name, 'F♯m9')
+  assert.deepEqual(r5('G#', 'major', 'maj9').notes, ['G#', 'B#', 'D#', 'F##', 'A#'])
+  assert.throws(() => r5('C', 'major', '9', '3'), 'extensions keep the root in the bass')
+  assert.throws(() => r5('C', 'dim', 'none', '3'))
+})
+
+test('the bass is checked apart from the notes: Phase 0 examples', () => {
+  const ce = r5('C', 'major', 'none', '3')
+  assert.deepEqual(submitFeedback(ce, [0, 4, 7], 'name', 7), {
+    complete: false, extra: null, missing: null,
+    bass: 'Your chord tones are there. You chose the perfect fifth as bass. Which note is the major third?',
+  })
+  assert.equal(submitFeedback(ce, [0, 4, 7], 'name', null).bass,
+    'Your chord tones are there. The bass is still the root. Which note is the major third? Mark it as the bass.')
+  assert.equal(submitFeedback(ce, [0, 4, 7], 'name', 4).complete, true)
+  // Same notes, different bass: C/G is not C/E.
+  assert.equal(submitFeedback(r5('C', 'major', 'none', '5'), [0, 4, 7], 'name', 4).complete, false)
+  // Root-position chords: an unmarked bass is the root.
+  const cadd9 = r5('C', 'major', 'add9')
+  assert.equal(submitFeedback(cadd9, [0, 4, 7, 2]).complete, true)
+  assert.equal(submitFeedback(cadd9, [0, 4, 7, 2], 'name', 0).complete, true)
+  assert.match(submitFeedback(cadd9, [0, 4, 7, 2], 'name', 4).bass, /You chose the major third as bass\. Which note is the root\?$/)
+  assert.equal(submitFeedback(cadd9, [0, 4, 7]).missing, 'The triad is there. What happens when you add the major ninth, D?')
+  assert.equal(submitFeedback(r5('C', 'major', '9'), [0, 4, 7]).missing, 'The triad is there. What happens when you add the minor seventh, B♭?')
+  // The foreign 2nd must be played as well as marked.
+  const cd = r5('C', 'major', 'none', '2')
+  assert.equal(submitFeedback(cd, [0, 4, 7, 2], 'name', 2).complete, true)
+  assert.equal(submitFeedback(cd, [0, 4, 7], 'name').missing, 'Which note is a major second above C?')
+  assert.match(submitFeedback(cd, [0, 4, 7, 2], 'name').bass, /Which note is the major second\? Mark it as the bass\.$/)
+})
+
+test('from the sound, the bass line names only what the student marked', () => {
+  for (const o of L5.filter(x => x.bass !== 'root')) {
+    const c = resolveChord(o)
+    for (const mark of [null, ...c.chromas]) {
+      const fb = submitFeedback(c, c.chromas, 'sound', mark)
+      if (fb.complete) continue
+      assert.ok(fb.bass, `${c.symbol} marked ${mark}`)
+      assert.ok(!/third|fifth|second|root|seventh|ninth/.test(fb.bass), fb.bass)
+      for (const n of [displayNote(c.bass.note), ...KEY_NAMES[c.bass.chroma].map(displayNote)]) {
+        if (mark === c.bass.chroma) continue
+        const re = new RegExp(`(^|[^A-Za-z])${n}(?![A-Za-z♯♭𝄪𝄫])`, 'u')
+        const markedLabel = mark === null ? '' : keyLabel(mark)
+        if (re.test(fb.bass) && !re.test(markedLabel)) assert.fail(`${c.symbol} leaks its bass: “${fb.bass}”`)
+      }
+      assert.ok(!GRADE_WORDS.test(fb.bass), fb.bass)
+    }
+  }
+})
+
+test('Change one die at Level 5: the Bass die and blocked dice', () => {
+  const rng = () => 0
+  assert.deepEqual(alternatives({ root: 'C', quality: 'major', colour: 'none', bass: '3' }, 'bass', 'L5').map(o => o.bass), ['5', '2'])
+  assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'none', bass: '3' }, 'colour', 'L5', { rng }).blocked,
+    'Nothing else on the Colour die fits with the 3rd in the bass here. Change the Bass first.')
+  assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'add9', bass: 'root' }, 'bass', 'L5', { rng }).blocked,
+    'Nothing else on the Bass die fits with the add9 colour here. Change the Colour first.')
+  assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'maj9', bass: 'root' }, 'quality', 'L5', { rng }).blocked,
+    'Nothing else on the Quality die fits with the maj9 colour here. Change the Colour first.')
+  // At Levels 1–3 the old wording stays: only the dice on the tray are named.
+  assert.equal(changeOneDie({ root: 'C', quality: 'major', colour: 'none' }, 'colour', 'L1', { rng }).blocked,
+    'The Colour die has only “none” at this level. Change the Root or the Quality instead, or move up a level.')
+  assert.equal(describeChange(r5('C', 'major', 'none', '3'), r5('C', 'major', 'none', '5'), 'bass'),
+    'You changed the Bass: C/E became C/G. The lowest note moved from E to G. What does that change do to the sound?')
+  assert.equal(describeChange(r5('C', 'major', 'none', '5'), r5('C', 'major', 'none', '2'), 'bass'),
+    'You changed the Bass: C/G became C/D. The lowest note moved from G to D. D isn’t one of the triad’s own notes. What does that change do to the sound?')
+  assert.equal(describeChange(r5('C', 'major', 'none', '3'), r5('C', 'minor', 'none', '3'), 'quality'),
+    'You changed the Quality: C/E became Cm/E♭. E moved down a semitone to E♭. What does that change do to the sound?')
+  assert.equal(describeChange(r5('C', 'major', 'add9'), r5('C', 'major', '9'), 'colour'),
+    'You changed the Colour: Cadd9 became C9. A minor seventh, B♭, was added on top. What does that change do to the sound?')
+  assert.equal(describeChange(r5('C', 'major', '9'), r5('C', 'major', 'maj9'), 'colour'),
+    'You changed the Colour: C9 became Cmaj9. B♭ moved up a semitone to B. What does that change do to the sound?')
+  assert.equal(describeChange(r5('C', 'major', 'maj9'), r5('C', 'major', 'none'), 'colour'),
+    'You changed the Colour: Cmaj9 became C. The major seventh, B, came off the top, and the major ninth, D, came off the top. What does that change do to the sound?')
+  assert.match(finishReflection(r5('C', 'major', 'none', '3'), { start: 'name' }), /^The major third, E, is in the bass\./)
+  assert.match(finishReflection(r5('C', 'major', 'maj9'), { start: 'name' }), /What does the major ninth add on top\?/)
+  assert.match(finishReflection(r5('C', 'major', 'none', '2'), { start: 'name', revealed: true }), /listen for the D in the bass/)
+})
+
+test('kept Level 5 chords keep their bass', () => {
+  const store = memory()
+  const k = makeKept(r5('Eb', 'minor', 'none', '3'), { start: 'sound', reason: 'dark and leaning', levelKey: 'L5', now: new Date(Date.UTC(2026, 10, 28)) })
+  assert.equal(k.bass, '3')
+  writeKept([k], store)
+  const back = readKept(store)
+  assert.deepEqual(back, [k])
+  assert.equal(resolveChord(back[0]).name, 'E♭m/G♭')
+  assert.ok(isProChord(back[0]))
+})
+
+test('playback: every chord rises from its bass; a slash bass sounds lowest', () => {
+  for (const o of [...ALL, ...L3, ...L4, ...L5]) {
+    const c = resolveChord(o)
+    const v = targetVoicing(c)
+    assert.ok(v.every((m, i) => i === 0 || m > v[i - 1]), `${c.symbol} rises: ${v}`)
+    assert.equal(((v[0] % 12) + 12) % 12, c.bass.chroma, `${c.symbol} has its bass lowest`)
+    assert.deepEqual(new Set(v.map(m => m % 12)), new Set(c.chromas), `${c.symbol} plays every note`)
+    assert.ok(v[0] >= 36 && v.at(-1) <= 84, `${c.symbol} stays in range: ${v}`)
+  }
+  assert.deepEqual(targetVoicing(r5('C', 'major', 'none', '3')), [52, 60, 64, 67], 'C/E: E3 under C4 E4 G4')
+  assert.deepEqual(targetVoicing(r5('C', 'major', 'none', '2')), [50, 60, 64, 67], 'C/D: D3 under the triad')
+  assert.deepEqual(selectionVoicing([0, 4, 7], 4), [52, 60, 64, 67], 'the marked bass sounds an octave down')
+  assert.deepEqual(selectionVoicing([7, 0, 4, 0]), [60, 64, 67])
 })
