@@ -10,7 +10,7 @@
 // the chord's name or its quality: intervals are measured from notes the
 // student already has.
 import { Note } from 'tonal'
-import { displayNote } from './faces.js'
+import { BASSES, COLOURS, QUALITIES, chordFromPicks, displayNote } from './faces.js'
 
 // Piano keys, by pitch class. The first name is the spelling Chord Dice uses
 // for roots (Phase 0 approval), so a root's key and its name always agree.
@@ -209,7 +209,14 @@ function whatMakesIt(chord) {
 
 // The reflection line on the Result stage. A chord made by changing one die
 // asks about the change instead.
-export function finishReflection(chord, { start, replays = 0, revealed = false, changedFrom = null }) {
+export function finishReflection(chord, { start, replays = 0, revealed = false, changedFrom = null, namedAs = null }) {
+  // Hear it is listening too: its replays count like From sound's.
+  if (start === 'hear') start = 'sound'
+  if (start === 'read' && !revealed && !changedFrom) {
+    return namedAs
+      ? `You named it ${namedAs.name}, and that names these notes too. Which root would you choose here, and why?`
+      : 'Play it: does it sound the way its name says it will?'
+  }
   if (changedFrom && !revealed) {
     const heard = start === 'sound' && replays > 0 ? `You replayed it ${times(replays)}. ` : ''
     return heard + describeChange(changedFrom.chord, chord, changedFrom.die)
@@ -349,4 +356,77 @@ export function submitFeedback(chord, selected, mode = 'name', bassMark = null) 
     }
   }
   return { complete: false, extra, missing: missingLine, bass: null }
+}
+
+// ---------- Hear it (PR 5) ----------
+
+// The chord plays with only its Root die showing; the student chooses the
+// other dice by ear. `dice` are the dice they chose (not the root). For each
+// die that differs: what they chose, and where to listen next. It never
+// names the answer.
+//   { complete, lines: [string] }
+export function hearFeedback(target, picks, dice) {
+  const chosen = chordFromPicks({ root: target.root, ...picks })
+  if (!chosen) {
+    return { complete: false, lines: [picks.quality === 'dom' && (picks.colour ?? 'none') === 'none'
+      ? 'A dominant chord always has a note on top. Choose a Colour too.'
+      : 'Those faces don’t make a chord at this level. Change one of your choices.'] }
+  }
+  const wrong = dice.filter(d => (picks[d] ?? defaultFace(d)) !== faceOf(target, d))
+  if (!wrong.length) return { complete: true, lines: [] }
+  const said = wrong.map(d => {
+    const pick = picks[d] ?? defaultFace(d)
+    if (d === 'quality') return `You heard ${withArticle(QUALITIES[pick].word)} chord. Listen to the middle note: how far is it from the root?`
+    if (d === 'colour') {
+      return pick === 'none'
+        ? 'You heard nothing on top. Is there a note above the triad?'
+        : `You heard ${withArticle(COLOURS[pick].label)} on top. Is the top note there, and how far is it from the root?`
+    }
+    return `You heard the ${BASSES[pick].label} in the bass. Listen to the lowest note on its own.`
+  })
+  // One die at a time, as with the other prompts; the rest are named.
+  const NAMES = { quality: 'Quality', colour: 'Colour', bass: 'Bass' }
+  const rest = wrong.slice(1).map(d => NAMES[d])
+  const lines = rest.length ? [said[0], `Also listen again for the ${rest.join(' and ')}.`] : said
+  return { complete: false, lines }
+}
+
+const defaultFace = die => (die === 'colour' ? 'none' : die === 'bass' ? 'root' : undefined)
+const faceOf = (chord, die) => (die === 'bass' ? chord.bass.degree : chord[die])
+
+// ---------- Name it (PR 5) ----------
+
+// The notes are shown; the student names the chord. Any name with the same
+// notes and the same bass counts (founder decision, 26 Nov): Eaug for Caug,
+// Gsus4 for Csus2. Otherwise: what their chord adds, what it leaves out,
+// and the bass, as a comparison rather than a mark.
+//   { complete, equivalent, chosen, lines: [string] }
+export function nameFeedback(target, picks) {
+  const chosen = chordFromPicks(picks)
+  if (!chosen) {
+    return { complete: false, equivalent: false, chosen: null, lines: [picks.quality === 'dom' && (picks.colour ?? 'none') === 'none'
+      ? 'A dominant chord always has a note on top. Choose a Colour too.'
+      : 'Those faces don’t make a chord at this level. Change one of your choices.'] }
+  }
+  const want = new Set(target.chromas)
+  const have = new Set(chosen.chromas)
+  const sameNotes = want.size === have.size && [...want].every(c => have.has(c))
+  // The bass only counts when it is part of the question: the chord shown
+  // has a marked bass (a slash chord), or the student chose one.
+  const bassAsked = target.bass.degree !== 'root' || chosen.bass.degree !== 'root'
+  const sameBass = !bassAsked || chosen.bass.chroma === target.bass.chroma
+  if (sameNotes && sameBass) {
+    return { complete: true, equivalent: chosen.symbol !== target.symbol, chosen, lines: [] }
+  }
+  const lines = [`Your ${chosen.name} is ${spelledNotes(chosen)}.`]
+  const extra = chosen.notes.filter((n, i) => !want.has(chosen.chromas[i])).map(displayNote)
+  const missing = target.notes.filter((n, i) => !have.has(target.chromas[i])).map(displayNote)
+  const list = xs => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}` : xs[0])
+  if (extra.length || missing.length) {
+    const parts = [extra.length && `adds ${list(extra)}`, missing.length && `leaves out ${list(missing)}`].filter(Boolean)
+    lines.push(`Next to the notes shown, it ${parts.join(' and ')}.`)
+  }
+  if (!sameBass) lines.push(`Its lowest note is ${displayNote(chosen.bass.note)}; the lowest note shown is ${displayNote(target.bass.note)}.`)
+  lines.push('Which note did you take as the root, and why?')
+  return { complete: false, equivalent: false, chosen, lines }
 }

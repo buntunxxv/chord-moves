@@ -11,7 +11,9 @@ export const KEYS = {
   kept: PREFIX + 'keptChords',
 }
 export const REASON_MAX = 120
-export const STARTS = ['name', 'sound']
+// How a round starts: build it from the name or the sound (PR 1), or hear
+// it and choose the dice, or read its notes and name it (PR 5).
+export const STARTS = ['name', 'sound', 'hear', 'read']
 
 export function readString(key, fallback, allowed, store = safeStorage) {
   const raw = store.getItem(key)
@@ -40,7 +42,7 @@ export function makeKept(chord, { start, replays, revealed, reason, levelKey, ch
     bass: chord.bass?.degree ?? 'root',
     symbol: chord.symbol,
     start,
-    replays: start === 'sound' ? Math.max(0, Math.floor(Number(replays) || 0)) : 0,
+    replays: start === 'sound' || start === 'hear' ? Math.max(0, Math.floor(Number(replays) || 0)) : 0,
     revealed: Boolean(revealed),
     reason: trimmed,
     levelKey: levelKey ?? null,
