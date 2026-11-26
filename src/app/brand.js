@@ -3,4 +3,4 @@
 // in the apps reads this name, so a rename is a one-line change. The unlock
 // email (api/request-unlock-code.js) spells it out on its own: the server
 // does not bundle src/.
-export const PRO_NAME = 'Kynda Tools Pro'
+export const PRO_NAME = 'Kynda Learning Tools Pro'

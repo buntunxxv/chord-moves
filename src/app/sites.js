@@ -2,7 +2,7 @@
 //
 //   tools.kyndalearning.co.uk/              the Kynda tools directory
 //   tools.kyndalearning.co.uk/chordmoves    Chord Moves (+ /chordmoves/demo)
-//   tools.kyndalearning.co.uk/upgrade       Kynda Tools Pro, for every tool
+//   tools.kyndalearning.co.uk/upgrade       Kynda Learning Tools Pro, for every tool
 //   tools.kyndalearning.co.uk/<tool>        metronome, ear trainer, dice...
 //
 // Why one origin: a browser keeps saved work and the Pro login per origin.

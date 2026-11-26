@@ -1,7 +1,7 @@
 // Pro on the Kynda Tools site (tools.kyndalearning.co.uk).
 //
 // Decided 15 Nov 2026 (Rhythm Dice, Phase 0):
-// - The same entitlement as Kynda Tools Pro (formerly Chord Moves Pro) unlocks it: a Founder Access
+// - The same entitlement as Kynda Learning Tools Pro (formerly Chord Moves Pro) unlocks it: a Founder Access
 //   purchase, or an active student grant. It reuses the email-code flow and
 //   the server check (api/request-unlock-code, api/verify-unlock-code,
 //   api/check-entitlement). No new Stripe product, webhook or single sign-on.
@@ -46,7 +46,7 @@ async function post(fetchFn, url, body) {
 // Step 1: email a six-digit code. Returns { ok } or { ok: false, error }.
 export async function requestCode(fetchFn, email) {
   const e = normaliseEmail(email)
-  if (!e.includes('@')) return { ok: false, error: 'Enter the email you use for Kynda Tools Pro or your lessons.' }
+  if (!e.includes('@')) return { ok: false, error: 'Enter the email you use for Kynda Learning Tools Pro or your lessons.' }
   try {
     const { ok, data } = await post(fetchFn, '/api/request-unlock-code', { email: e })
     return ok ? { ok: true } : { ok: false, error: data.error || 'The code could not be sent. Try again.' }
