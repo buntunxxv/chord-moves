@@ -19,6 +19,8 @@ test('the suite names itself Kynda Learning Tools, with its own image, manifest 
   assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/)
   assert.match(html, /apple-mobile-web-app-title" content="Kynda Tools"/)
   assert.doesNotMatch(html, /Chord Moves —|chordmoves\.webmanifest|og-image\.png/)
+  // Served for every suite path, so no fixed canonical or og:url ("/").
+  assert.doesNotMatch(html, /rel="canonical"|og:url/)
 })
 
 test('Chord Moves keeps its own metadata on its own pages', () => {

@@ -129,7 +129,7 @@ test('link previews and canonical point at the canonical domain', async () => {
   const { renderMetaTags } = await import('../app/siteMeta.js')
   for (const key of ['tools', 'chordmoves']) {
     const urls = [...renderMetaTags(key).matchAll(/(?:content|href)="(https:\/\/[^"]+)"/g)].map(m => m[1])
-    assert.ok(urls.length >= 4, key)
+    assert.ok(urls.length >= 2, key) // at least og:image and twitter:image
     for (const u of urls) assert.ok(u.startsWith(CANONICAL_ORIGIN + '/'), `${u} is not on ${CANONICAL_ORIGIN}`)
   }
 })

@@ -7,6 +7,17 @@ function setAttr(selector, attr, value) {
   document.querySelector(selector)?.setAttribute(attr, value)
 }
 
+// For tags the suite page leaves out of its HTML (canonical, og:url).
+function ensure(tag, keyAttr, keyValue, attr, value) {
+  let el = document.head.querySelector(`${tag}[${keyAttr}="${keyValue}"]`)
+  if (!el) {
+    el = document.createElement(tag)
+    el.setAttribute(keyAttr, keyValue)
+    document.head.appendChild(el)
+  }
+  el.setAttribute(attr, value)
+}
+
 // The server sends the right tags for the page first opened (see
 // siteMeta.js). Moving between Chord Moves and the rest of the suite in the
 // app changes neither, so this keeps the title, Home Screen name, manifest
@@ -21,8 +32,8 @@ export default function RouteMeta() {
     setAttr('meta[name="description"]', 'content', m.description)
     setAttr('meta[name="apple-mobile-web-app-title"]', 'content', m.homeScreenName)
     setAttr('link[rel="manifest"]', 'href', m.manifest)
-    setAttr('link[rel="canonical"]', 'href', TOOLS_ORIGIN + path)
-    setAttr('meta[property="og:url"]', 'content', TOOLS_ORIGIN + path)
+    ensure('link', 'rel', 'canonical', 'href', TOOLS_ORIGIN + path)
+    ensure('meta', 'property', 'og:url', 'content', TOOLS_ORIGIN + path)
     setAttr('meta[property="og:title"]', 'content', m.ogTitle)
     setAttr('meta[property="og:description"]', 'content', m.ogDescription)
     setAttr('meta[property="og:image"]', 'content', TOOLS_ORIGIN + m.image)

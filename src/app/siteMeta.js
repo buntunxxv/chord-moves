@@ -23,6 +23,11 @@ export const SITE_META = {
     ogTitle: 'Kynda Learning Tools',
     ogDescription: 'Small tools for making more sense of music. Free to try in your browser.',
     path: '/',
+    // This one HTML page is served for every suite path (/, /upgrade, each
+    // tool), so it must not name a canonical address or og:url: a fixed
+    // "/" would tell search engines /chord-dice is a copy of the
+    // directory. RouteMeta adds the page's own at runtime.
+    perPageUrl: true,
     image: '/og-tools.png',
     imageAlt: 'Kynda Learning Tools on a phone: the tools directory, and Chord Dice and Rhythm Dice.',
     // iOS labels Home Screen icons with this, and truncates past ~12
@@ -59,12 +64,12 @@ export function renderMetaTags(key) {
   return [
     `<title>${escape(m.title)}</title>`,
     `<meta name="description" content="${escape(m.description)}" />`,
-    `<link rel="canonical" href="${url}" />`,
+    ...(m.perPageUrl ? [] : [`<link rel="canonical" href="${url}" />`]),
     `<meta property="og:type" content="website" />`,
     `<meta property="og:site_name" content="Kynda Learning" />`,
     `<meta property="og:title" content="${escape(m.ogTitle)}" />`,
     `<meta property="og:description" content="${escape(m.ogDescription)}" />`,
-    `<meta property="og:url" content="${url}" />`,
+    ...(m.perPageUrl ? [] : [`<meta property="og:url" content="${url}" />`]),
     `<meta property="og:image" content="${image}" />`,
     `<meta property="og:image:width" content="1200" />`,
     `<meta property="og:image:height" content="630" />`,
