@@ -5,7 +5,7 @@ import { LEVELS, validateLevels, faceTicks, levelById } from './faces.js'
 import { METRES, rollBar, rollDie, slotPool, resolveTies, barEvents, soundingNotes, onsetTicks, blockUnit, faceBlocks, isAllRest } from './rhythm.js'
 import { scoreBar, onsetWindows, reflect, formatOffsetMs } from './scoring.js'
 import { buildRhythmMidiBytes, DRUM_CHANNEL } from './midi.js'
-import { createPassSource, expectedOnsets, calibrationOffset, clickEvents } from './timeline.js'
+import { createPassSource, expectedOnsets, calibrationOffset, clickEvents, barReadyToScore } from './timeline.js'
 import { createLookaheadScheduler, gridTimes } from '../../shared/audio/lookaheadScheduler.js'
 
 const M44 = METRES['4/4']
@@ -562,4 +562,16 @@ test('detectLag: a steady device delay is found, a person\'s timing is not', asy
   assert.equal(detectLag(expected, scattered), null)
   // Too little to go on.
   assert.equal(detectLag(expected, late.slice(0, 2)), null)
+})
+
+test('Perform scores every pass: Repeat keeps scoring after the first bar', () => {
+  // Repeat and Once store only bars[0]; every pass replays it.
+  const one = [['F1']]
+  for (const k of [0, 1, 2, 9]) assert.equal(barReadyToScore('repeat', one, k), true, `Repeat pass ${k}`)
+  assert.equal(barReadyToScore('once', one, 0), true)
+  // Read ahead needs bar k and the bar after it (its boundary sits between them).
+  const rolled = [['a'], ['b']]
+  assert.equal(barReadyToScore('readahead', rolled, 0), true)
+  assert.equal(barReadyToScore('readahead', rolled, 1), false, 'bar 2 not rolled yet')
+  assert.equal(barReadyToScore('readahead', [['a']], 0), false)
 })
