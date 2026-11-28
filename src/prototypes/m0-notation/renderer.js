@@ -111,7 +111,10 @@ function prepareVoice(notes, keySignature) {
   const voice = new Voice({ num_beats: 4, beat_value: 4 }).setMode(Voice.Mode.SOFT)
   voice.addTickables(notes)
   Accidental.applyAccidentals([voice], keySignature || 'C')
-  const beams = Beam.generateBeams(notes.filter(n => !n.isRest()), { groups: [new Fraction(1, 4)], beam_rests: false })
+  // Rests stay in the list so beat positions are counted correctly; they
+  // break beams rather than join them (M0 visual review found cross-beat
+  // beams when rests were filtered out first).
+  const beams = Beam.generateBeams(notes, { groups: [new Fraction(1, 4)], beam_rests: false })
   return { voice, beams }
 }
 
@@ -139,11 +142,12 @@ function textWidth(text) {
 
 // Renders into `el`. Returns a report used by the measurement script.
 // width: CSS pixels available. scale: drawing scale (phones draw at 0.75).
-export function renderScore(el, fixture, { width, ink = '#1a1a1a' } = {}) {
+export function renderScore(el, fixture, { width, ink = '#1a1a1a', scale: scaleOverride = null } = {}) {
   el.replaceChildren()
   // Phones draw smaller so two bars fit on a line (T4); legibility is the
   // founder's call from the screenshots.
-  const scale = width < 480 ? 0.65 : width < 600 ? 0.8 : 1
+  // ?scale= overrides this for the legibility sweep only.
+  const scale = scaleOverride ?? (width < 480 ? 0.65 : width < 600 ? 0.8 : 1)
   const logicalWidth = width / scale
   const usable = logicalWidth - 2 * MARGIN
   const key = fixture.keySignature
@@ -191,7 +195,7 @@ export function renderScore(el, fixture, { width, ink = '#1a1a1a' } = {}) {
   ctx.setFillStyle(ink)
   ctx.setStrokeStyle(ink)
 
-  const report = { systems: systems.map(s => s.length), barsPerSystem: systems.map(s => s.length), accidentals: { '#': 0, b: 0, n: 0, other: 0 }, chords: 0, swing: false }
+  const report = { scale, staffSpacePx: 10 * scale, systems: systems.map(s => s.length), barsPerSystem: systems.map(s => s.length), accidentals: { '#': 0, b: 0, n: 0, other: 0 }, chords: 0, swing: false, beams: [] }
 
   if (fixture.swing) {
     ctx.openGroup('m0swing')
@@ -226,6 +230,10 @@ export function renderScore(el, fixture, { width, ink = '#1a1a1a' } = {}) {
       new Formatter().joinVoices([voice]).formatToStave([voice], stave)
       voice.draw(ctx, stave)
       beams.forEach(b => { b.setStyle({ fillStyle: ink, strokeStyle: ink }); b.setContext(ctx).draw() })
+      // For the beam-by-beat check: the bar ticks of the notes in each beam.
+      for (const b of beams) {
+        report.beams.push({ bar: i, starts: b.getNotes().map(n => bar.pieces.find(p => p.vf === n)?.start) })
+      }
 
       for (const note of notes) {
         for (const mod of note.getModifiersByType('Accidental')) {

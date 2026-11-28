@@ -36,6 +36,7 @@ export default function M0NotationPage() {
   const [id, setId] = useState(params.get('fixture') || 'F11')
   const theme = params.get('theme')
   const fixedWidth = Number(params.get('width')) || null
+  const scale = Number(params.get('scale')) || null
   const boxRef = useRef(null)
   const [report, setReport] = useState(null)
   const [timing, setTiming] = useState(null)
@@ -48,7 +49,7 @@ export default function M0NotationPage() {
     const el = boxRef.current
     const draw = () => {
       const width = fixedWidth ?? el.clientWidth
-      const r = renderScore(el, fixtureById(id), { width, ink: inkColour() })
+      const r = renderScore(el, fixtureById(id), { width, ink: inkColour(), scale })
       setReport(r)
       window.__m0 = { report: r, fixture: fixtureById(id), width }
     }
@@ -56,7 +57,7 @@ export default function M0NotationPage() {
     if (fixedWidth) return
     window.addEventListener('resize', draw)
     return () => window.removeEventListener('resize', draw)
-  }, [id, fixedWidth])
+  }, [id, fixedWidth, scale])
 
   function runTiming() {
     const el = boxRef.current

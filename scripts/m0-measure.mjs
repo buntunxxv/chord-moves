@@ -41,6 +41,7 @@ async function inspect(page) {
     const rect = el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } }
     const heads = [...svg.querySelectorAll('g.vf-stavenote')].flatMap(g => [...g.querySelectorAll('g.vf-notehead')].map(h => ({ owner: g.id, ...rect(h) })))
     const chords = [...svg.querySelectorAll('g.vf-m0chord text')].map(t => ({ text: t.textContent, ...rect(t) }))
+    const tieBoxes = [...svg.querySelectorAll('g.vf-stavetie')].map(g => ({ owner: g.id, ...rect(g) }))
     const swing = [...svg.querySelectorAll('g.vf-m0swing text')].map(t => ({ text: t.textContent, ...rect(t) }))
     const headPath = svg.querySelector('g.vf-notehead path')
     const headFill = headPath ? getComputedStyle(headPath).fill : null
@@ -52,7 +53,7 @@ async function inspect(page) {
       rests: ids.filter(i => i.startsWith('vf-m0-rest')).length,
       ties: tieIds.size,
       keyGlyphs: keySig ? keySig.querySelectorAll('path').length : 0,
-      chords, swing, heads, headFill, tokenRgb, svgRight,
+      chords, swing, heads, tieBoxes, headFill, tokenRgb, svgRight,
       svgWidth: svg.getBoundingClientRect().width,
       scrollWidth: document.documentElement.scrollWidth,
       innerWidth: window.innerWidth,
@@ -72,12 +73,15 @@ function collisions(d) {
     ...d.heads.map(h => ({ ...h, kind: 'notehead' })),
     ...d.chords.map(c => ({ ...c, kind: `chord ${c.text}` })),
     ...d.swing.map(s => ({ ...s, kind: 'swing' })),
+    ...d.tieBoxes.map(t => ({ ...t, kind: 'tie' })),
   ]
   for (let i = 0; i < boxes.length; i++) {
     for (let j = i + 1; j < boxes.length; j++) {
       const a = boxes[i]
       const b = boxes[j]
       if (a.kind === 'notehead' && b.kind === 'notehead' && a.owner === b.owner) continue
+      // Ties touch their own noteheads by design; check them against text only.
+      if ((a.kind === 'tie' && (b.kind === 'notehead' || b.kind === 'tie')) || (b.kind === 'tie' && a.kind === 'notehead')) continue
       if (overlap(a, b)) found.push(`${a.kind} / ${b.kind}`)
     }
   }
@@ -107,6 +111,9 @@ for (const f of FIXTURES) {
   if ('sharps' in e) checks.sharps = [acc['#'], e.sharps]
   if ('flats' in e) checks.flats = [acc.b, e.flats]
   if ('naturals' in e) checks.naturals = [acc.n, e.naturals]
+  // Beaming by beat: every beam's notes start inside one crotchet beat.
+  const crossBeat = d.report.beams.filter(b => new Set(b.starts.map(t => Math.floor(t / 12))).size !== 1)
+  checks.crossBeatBeams = [crossBeat.length, 0]
   const failed = Object.entries(checks).filter(([, [a, b]]) => a !== b).map(([k, [a, b]]) => `${k}: drew ${a}, expected ${b}`)
   results.T1.push({ id: f.id, pass: failed.length === 0, failed })
   await page.screenshot({ path: join(OUT, `T1-${f.id}-1024-light.png`), fullPage: true })
