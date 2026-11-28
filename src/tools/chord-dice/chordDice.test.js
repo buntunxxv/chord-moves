@@ -709,6 +709,32 @@ test('playback: every chord rises from its bass; a slash bass sounds lowest', ()
   assert.deepEqual(selectionVoicing([7, 0, 4, 0]), [60, 64, 67])
 })
 
+test('Hear my chord voices the student\'s notes by the bass rule Submit grades them by', () => {
+  // Unmarked, the grader takes the root as the bass, so a right answer must
+  // preview with the root lowest, never as an inversion (Am heard as Am/C).
+  for (const o of [...ALL, ...L3, ...L4, ...L5]) {
+    const c = resolveChord(o)
+    const root = c.chromas[0]
+    const v = selectionVoicing(c.chromas, null, root)
+    assert.equal(((v[0] % 12) + 12) % 12, root, `${c.symbol}: unmarked preview starts on the root: ${v}`)
+    assert.ok(v.every((m, i) => i === 0 || m > v[i - 1]), `${c.symbol} rises: ${v}`)
+    assert.deepEqual(new Set(v.map(m => m % 12)), new Set(c.chromas), `${c.symbol} plays every key pressed`)
+    if (c.bass.degree === 'root') {
+      assert.equal(submitFeedback(c, c.chromas, 'name', null).complete, true, `${c.symbol}: the same notes, unmarked, pass Submit`)
+    }
+  }
+  // Triads and sevenths, close in one octave: a right answer sounds exactly like Hear it.
+  for (const o of [...ALL, ...L3, ...L4.filter(x => x.colour === '7')]) {
+    const c = resolveChord(o)
+    assert.deepEqual(selectionVoicing(c.chromas, null, c.chromas[0]), targetVoicing(c), `${c.symbol} previews as it plays`)
+  }
+  const am9 = resolveChord({ root: 'A', quality: 'minor', colour: '9', bass: 'root' })
+  assert.deepEqual(selectionVoicing(am9.chromas, null, 9).slice(0, 1), [57], 'Am9: A3 in the bass, not C4')
+  // A marked bass still wins, and without the root there is no bass to honour.
+  assert.deepEqual(selectionVoicing([9, 0, 4], 4, 9), [52, 60, 64, 69], 'marked E sounds under the rest')
+  assert.deepEqual(selectionVoicing([0, 4, 7], null, 9), [60, 64, 67], 'root not pressed: keyboard order')
+})
+
 test('sevenths and ninths kept before 26 Nov read as the chord they were', () => {
   const base = { id: '1', keptAt: '2026-11-25T00:00:00.000Z', root: 'C', start: 'name', reason: 'r', replays: 0, revealed: false, bass: 'root' }
   const old = parseKept(JSON.stringify([
