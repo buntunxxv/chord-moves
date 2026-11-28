@@ -42,7 +42,7 @@ function exportFilename(projectName) {
   return `${base || 'chord-progression'}.mid`
 }
 
-export default function ProgressionStrip({ expanded, onExpandedChange, currentChordName, onPlayChord, isChordPlaying, canPlayChord, progression, selectedChordIndex, bpm, onBpmChange, onClear, onRemoveSelected, onSelectChord, onReorder, onLoadSaved, teaserMessage, onPlayingChordChange, chordNotes, previewNotes, bassHighlightNote, keysRootNote, keysPositionIndex, onKeysPositionChange, guitarPositionIndex, onGuitarPositionChange, root, guitarShape, guitarSlashNotice, guitarInversionUnavailable, guitarPositions, templateInfo, canUndoLoad, onUndoLoad, isPro }) {
+export default function ProgressionStrip({ expanded, onExpandedChange, currentChordName, onPlayChord, isChordPlaying, canPlayChord, progression, selectedChordIndex, bpm, onBpmChange, onClear, onRemoveSelected, onSelectChord, onReorder, onLoadSaved, teaserMessage, onPlayingChordChange, chordNotes, previewNotes, bassHighlightNote, keysRootNote, keysPositionIndex, onKeysPositionChange, guitarPositionIndex, onGuitarPositionChange, root, guitarShape, guitarSlashNotice, guitarInversionUnavailable, guitarMissingNotice, guitarPositions, templateInfo, canUndoLoad, onUndoLoad, isPro }) {
   const [activeIndex, setActiveIndex] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const synthRef = useRef(null)
@@ -644,6 +644,7 @@ export default function ProgressionStrip({ expanded, onExpandedChange, currentCh
                 guitarShape={guitarShape}
                 guitarSlashNotice={guitarSlashNotice}
                 guitarInversionUnavailable={guitarInversionUnavailable}
+                guitarMissingNotice={guitarMissingNotice}
                 guitarPositions={guitarPositions}
                 isPro={isPro}
               />

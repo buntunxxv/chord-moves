@@ -368,11 +368,17 @@ export default function App({ demo = false }) {
   // shape), always position 1 since no "selected position" exists for an
   // arbitrary progression chord. Resolves to null for a name the pipeline
   // can't parse (e.g. a slash chord in the progression) or with no curated
-  // shape -- in that case the builder's own live root/shape/positions below
-  // are used unchanged for that beat, same "acceptable simplification, not
-  // a silent wrong answer" precedent already used for referenceGuitarShape.
+  // shape. While anything is playing, every guitar prop the dock gets is the
+  // sounding chord's: with no shape for it, the Guitar tab says so
+  // (guitarMissingNotice) rather than falling back to the builder's shape,
+  // which would put the builder chord's fingering under the sounding chord's
+  // name. The builder's slash/inversion flags are about the builder chord,
+  // so they don't apply during playback either.
   const playingChordLookup = playingChordName ? guitarShapeForChordName(playingChordName) : null
   const playingGuitarShape = playingChordLookup?.shape ?? null
+  const guitarMissingNotice = playingChordName && !playingGuitarShape
+    ? `No guitar shape for ${formatChordName(playingChordName)} yet`
+    : null
 
   // Suggested-chord preview only makes sense for the chord it was shown under
   useEffect(() => {
@@ -1077,10 +1083,11 @@ export default function App({ demo = false }) {
         onKeysPositionChange={handleKeysPositionChange}
         guitarPositionIndex={guitarPositionIndex}
         onGuitarPositionChange={handleGuitarPositionChange}
-        root={playingGuitarShape ? playingChordLookup.root : displayRoot}
-        guitarShape={playingGuitarShape || guitarShapeToShow}
-        guitarSlashNotice={guitarSlashNotice}
-        guitarInversionUnavailable={guitarInversionUnavailable}
+        root={playingChordName ? (playingChordLookup?.root ?? displayRoot) : displayRoot}
+        guitarShape={playingChordName ? playingGuitarShape : guitarShapeToShow}
+        guitarSlashNotice={playingChordName ? false : guitarSlashNotice}
+        guitarInversionUnavailable={playingChordName ? false : guitarInversionUnavailable}
+        guitarMissingNotice={guitarMissingNotice}
         guitarPositions={playingChordName ? null : guitarPositions}
         isPro={isPro}
       />
