@@ -17,7 +17,7 @@ import { buildMusicXml, downloadMusicXml, musicXmlFilename } from './musicxml'
 import ClassroomView from './ClassroomView'
 import { detectLag, reflect, scoreBar } from './scoring'
 import { KEYS, readKept, readNumber, readPhrase, readString, remove, write, writeKept, writePhrase } from './storage'
-import { barBoundaries, barSeconds, calibrationOffset, createPassSource, expectedOnsets, phraseOnsets } from './timeline'
+import { barBoundaries, barReadyToScore, barSeconds, calibrationOffset, createPassSource, expectedOnsets, phraseOnsets } from './timeline'
 import './RhythmDice.css'
 
 const MIN_BPM = 40
@@ -370,8 +370,9 @@ export default function RhythmDice() {
     logEvent('rhythm_dice_hear_it', { bpm, metre: metreId })
   }
 
-  // Per-bar scoring for Once, Repeat and Read ahead. `s.bars[k]` is the bar
-  // played on pass k; read-ahead rolls each next bar as the previous starts.
+  // Per-bar scoring for Once, Repeat and Read ahead. Once and Repeat replay
+  // `bars[0]` every pass; in Read ahead `bars[k]` is the bar played on pass k,
+  // each next bar rolled as the previous starts.
   async function perform() {
     if (busy) return
     setNotice('')
@@ -409,7 +410,7 @@ export default function RhythmDice() {
       }
     }
     s.onFrame = t => {
-      while (s.scored < passes && bars[s.scored] && (mode !== 'readahead' || bars[s.scored + 1]) && t > s.firstBar + endOf(s.scored) + 0.03) {
+      while (s.scored < passes && barReadyToScore(mode, bars, s.scored) && t > s.firstBar + endOf(s.scored) + 0.03) {
         const k = s.scored
         const barStart = s.firstBar + k * barSec
         const lo = k === 0 ? -LEAD_IN : endOf(k - 1) - k * barSec

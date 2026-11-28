@@ -61,6 +61,15 @@ export function barBoundaries(barOnsets, barSec, tail = 0.1) {
   })
 }
 
+// Whether pass k of a Perform run has the bars it needs to be scored. Once
+// and Repeat play the same bar every pass, so only Read ahead has to wait: its
+// bar k ends halfway to bar k+1's first note, so bar k+1 must be rolled too.
+// (Repeat only ever stores bars[0]; checking bars[k] for it scored the first
+// pass and then nothing more while the loop kept playing.)
+export function barReadyToScore(mode, bars, k) {
+  return mode !== 'readahead' || Boolean(bars[k] && bars[k + 1])
+}
+
 export function barSeconds(metre, bpm) {
   return barTicks(metre) * secondsPerTick(metre, bpm)
 }

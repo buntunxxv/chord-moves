@@ -17,7 +17,7 @@
 // Pure apart from the injected `storage` (getItem/setItem/removeItem) and
 // `fetchFn`, so the rules are unit-tested without a browser.
 
-import { clearProLogin, setProLogin } from './proLogin.js'
+import { clearProLogin, clearProLoginFor, setProLogin } from './proLogin.js'
 
 export const TOOLS_PRO_KEY = 'kyndaTools.pro'
 export const TOOLS_PRO_EMAIL_KEY = 'kyndaTools.proEmail'
@@ -72,15 +72,16 @@ export async function verifyCode(fetchFn, storage, email, code) {
   }
 }
 
-// On load. Returns 'kept' | 'removed' | 'unchanged' (nothing stored).
+// On load. Returns 'kept' | 'removed' | 'unchanged' (nothing stored) |
+// 'superseded' (the answer was "not Pro", but the device signed in with
+// another email while it was on its way, so the newer login stays).
 export async function recheck(fetchFn, storage) {
   const { isPro, email } = readToolsPro(storage)
   if (!isPro) return 'unchanged'
   try {
     const { ok, data } = await post(fetchFn, '/api/check-entitlement', { email })
     if (ok && data.isPro === false) {
-      signOut(storage)
-      return 'removed'
+      return clearProLoginFor(storage, email) ? 'removed' : 'superseded'
     }
   } catch { /* offline: keep */ }
   return 'kept'

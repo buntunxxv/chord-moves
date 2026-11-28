@@ -528,7 +528,7 @@ export default function ChordDice() {
               <Piano selected={selected} onToggle={toggleKey} disabled={!chord} bassMark={bassOn ? bassMark : null} bassMode={bassMode} />
               <div className="cd-build__actions">
                 <button type="button" className="cd-btn cd-btn--quiet" disabled={!selected.length} aria-label="Hear my chord"
-                  onClick={() => audio.playChord(selectionVoicing(selected, bassOn ? bassMark : null), 'selection')}>
+                  onClick={() => audio.playChord(selectionVoicing(selected, bassOn ? bassMark : null, chord?.chromas[0] ?? null), 'selection')}>
                   <span className="cd-long" aria-hidden="true">Hear my chord</span><span className="cd-short" aria-hidden="true">Hear</span>
                 </button>
                 <button type="button" className="cd-btn cd-btn--ghost" disabled={!selected.length || finished}

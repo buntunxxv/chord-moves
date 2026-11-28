@@ -6,9 +6,12 @@ import './InstrumentDock.css'
 
 const KEYS_POSITION_LABELS = ['Close', 'Drop-2', 'Split']
 
-export default function InstrumentDock({ chordNotes, previewNotes, bassHighlightNote, keysRootNote, keysPositionIndex, onKeysPositionChange, guitarPositionIndex, onGuitarPositionChange, root, guitarShape, guitarSlashNotice, guitarInversionUnavailable, guitarPositions, isPro }) {
+export default function InstrumentDock({ chordNotes, previewNotes, bassHighlightNote, keysRootNote, keysPositionIndex, onKeysPositionChange, guitarPositionIndex, onGuitarPositionChange, root, guitarShape, guitarSlashNotice, guitarInversionUnavailable, guitarMissingNotice = null, guitarPositions, isPro }) {
   const [tab, setTab] = useState('keys')
-  const canShowFrets = !guitarInversionUnavailable && (!!guitarShape || guitarSlashNotice)
+  // guitarMissingNotice: a progression chord is sounding that has no curated
+  // shape. The Guitar tab stays open and says so, rather than closing mid-
+  // playback (and staying closed for the next chord that does have one).
+  const canShowFrets = !guitarInversionUnavailable && (!!guitarShape || guitarSlashNotice || !!guitarMissingNotice)
   const dockTabRefs = useRef([])
   const dockTabs = [
     { key: 'keys', disabled: false },
@@ -98,7 +101,8 @@ export default function InstrumentDock({ chordNotes, previewNotes, bassHighlight
           title={
             guitarInversionUnavailable ? 'No clean guitar fingering exists for this inversion'
               : guitarSlashNotice ? 'Guitar shapes for slash chords coming soon'
-                : (!guitarShape ? 'No guitar shape for this chord yet' : undefined)
+                : guitarMissingNotice ? undefined
+                  : (!guitarShape ? 'No guitar shape for this chord yet' : undefined)
           }
         >
           Guitar
@@ -127,6 +131,8 @@ export default function InstrumentDock({ chordNotes, previewNotes, bassHighlight
           </div>
         ) : guitarSlashNotice ? (
           <p className="instrument-dock__guitar-notice">Guitar shapes for slash chords coming soon</p>
+        ) : guitarMissingNotice ? (
+          <p className="instrument-dock__guitar-notice" role="status">{guitarMissingNotice}</p>
         ) : (
           <div className="instrument-dock__guitar-view">
             <GuitarDisplay root={root} shape={activeShape} notes={chordNotes} compact />

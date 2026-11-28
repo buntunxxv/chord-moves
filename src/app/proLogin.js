@@ -29,6 +29,17 @@ export function clearProLogin(storage) {
   for (const key of [CM_TIER, CM_EMAIL, TOOLS_TIER, TOOLS_EMAIL]) storage.removeItem(key)
 }
 
+// A re-check's "not Pro" answer is about the email it asked for. If the
+// device has since signed in with a different email (the check was still in
+// flight), that newer login is not the one that lapsed: leave it. Clears and
+// returns true only while every stored email is still `email` (or none is).
+export function clearProLoginFor(storage, email) {
+  const stored = [storage.getItem(CM_EMAIL), storage.getItem(TOOLS_EMAIL)].filter(Boolean)
+  if (stored.some(e => e !== email)) return false
+  clearProLogin(storage)
+  return true
+}
+
 function login(storage, tierKey, emailKey) {
   const email = storage.getItem(emailKey)
   return storage.getItem(tierKey) === 'pro' && email ? email : null

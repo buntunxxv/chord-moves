@@ -72,6 +72,21 @@ test('recheck: lessons ended (definite not Pro) removes Pro from the device', as
   assert.equal(readToolsPro(s).isPro, false)
 })
 
+test('recheck: a stale "not Pro" for an old email never signs out a newer login', async () => {
+  const s = memory({ cm_tier: 'pro', cm_pro_email: 'old@b.co', [TOOLS_PRO_KEY]: 'pro', [TOOLS_PRO_EMAIL_KEY]: 'old@b.co' })
+  let answer
+  const pending = new Promise(resolve => { answer = resolve })
+  const fetchFn = async () => { await pending; return { ok: true, json: async () => ({ isPro: false }) } }
+  const check = recheck(fetchFn, s)
+  // The student signs in with their other email while the check is in flight.
+  s.setItem('cm_pro_email', 'new@b.co')
+  s.setItem(TOOLS_PRO_EMAIL_KEY, 'new@b.co')
+  answer()
+  assert.equal(await check, 'superseded')
+  assert.deepEqual(readToolsPro(s), { isPro: true, email: 'new@b.co' })
+  assert.equal(s.getItem('cm_tier'), 'pro', 'Chord Moves keeps the newer login too')
+})
+
 test('recheck: a purchase keeps Pro', async () => {
   const s = memory({ [TOOLS_PRO_KEY]: 'pro', [TOOLS_PRO_EMAIL_KEY]: 'buyer@b.co' })
   const { fetchFn } = server({ '/api/check-entitlement': async () => ({ json: { isPro: true } }) })
