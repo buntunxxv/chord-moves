@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { clearProLogin, setProLogin, shareProLogin } from './proLogin.js'
+import { clearProLogin, clearProLoginFor, setProLogin, shareProLogin } from './proLogin.js'
 
 function memoryStorage(initial = {}) {
   const map = new Map(Object.entries(initial))
@@ -39,4 +39,14 @@ test('a legacy cm_tier with no email is not copied to the tools', () => {
   const s = memoryStorage({ cm_tier: 'pro' })
   assert.equal(shareProLogin(s), null)
   assert.deepEqual(s.dump(), { cm_tier: 'pro' })
+})
+
+test('clearing for an email leaves a newer login alone', () => {
+  const s = memoryStorage(BOTH)
+  assert.equal(clearProLoginFor(s, 'a@b.co'), true)
+  assert.deepEqual(s.dump(), {})
+  setProLogin(s, 'new@b.co')
+  assert.equal(clearProLoginFor(s, 'a@b.co'), false, 'a@b.co is no longer the one signed in')
+  assert.equal(s.dump().cm_pro_email, 'new@b.co')
+  assert.equal(s.dump()['kyndaTools.proEmail'], 'new@b.co')
 })

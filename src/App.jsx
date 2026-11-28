@@ -26,7 +26,7 @@ import LearnPath from './components/LearnPath'
 import OverlayPage from './components/OverlayPage'
 import SuiteMenuLinks from './app/SuiteMenuLinks'
 import { DEMO_PATH, LIBRARY_PATH, UPGRADE_PATH } from './app/sites'
-import { clearProLogin } from './app/proLogin'
+import { clearProLoginFor } from './app/proLogin'
 import { PRO_NAME } from './app/brand'
 import { useDismissOnOutsidePress } from './hooks/useDismiss'
 import { safeStorage } from './utils/safeStorage'
@@ -238,8 +238,9 @@ export default function App({ demo = false }) {
     })
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
-        if (data && data.isPro === false) {
-          clearProLogin(safeStorage)
+        // Only if this email is still the one signed in: a newer unlock made
+        // while the check was in flight must survive the old "not Pro".
+        if (data && data.isPro === false && clearProLoginFor(safeStorage, email)) {
           setIsPro(false)
         }
       })
