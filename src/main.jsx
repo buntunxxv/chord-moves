@@ -42,6 +42,8 @@ const RhythmDice = lazy(() => import('./tools/rhythm-dice/RhythmDice'))
 const ChordDice = lazy(() => import('./tools/chord-dice/ChordDice'))
 const DemoPage = lazy(() => import('./demo/DemoPage'))
 const DemoFrame = lazy(() => import('./demo/DemoFrame'))
+// M0 notation feasibility check: DISPOSABLE PROTOTYPE on an unmerged branch.
+const M0NotationPage = lazy(() => import('./prototypes/m0-notation/M0NotationPage'))
 
 if (demoFrame) ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -67,6 +69,7 @@ else if (!leaving) ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/chord-scales" element={<ChordScaleExplorer />} />
           <Route path="/rhythm-dice" element={<RhythmDice />} />
           <Route path="/chord-dice" element={<ChordDice />} />
+          <Route path="/m0-notation" element={<M0NotationPage />} />
           <Route path="/tools" element={<MovedTo to="/" />} />
           <Route path="/chordmoves/upgrade" element={<MovedTo to={UPGRADE_PATH} />} />
           <Route path="/demo" element={<MovedTo to={DEMO_PATH} />} />

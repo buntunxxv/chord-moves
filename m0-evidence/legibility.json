@@ -1,0 +1,425 @@
+{
+  "staff": [
+    {
+      "name": "iPhone SE (2nd/3rd gen)",
+      "width": 375,
+      "cssPpi": 163,
+      "scale": 0.65,
+      "staffSpacePx": 6.5,
+      "measuredPx": 6.5,
+      "staffSpaceMm": 1.01,
+      "staffHeightMm": 4.05,
+      "barsPerSystem": [
+        2,
+        3,
+        2,
+        1
+      ]
+    },
+    {
+      "name": "iPhone 13 mini",
+      "width": 375,
+      "cssPpi": 158.66666666666666,
+      "scale": 0.65,
+      "staffSpacePx": 6.5,
+      "measuredPx": 6.5,
+      "staffSpaceMm": 1.04,
+      "staffHeightMm": 4.16,
+      "barsPerSystem": [
+        2,
+        3,
+        2,
+        1
+      ]
+    },
+    {
+      "name": "iPhone 12–14",
+      "width": 390,
+      "cssPpi": 153.33333333333334,
+      "scale": 0.65,
+      "staffSpacePx": 6.5,
+      "measuredPx": 6.5,
+      "staffSpaceMm": 1.08,
+      "staffHeightMm": 4.31,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ]
+    },
+    {
+      "name": "iPhone 15–16",
+      "width": 393,
+      "cssPpi": 153.33333333333334,
+      "scale": 0.65,
+      "staffSpacePx": 6.5,
+      "measuredPx": 6.5,
+      "staffSpaceMm": 1.08,
+      "staffHeightMm": 4.31,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ]
+    },
+    {
+      "name": "iPhone Pro Max / Plus",
+      "width": 430,
+      "cssPpi": 152.66666666666666,
+      "scale": 0.65,
+      "staffSpacePx": 6.5,
+      "measuredPx": 6.5,
+      "staffSpaceMm": 1.08,
+      "staffHeightMm": 4.33,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ]
+    },
+    {
+      "name": "iPad Air 2 portrait",
+      "width": 768,
+      "cssPpi": 132,
+      "scale": 1,
+      "staffSpacePx": 10,
+      "measuredPx": 10,
+      "staffSpaceMm": 1.92,
+      "staffHeightMm": 7.7,
+      "barsPerSystem": [
+        3,
+        4,
+        1
+      ]
+    },
+    {
+      "name": "iPad Air 2 landscape",
+      "width": 1024,
+      "cssPpi": 132,
+      "scale": 1,
+      "staffSpacePx": 10,
+      "measuredPx": 10,
+      "staffSpaceMm": 1.92,
+      "staffHeightMm": 7.7,
+      "barsPerSystem": [
+        5,
+        3
+      ]
+    }
+  ],
+  "sweep": [
+    {
+      "width": 375,
+      "scale": 0.6,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ],
+      "twoBars": true,
+      "scroll": false
+    },
+    {
+      "width": 375,
+      "scale": 0.65,
+      "barsPerSystem": [
+        2,
+        3,
+        2,
+        1
+      ],
+      "twoBars": true,
+      "scroll": false
+    },
+    {
+      "width": 375,
+      "scale": 0.7,
+      "barsPerSystem": [
+        1,
+        2,
+        2,
+        2,
+        1
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 375,
+      "scale": 0.75,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 375,
+      "scale": 0.8,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 375,
+      "scale": 0.85,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 375,
+      "scale": 0.9,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 375,
+      "scale": 1,
+      "barsPerSystem": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 390,
+      "scale": 0.6,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ],
+      "twoBars": true,
+      "scroll": false
+    },
+    {
+      "width": 390,
+      "scale": 0.65,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ],
+      "twoBars": true,
+      "scroll": false
+    },
+    {
+      "width": 390,
+      "scale": 0.7,
+      "barsPerSystem": [
+        1,
+        2,
+        2,
+        2,
+        1
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 390,
+      "scale": 0.75,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 390,
+      "scale": 0.8,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 390,
+      "scale": 0.85,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 390,
+      "scale": 0.9,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 390,
+      "scale": 1,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 430,
+      "scale": 0.6,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ],
+      "twoBars": true,
+      "scroll": false
+    },
+    {
+      "width": 430,
+      "scale": 0.65,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ],
+      "twoBars": true,
+      "scroll": false
+    },
+    {
+      "width": 430,
+      "scale": 0.7,
+      "barsPerSystem": [
+        2,
+        3,
+        3
+      ],
+      "twoBars": true,
+      "scroll": false
+    },
+    {
+      "width": 430,
+      "scale": 0.75,
+      "barsPerSystem": [
+        2,
+        3,
+        2,
+        1
+      ],
+      "twoBars": true,
+      "scroll": false
+    },
+    {
+      "width": 430,
+      "scale": 0.8,
+      "barsPerSystem": [
+        1,
+        2,
+        2,
+        2,
+        1
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 430,
+      "scale": 0.85,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 430,
+      "scale": 0.9,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    },
+    {
+      "width": 430,
+      "scale": 1,
+      "barsPerSystem": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "twoBars": false,
+      "scroll": false
+    }
+  ],
+  "shots": [
+    "EMULATED-F6-iPhone-portrait-light.png",
+    "EMULATED-F6-iPhone-portrait-dark.png",
+    "EMULATED-F10-iPhone-portrait-light.png",
+    "EMULATED-F10-iPhone-portrait-dark.png",
+    "EMULATED-F11-iPhone-portrait-light.png",
+    "EMULATED-F11-iPhone-portrait-dark.png",
+    "EMULATED-F11-iPad-portrait-light.png",
+    "EMULATED-F11-iPad-landscape-light.png"
+  ]
+}
